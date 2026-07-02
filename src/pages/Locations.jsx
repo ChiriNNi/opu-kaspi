@@ -272,9 +272,12 @@ function EditModal({ loc, onClose, onSaved }) {
     route_text: loc.route_text || '',
     comment: loc.comment || '',
     hint: loc.hint || '',
+    lat: loc.lat ?? null,
+    lng: loc.lng ?? null,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const submit = async (e) => {
@@ -321,6 +324,17 @@ function EditModal({ loc, onClose, onSaved }) {
           </div>
           <label>Комментарий<textarea rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} /></label>
           <label>Подсказка<textarea rows={2} value={form.hint} onChange={e => set('hint', e.target.value)} /></label>
+          <label>Координаты
+            <button
+              type="button"
+              className={`la-coord-btn ${form.lat ? 'has' : ''}`}
+              onClick={() => setPickerOpen(true)}
+              style={{ width: '100%', justifyContent: 'flex-start' }}
+            >
+              <MapPin size={12} />
+              {form.lat ? `${form.lat}, ${form.lng}` : 'Указать координаты'}
+            </button>
+          </label>
           <div className="loc-form-footer">
             <button type="button" className="loc-btn-cancel" onClick={onClose}>Отмена</button>
             <button type="submit" className="loc-btn-save" disabled={loading}>
@@ -329,6 +343,14 @@ function EditModal({ loc, onClose, onSaved }) {
           </div>
         </form>
       </div>
+
+      {pickerOpen && (
+        <MapPickerPopup
+          initial={{ lat: form.lat, lng: form.lng }}
+          onConfirm={({ lat, lng }) => { set('lat', lat); set('lng', lng); setPickerOpen(false) }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }

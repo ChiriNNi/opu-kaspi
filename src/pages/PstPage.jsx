@@ -6,6 +6,7 @@ import {
   LocateFixed,
   MapPin,
   Plus,
+  RefreshCw,
   Store,
   Trash2,
   X,
@@ -1036,14 +1037,32 @@ const PstPage = () => {
                     {geoError}
                   </span>
                 </div>
+                {geoState === 'denied' && (
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    className="mt-4 flex items-center gap-2 rounded-full border border-[#f26b68]/30 bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.02em] text-[#f26b68]"
+                  >
+                    <RefreshCw size={15} /> Обновить геолокацию
+                  </button>
+                )}
               </div>
             )}
 
             {geoState === 'ready' && coords && (
               <div className="rounded-[28px] border border-brand-green/20 bg-brand-green/10 px-6 py-5">
-                <div className="flex items-center gap-2 text-base font-black uppercase tracking-[0.02em] text-brand-green">
-                  <LocateFixed size={18} />
-                  Геолокация определена
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-base font-black uppercase tracking-[0.02em] text-brand-green">
+                    <LocateFixed size={18} />
+                    Геолокация определена
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-brand-green/25 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.02em] text-brand-green"
+                  >
+                    <RefreshCw size={13} /> Обновить
+                  </button>
                 </div>
                 <div className="mt-2 text-sm font-semibold leading-6 text-brand-dark/60">
                   GPS: {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { io } from 'socket.io-client'
-import { Room, RoomEvent, Track } from 'livekit-client'
+import { Room, RoomEvent, Track, AudioPresets } from 'livekit-client'
 import {
   Radio, Plus, X, Send, Trash2, Clock, Play, Square,
   Users as UsersIcon, Video, Monitor, Camera, Layers,
@@ -131,7 +131,7 @@ function makePeer({ onLocalIce, onTrack, onState }) {
 async function acquireMedia(streamType) {
   if (streamType === 'camera') {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+      video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
       audio: { echoCancellation: true, noiseSuppression: true },
     })
     return { stream, cameraStream: stream, screenStream: null, cleanup: () => stream.getTracks().forEach(t => t.stop()) }
@@ -150,7 +150,7 @@ async function acquireMedia(streamType) {
     return { stream, cameraStream: null, screenStream: stream, cleanup: () => stream.getTracks().forEach(t => t.stop()) }
   }
 
-  // camera_screen — экран + камера в углу через canvas (1600x900 для чёткости текста)
+  // camera_screen — экран + камера в углу через canvas (1920x1080 Full HD для чёткости текста)
   const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 24 } }, audio: true })
 
   // На компе без вебки (или если камера занята другим приложением) — ведём только с экрана,
@@ -207,7 +207,7 @@ async function acquireMedia(streamType) {
   }
   pump(screenVid); pump(camVid)
 
-  const W = 1600, H = 900
+  const W = 1920, H = 1080
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
@@ -1870,11 +1870,14 @@ function BroadcasterView({ stream, streamType, socket, active }) {
       if (vt) await room.localParticipant.publishTrack(vt, {
         source: Track.Source.ScreenShare,
         simulcast: true,
-        // 1.2 Мбит/с: экран-контент жмётся хорошо, текст остаётся чётким (важно разрешение,
-        // а не битрейт). 30 зрителей ≈ 36 Мбит/с с сервера вместо 75 — вдвое меньше трафика.
-        videoEncoding: { maxBitrate: 1_200_000, maxFramerate: 20 },
+        // 3.5 Мбит/с, 30 кадров/с — заметный прирост чёткости и плавности против прежних
+        // 2 Мбит/с/24 fps (сервер справляется, запас CPU/RAM большой; на 30 зрителей ≈ 105 Мбит/с).
+        videoEncoding: { maxBitrate: 3_500_000, maxFramerate: 30 },
       })
-      if (at) await room.localParticipant.publishTrack(at, { source: Track.Source.Microphone })
+      if (at) await room.localParticipant.publishTrack(at, {
+        source: Track.Source.Microphone,
+        audioPreset: AudioPresets.music,  // ~64 кбит/с вместо дефолтных ~20 — заметно чище звук
+      })
       setBroadcasting(true)
       socket?.emit('webrtc_broadcast_start', { streamId: stream.id })  // совместимость (счётчик/уведомление)
     } catch (e) {
