@@ -1,0 +1,146 @@
+.topnav-wrap {
+  position: sticky;
+  top: 12px;
+  z-index: 1000;
+  margin: 12px 12px 0;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+}
+
+/* ── Row 1 ─────────────────────────────── */
+.topnav-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 54px;
+  padding: 0 20px;
+}
+
+.topnav-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #1A1D1E;
+  letter-spacing: -0.02em;
+}
+.brand-sub {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(26,29,30,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Center section links — absolutely centered */
+.topnav-main {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tnav-item {
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(26,29,30,0.45);
+  text-decoration: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tnav-item:hover { color: #1A1D1E; }
+.tnav-item.active {
+  background: #1A1D1E;
+  color: #fff;
+}
+
+/* Right user block */
+.topnav-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.topnav-user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(26,29,30,0.5);
+}
+.topnav-apk {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 100px; text-decoration: none;
+  background: #7EC850; color: #1A1D1E; font-size: 13px; font-weight: 800;
+  white-space: nowrap; transition: opacity .15s;
+}
+.topnav-apk:hover { opacity: .88; }
+
+.topnav-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(26,29,30,0.12);
+  background: none;
+  cursor: pointer;
+  color: rgba(26,29,30,0.4);
+  transition: all 0.15s;
+}
+.topnav-logout:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+
+/* ── Row 2: Sub-nav ─────────────────────── */
+.topnav-sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 32px 10px;
+}
+
+.tsub-item {
+  padding: 5px 16px;
+  border-radius: 100px;
+  border: 1.5px solid rgba(26,29,30,0.15);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(26,29,30,0.4);
+  text-decoration: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tsub-item:hover { border-color: rgba(26,29,30,0.3); color: #1A1D1E; }
+.tsub-item.active {
+  background: #1A1D1E;
+  border-color: #1A1D1E;
+  color: #fff;
+}
+
+/* ── Mobile ─────────────────────────────── */
+@media (max-width: 768px) {
+  .topnav-top { padding: 0 16px; gap: 12px; height: 52px; }
+  .topnav-sub { padding: 0 16px 10px; }
+  .tnav-item { padding: 5px 10px; font-size: 0.65rem; }
+  .brand-sub { display: none; }
+  .topnav-user-info span { display: none; }
+}

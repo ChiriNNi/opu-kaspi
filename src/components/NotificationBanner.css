@@ -1,0 +1,20 @@
+.notif-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 16px 0; padding: 12px 14px;
+  background: linear-gradient(180deg, #f0fdf4, #e7f7d8);
+  border: 1.5px solid #8fc640; border-radius: 12px;
+}
+.notif-banner-ico { color: #4f6e1c; flex-shrink: 0; }
+.notif-banner-text { flex: 1; font-size: 13px; font-weight: 600; color: #1A1D1E; line-height: 1.35; }
+.notif-banner-btn {
+  flex-shrink: 0; background: #1A1D1E; color: #fff; border: none; border-radius: 20px;
+  padding: 9px 18px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.notif-banner-btn:hover:not(:disabled) { background: #2c3033; }
+.notif-banner-btn:disabled { opacity: .6; cursor: default; }
+.notif-banner-x {
+  flex-shrink: 0; background: none; border: none; color: rgba(26,29,30,0.4);
+  cursor: pointer; padding: 4px; display: flex; border-radius: 6px;
+}
+.notif-banner-x:hover { background: rgba(26,29,30,0.06); color: #1A1D1E; }

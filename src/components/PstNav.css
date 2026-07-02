@@ -1,0 +1,165 @@
+/* ── Outer wrapper — island effect via padding ── */
+.pstnav-outer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 12px 16px 8px;
+}
+
+/* ── Inner dark island ── */
+.pstnav-island {
+  max-width: 680px;
+  margin: 0 auto;
+  border-radius: 26px;
+  background: rgba(26, 29, 30, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 8px 32px rgba(26,29,30,0.32);
+  overflow: hidden;
+}
+
+/* ── Strip ── */
+.pstnav-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pstnav-eye {
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,0.35);
+  flex-shrink: 0;
+}
+.pstnav-role {
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: rgba(255,255,255,0.4);
+}
+.pstnav-online {
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(126,200,80,0.22);
+  color: #7EC850;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ── Main row ── */
+.pstnav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.pstnav-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+  opacity: 0.82;
+  flex-shrink: 0;
+}
+
+/* ── Tabs ── */
+.pstnav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.pstnav-tab {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: none;
+  background: none;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.pstnav-tab:hover:not(.active):not(.disabled) {
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.06);
+}
+.pstnav-tab.active {
+  background: #7EC850;
+  color: #1A1D1E;
+  box-shadow: 0 2px 12px rgba(126,200,80,0.35);
+}
+.pstnav-tab.disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* ── Right actions ── */
+.pstnav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Green name pill — exact match from opu.Check-list repo */
+.pstnav-name-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: #7EC850;
+  color: #1A1D1E;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: none;
+  cursor: default;
+  box-shadow: 0 2px 12px rgba(126,200,80,0.35);
+  max-width: 140px;
+}
+.pstnav-name-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Square logout button — exact match from opu.Check-list repo */
+.pstnav-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pstnav-logout-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .pstnav-outer { padding: 10px 10px 6px; }
+  .pstnav-name-pill span { display: none; }
+  .pstnav-name-pill { padding: 6px 10px; }
+  .pstnav-tab { padding: 5px 10px; font-size: 9px; }
+}
