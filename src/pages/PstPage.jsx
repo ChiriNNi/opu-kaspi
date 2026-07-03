@@ -579,6 +579,7 @@ const PstPage = () => {
   const [beforePhotos, setBeforePhotos] = useState([]);
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [submitError, setSubmitError] = useState('');
+  const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [tab, setTab] = useState('wash');
@@ -827,6 +828,7 @@ const PstPage = () => {
           distanceMeters: selectedDistance !== null ? Math.round(selectedDistance * 1000) : null,
         },
         userLocation: coords ? { lat: coords.lat, lng: coords.lng, accuracy: coords.accuracy ?? null } : null,
+        workType,
       };
 
       // FormData — iOS Safari корректно отправляет бинарные файлы в отличие от JSON+base64
@@ -1088,6 +1090,26 @@ const PstPage = () => {
               {!isLoadingLocations && (
                 <>
                   <div className="mt-6">
+                    <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                      <input
+                        type="search"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        placeholder="Поиск по ID, адресу, названию..."
+                        style={{
+                          width: '100%', boxSizing: 'border-box',
+                          padding: '14px 44px 14px 18px',
+                          borderRadius: 20, border: '1.5px solid rgba(26,29,30,0.1)',
+                          background: '#fff', fontSize: '0.9rem', fontWeight: 600,
+                          fontFamily: 'inherit', color: '#1A1D1E',
+                          outline: 'none', boxShadow: '0 2px 12px rgba(15,23,42,0.06)',
+                        }}
+                        onFocus={e => e.target.style.borderColor = '#8fc640'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(26,29,30,0.1)'}
+                      />
+                      <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.35, pointerEvents: 'none' }}>🔍</span>
+                    </div>
+
                     {visibleLocations.length > 0 && (
                       <div className="mb-4 text-[11px] font-black uppercase tracking-[0.24em] text-brand-dark/45">
                         {searchTerm ? 'Результаты поиска' : geoState === 'ready' ? 'Ближайшие объекты' : 'Выберите объект'}
@@ -1227,6 +1249,30 @@ const PstPage = () => {
                   {submitError}
                 </div>
               )}
+
+              {/* WORK TYPE SELECTOR — temporarily hidden, logic preserved
+              <div style={{ marginTop: '1.25rem' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(26,29,30,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Тип работы</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА', 'ИНЦИДЕНТ'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setWorkType(type)}
+                      style={{
+                        flex: 1, padding: '9px 4px', borderRadius: 12,
+                        border: workType === type ? '2px solid #8fc640' : '2px solid rgba(26,29,30,0.1)',
+                        background: workType === type ? '#8fc640' : '#fff',
+                        color: workType === type ? '#1A1D1E' : 'rgba(26,29,30,0.5)',
+                        fontSize: '0.6rem', fontWeight: 800, cursor: 'pointer',
+                        fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.04em',
+                        transition: 'all 0.15s',
+                      }}
+                    >{type}</button>
+                  ))}
+                </div>
+              </div>
+              */}
 
               <div style={{ marginTop: '1.5rem' }}>
                 <button

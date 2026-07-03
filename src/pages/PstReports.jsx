@@ -29,6 +29,7 @@ const COLUMNS = [
   { key: 'distance_meters',label: 'Дист.',       width: 65,  sortable: false },
   { key: 'before_count',   label: 'До',          width: 50,  sortable: false },
   { key: 'after_count',    label: 'После',       width: 55,  sortable: false },
+  { key: 'work_type',      label: 'Тип работы',  width: 130, sortable: false },
 ]
 
 async function downloadReportZip(reportId, label = '') {
@@ -458,6 +459,7 @@ export default function PstReports() {
         'ID точки': r.location_id,
         'Город': r.city || '',
         'Тип': r.install_place || '',
+        'Тип работы': r.work_type || 'ПОЛНАЯ МОЙКА',
         'Название': r.title || '',
         'Адрес': r.address || '',
         'Ячеек': r.cells_count || '',
@@ -669,6 +671,11 @@ export default function PstReports() {
                 </td>
                 <td className="cell-photo">
                   <span className={`photo-badge ${row.after_count > 0 ? 'has-photos' : ''}`}>{row.after_count}</span>
+                </td>
+                <td>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: row.work_type === 'ИНЦИДЕНТ' ? '#dc2626' : row.work_type === 'НАРУЖНЯЯ МОЙКА' ? '#d97706' : '#5a8a1f' }}>
+                    {row.work_type || 'ПОЛНАЯ МОЙКА'}
+                  </span>
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
