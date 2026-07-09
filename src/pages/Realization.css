@@ -180,5 +180,27 @@
 .rz-btn-confirm:hover:not(:disabled) { background: #b91c1c; }
 .rz-btn-confirm:disabled { opacity: 0.5; }
 
+/* Стоимость постомата */
+.rz-rates-hint {
+  font-size: 0.8rem; color: rgba(26,29,30,0.45); font-weight: 500;
+  padding: 10px 14px; background: #fff; border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 10px;
+}
+.rz-rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .rz-rates-grid { grid-template-columns: 1fr; } }
+.rz-rates-section-title {
+  font-size: 0.75rem; font-weight: 800; color: rgba(26,29,30,0.45);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px;
+}
+.rz-rate-cell { cursor: pointer; min-width: 120px; }
+.rz-rate-val { font-weight: 700; color: #1A1D1E; }
+.rz-rate-cell:hover .rz-rate-val { color: #5a7d20; text-decoration: underline dotted; }
+.rz-route-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 0.72rem; font-weight: 800;
+}
+.rz-route-badge.main { background: rgba(143,198,64,0.15); color: #4f6e1c; }
+.rz-route-badge.spec { background: rgba(234,179,8,0.15); color: #92400e; }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }

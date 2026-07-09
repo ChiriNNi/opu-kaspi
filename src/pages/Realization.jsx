@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api'
-import { RefreshCw, AlertTriangle, CheckCircle2, Search, Send } from 'lucide-react'
+import { RefreshCw, AlertTriangle, CheckCircle2, Send } from 'lucide-react'
 import './Realization.css'
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
@@ -167,171 +167,90 @@ function ReportTab() {
   )
 }
 
-// ── Вкладка «Классификация» ───────────────────────────────────────────────────
-function ClassificationTab() {
-  const [locations, setLocations] = useState([])
+// ── Вкладка «Стоимость постомата» ─────────────────────────────────────────────
+function RatesTab() {
+  const [rates, setRates] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [unclassifiedOnly, setUnclassifiedOnly] = useState(true)
-  const [editingRate, setEditingRate] = useState(null)
+  const [editing, setEditing] = useState(null) // { id, value }
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data } = await api.get('/realization/classification', {
-        params: { unclassified_only: unclassifiedOnly, search, limit: 200 }
-      })
-      setLocations(data.locations || [])
-    } catch {} finally { setLoading(false) }
-  }, [search, unclassifiedOnly])
-
-  useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t) }, [load])
-
-  const patch = async (id, body) => {
-    setLocations(prev => prev.map(l => l.id === id ? { ...l, ...body } : l))
-    try { await api.put(`/realization/locations/${id}`, body) } catch { load() }
-  }
-
-  const saveRate = (id, value) => {
-    const num = value === '' ? null : Number(value)
-    patch(id, { contract_rate: num })
-    setEditingRate(null)
-  }
-
-  return (
-    <div className="rz-tab">
-      <div className="rz-toolbar">
-        <div className="rz-search-wrap">
-          <Search size={14} />
-          <input placeholder="Поиск по адресу/городу/ID..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <label className="rz-checkbox-label">
-          <input type="checkbox" checked={unclassifiedOnly} onChange={e => setUnclassifiedOnly(e.target.checked)} />
-          Только незаполненные
-        </label>
-      </div>
-
-      {loading ? <div className="rz-empty">Загрузка...</div> : locations.length === 0 ? (
-        <div className="rz-empty">Ничего не найдено</div>
-      ) : (
-        <div className="rz-table-wrap">
-          <table className="rz-table">
-            <thead>
-              <tr><th>ID</th><th>Город</th><th>Адрес</th><th>Партнёр</th><th>Установка</th><th>Город/пригород</th><th>Спец</th><th>Сумма договора</th></tr>
-            </thead>
-            <tbody>
-              {locations.map(l => (
-                <tr key={l.id}>
-                  <td>{l.id}</td>
-                  <td>{l.city}</td>
-                  <td>{l.address}</td>
-                  <td>{l.partner_name || <span className="rz-missing">—</span>}</td>
-                  <td>{l.install_place || '—'}</td>
-                  <td>
-                    <select value={l.location_type || ''} onChange={e => patch(l.id, { location_type: e.target.value || null })}>
-                      <option value="">—</option>
-                      <option value="город">город</option>
-                      <option value="пригород">пригород</option>
-                    </select>
-                  </td>
-                  <td>
-                    <button
-                      className={`rz-toggle ${l.is_spec_route ? 'on' : 'off'}`}
-                      onClick={() => patch(l.id, { is_spec_route: !l.is_spec_route })}
-                    ><span className="rz-toggle-thumb" /></button>
-                  </td>
-                  <td onClick={() => setEditingRate({ id: l.id, value: l.contract_rate ?? '' })}>
-                    {editingRate?.id === l.id ? (
-                      <input
-                        autoFocus type="number" className="rz-rate-input"
-                        value={editingRate.value}
-                        onChange={e => setEditingRate(p => ({ ...p, value: e.target.value }))}
-                        onBlur={e => saveRate(l.id, e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveRate(l.id, editingRate.value); if (e.key === 'Escape') setEditingRate(null) }}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className={l.contract_rate ? 'rz-rate-set' : 'rz-missing'}>{l.contract_rate ?? '—'}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Вкладка «Партнёры → Bitrix ИП» ────────────────────────────────────────────
-function PartnerMapTab() {
-  const [partners, setPartners] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data } = await api.get('/realization/partner-map')
-      setPartners(data.partners || [])
-    } catch {} finally { setLoading(false) }
+  useEffect(() => {
+    api.get('/realization/rates')
+      .then(r => setRates(r.data.rates || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  const save = async (partnerId, ipId) => {
-    setSaving(true); setError('')
-    try {
-      const { data } = await api.put(`/realization/partner-map/${partnerId}`, { bitrix_ip_element_id: ipId })
-      setPartners(prev => prev.map(p => p.partner_id === partnerId ? { ...p, ...data.map, confirmed_by_admin: true } : p))
-      setEditing(null)
-    } catch (e) {
-      setError(e.response?.data?.error || 'Не удалось сохранить/проверить ИП')
-    } finally { setSaving(false) }
+  const saveRate = async (id, value) => {
+    const num = parseFloat(value)
+    if (isNaN(num)) { setEditing(null); return }
+    setRates(prev => prev.map(r => r.id === id ? { ...r, rate: num } : r))
+    setEditing(null)
+    try { await api.put(`/realization/rates/${id}`, { rate: num }) } catch {
+      // откат
+      api.get('/realization/rates').then(r => setRates(r.data.rates || [])).catch(() => {})
+    }
   }
+
+  const label = r => {
+    const route = r.is_spec_route ? 'Спец' : 'Основной'
+    const zone = r.location_type === 'пригород' ? 'Пригород' : 'Город'
+    return { route, zone, place: r.install_place }
+  }
+
+  const specRates = rates.filter(r => r.is_spec_route)
+  const mainRates = rates.filter(r => !r.is_spec_route)
+
+  const RateRow = ({ r }) => {
+    const { route, zone, place } = label(r)
+    const isEdit = editing?.id === r.id
+    return (
+      <tr key={r.id}>
+        <td><span className={`rz-route-badge ${r.is_spec_route ? 'spec' : 'main'}`}>{route}</span></td>
+        <td>{zone}</td>
+        <td>{place}</td>
+        <td className="rz-rate-cell" onClick={() => !isEdit && setEditing({ id: r.id, value: String(r.rate) })}>
+          {isEdit ? (
+            <input
+              autoFocus type="number" className="rz-rate-input"
+              value={editing.value}
+              onChange={e => setEditing(p => ({ ...p, value: e.target.value }))}
+              onBlur={e => saveRate(r.id, e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveRate(r.id, editing.value); if (e.key === 'Escape') setEditing(null) }}
+              onClick={e => e.stopPropagation()}
+            />
+          ) : (
+            <span className="rz-rate-val">{Number(r.rate).toLocaleString('ru-RU')} ₸</span>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
+  if (loading) return <div className="rz-empty">Загрузка...</div>
 
   return (
     <div className="rz-tab">
-      {error && <div className="rz-error">{error}</div>}
-      {loading ? <div className="rz-empty">Загрузка...</div> : (
-        <div className="rz-table-wrap">
-          <table className="rz-table">
-            <thead><tr><th>Партнёр</th><th>Наименование ИП в Bitrix</th><th>ID элемента</th><th>Статус</th><th></th></tr></thead>
-            <tbody>
-              {partners.map(p => (
-                <tr key={p.partner_id}>
-                  <td>{p.partner_name}</td>
-                  <td>{p.bitrix_ip_name || <span className="rz-missing">не сопоставлено</span>}</td>
-                  <td>
-                    {editing === p.partner_id ? (
-                      <input
-                        autoFocus type="number" className="rz-rate-input" defaultValue={p.bitrix_ip_element_id || ''}
-                        onKeyDown={e => { if (e.key === 'Enter') save(p.partner_id, Number(e.target.value)) }}
-                        onBlur={e => e.target.value && save(p.partner_id, Number(e.target.value))}
-                      />
-                    ) : (p.bitrix_ip_element_id || '—')}
-                  </td>
-                  <td>
-                    {p.confirmed_by_admin
-                      ? <span className="rz-badge-ok">Подтверждено</span>
-                      : p.bitrix_ip_element_id
-                        ? <span className="rz-badge-warn">Проверьте (авто)</span>
-                        : <span className="rz-badge-warn">Не задано</span>}
-                  </td>
-                  <td>
-                    <button className="rz-edit-btn" onClick={() => setEditing(p.partner_id)} disabled={saving}>
-                      {p.bitrix_ip_element_id ? 'Изменить' : 'Задать'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="rz-rates-hint">Нажмите на цену чтобы изменить. Изменения сразу применяются к расчёту отчёта.</div>
+      <div className="rz-rates-grid">
+        <div className="rz-rates-section">
+          <div className="rz-rates-section-title">Основной маршрут</div>
+          <div className="rz-table-wrap">
+            <table className="rz-table">
+              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Стоимость</th></tr></thead>
+              <tbody>{mainRates.map(r => <RateRow key={r.id} r={r} />)}</tbody>
+            </table>
+          </div>
         </div>
-      )}
+        <div className="rz-rates-section">
+          <div className="rz-rates-section-title">Спец маршрут</div>
+          <div className="rz-table-wrap">
+            <table className="rz-table">
+              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Стоимость</th></tr></thead>
+              <tbody>{specRates.map(r => <RateRow key={r.id} r={r} />)}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -351,14 +270,12 @@ export default function Realization() {
       <div className="rz-tabs-wrap">
         <div className="rz-tabs">
           <button className={tab === 'report' ? 'active' : ''} onClick={() => setTab('report')}>Отчёт</button>
-          <button className={tab === 'classification' ? 'active' : ''} onClick={() => setTab('classification')}>Классификация</button>
-          <button className={tab === 'partners' ? 'active' : ''} onClick={() => setTab('partners')}>Партнёры → Bitrix ИП</button>
+          <button className={tab === 'rates' ? 'active' : ''} onClick={() => setTab('rates')}>Стоимость постомата</button>
         </div>
       </div>
 
       {tab === 'report' && <ReportTab />}
-      {tab === 'classification' && <ClassificationTab />}
-      {tab === 'partners' && <PartnerMapTab />}
+      {tab === 'rates' && <RatesTab />}
     </div>
   )
 }
