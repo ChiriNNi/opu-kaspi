@@ -890,6 +890,7 @@ export default function Locations() {
             <tr>
               {th('ID', 'id')}
               {th('Город', 'city')}
+              {th('Г/П', null)}
               {th('Адрес / Магазин', 'address')}
               {th('Тип', 'install_place')}
               {th('Ячеек', 'cells_count')}
@@ -904,9 +905,9 @@ export default function Locations() {
           </thead>
           <tbody>
             {loading && rows.length === 0 ? (
-              <tr><td colSpan={12} className="loc-empty"><RefreshCw size={16} className="spin" /> Загрузка...</td></tr>
+              <tr><td colSpan={13} className="loc-empty"><RefreshCw size={16} className="spin" /> Загрузка...</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={12} className="loc-empty">Ничего не найдено</td></tr>
+              <tr><td colSpan={13} className="loc-empty">Ничего не найдено</td></tr>
             ) : rows.map(r => {
               const lastDate = fmtDate(r.last_cleaned_at)
               const hasCleaned = r.cleanings_count > 0
@@ -914,6 +915,13 @@ export default function Locations() {
                 <tr key={r.id}>
                   <td><span className="loc-chip-id">{r.id}</span></td>
                   <td className="loc-city">{r.city || '—'}</td>
+                  <td>
+                    {r.location_type && (
+                      <span className={`loc-zone-badge ${r.location_type === 'пригород' ? 'suburb' : 'city'}`}>
+                        {r.location_type === 'пригород' ? 'приг' : 'гор'}
+                      </span>
+                    )}
+                  </td>
                   <td className="loc-addr">
                     <div className="loc-branch">{r.branch || ''}</div>
                     <div className="loc-address">{r.address || '—'}</div>
