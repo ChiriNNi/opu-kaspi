@@ -762,6 +762,15 @@ export default function Locations() {
           </div>
 
           <div className="lf-group">
+            <select value={installPlace} onChange={e => { setInstallPlace(e.target.value); setPage(1) }}>
+              <option value="">Все типы</option>
+              <option value="Комнатный">Комнатный</option>
+              <option value="Уличный">Уличный</option>
+              <option value="__empty__">— Пусто</option>
+            </select>
+          </div>
+
+          <div className="lf-group">
             <CheckCircle2 size={13} />
             <select value={cleaned} onChange={e => { setCleaned(e.target.value); setPage(1) }}>
               <option value="">Все</option>
@@ -778,6 +787,7 @@ export default function Locations() {
             <div className="lf-group">
               <select value={partnerFilter} onChange={e => { setPartnerFilter(e.target.value); setPage(1) }}>
                 <option value="">Все партнёры</option>
+                <option value="__empty__">— Пусто</option>
                 {partners.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
               </select>
             </div>
