@@ -353,6 +353,7 @@ export default function PstReports() {
   const [downloadingPhotos, setDownloadingPhotos] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState('')
   const [zipLoadingId, setZipLoadingId] = useState(null)
+  const [syncingId, setSyncingId] = useState(null)
   const searchTimer = useRef(null)
 
   const fetchReports = useCallback(async (params = {}) => {
@@ -542,6 +543,15 @@ export default function PstReports() {
     }
   }
 
+  const resyncReport = async (id) => {
+    setSyncingId(id)
+    try {
+      await api.post(`/pst/${id}/resync`)
+      await fetchReports({ search, city, dateFrom, dateTo, page, sortBy, sortDir })
+    } catch { alert('Ошибка синхронизации') }
+    finally { setSyncingId(null) }
+  }
+
   const resetFilters = () => {
     setSearch(''); setCity(''); setDateFrom(''); setDateTo('')
     setPage(1)
@@ -696,6 +706,14 @@ export default function PstReports() {
                         {zipLoadingId === row.id ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
                       </button>
                     )}
+                    <button
+                      className="btn-sync-row"
+                      disabled={syncingId === row.id}
+                      title="Синхронизировать с Google Sheets"
+                      onClick={() => resyncReport(row.id)}
+                    >
+                      <RefreshCw size={12} className={syncingId === row.id ? 'spin' : ''} />
+                    </button>
                   </div>
                 </td>
               </tr>

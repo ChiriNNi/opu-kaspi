@@ -4,7 +4,7 @@ import api from '../api'
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronUp, X,
   Clock, GripVertical, RefreshCw, Search, Camera,
-  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe
+  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe, Copy
 } from 'lucide-react'
 import './Checklists.css'
 
@@ -736,7 +736,7 @@ function AssignModal({ template, users, locations, active, onClose, onSave }) {
 
 
 // ── Default template group (for "Остальные адреса") ──────────────────────────
-function DefaultTemplateGroup({ templates, onEdit, onAssign, onDelete, open, onToggle }) {
+function DefaultTemplateGroup({ templates, onEdit, onAssign, onDelete, onClone, open, onToggle }) {
   return (
     <div className="tmpl-group tmpl-group-default">
       <button className="tmpl-group-header" onClick={onToggle}>
@@ -751,7 +751,7 @@ function DefaultTemplateGroup({ templates, onEdit, onAssign, onDelete, open, onT
       {open && (
         <div className="tmpl-group-body">
           {templates.map(t => (
-            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} />
+            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} onClone={onClone} />
           ))}
         </div>
       )}
@@ -759,9 +759,61 @@ function DefaultTemplateGroup({ templates, onEdit, onAssign, onDelete, open, onT
   )
 }
 
+// ── Clone modal ───────────────────────────────────────────────────────────────
+function CloneModal({ template, onClose, onSave }) {
+  const [name, setName] = useState('Копия — ' + template.name)
+  const [desc, setDesc] = useState(template.description || '')
+  const [saving, setSaving] = useState(false)
+
+  const canSubmit = name.trim() && desc.trim()
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    setSaving(true)
+    try {
+      await onSave(template.id, { name: name.trim(), description: desc.trim() })
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="cl-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="cl-modal" style={{ maxWidth: 420 }}>
+        <div className="cl-modal-header">
+          <div><h2>Клонировать шаблон</h2></div>
+          <button className="cl-modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <form onSubmit={submit} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,29,30,0.5)', display: 'block', marginBottom: 6 }}>Название нового шаблона</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Название шаблона"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid rgba(26,29,30,0.12)', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', background: '#f8f9f5' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,29,30,0.5)', display: 'block', marginBottom: 6 }}>Объект / адрес <span style={{ color: '#ef4444' }}>*</span></label>
+            <LocationCombobox value={desc} onChange={setDesc} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid rgba(26,29,30,0.12)', background: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Отмена</button>
+            <button type="submit" disabled={!canSubmit || saving} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#1A1D1E', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!canSubmit || saving) ? 0.5 : 1 }}>
+              {saving ? 'Создание...' : 'Создать копию'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Template card (grid) ───────────────────────────────────────────────────────
 // Single template row inside a group
-function TemplateRow({ t, onEdit, onAssign, onDelete }) {
+function TemplateRow({ t, onEdit, onAssign, onDelete, onClone }) {
   const zones = t.zones || []
   const totalTasks = (t.items || []).length
   return (
@@ -777,6 +829,7 @@ function TemplateRow({ t, onEdit, onAssign, onDelete }) {
       <div className="tmpl-inner-btns">
         <button className="tc-btn del" onClick={() => onDelete(t.id)} title="Удалить"><Trash2 size={13} /></button>
         <button className="tc-btn edit" onClick={() => onEdit(t)} title="Редактировать"><Edit2 size={13} /></button>
+        <button className="tc-btn clone" onClick={() => onClone(t)} title="Клонировать шаблон"><Copy size={13} /></button>
         <button className="tc-btn assign" onClick={() => onAssign(t)}><Plus size={13} /> Назначить</button>
       </div>
     </div>
@@ -784,7 +837,7 @@ function TemplateRow({ t, onEdit, onAssign, onDelete }) {
 }
 
 // Group of templates by address (controlled)
-function TemplateGroup({ city, address, templates, onEdit, onAssign, onDelete, open, onToggle }) {
+function TemplateGroup({ city, address, templates, onEdit, onAssign, onDelete, onClone, open, onToggle }) {
   const label = address || 'Без объекта'
   return (
     <div className="tmpl-group">
@@ -800,7 +853,7 @@ function TemplateGroup({ city, address, templates, onEdit, onAssign, onDelete, o
       {open && (
         <div className="tmpl-group-body">
           {templates.map(t => (
-            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} />
+            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} onClone={onClone} />
           ))}
         </div>
       )}
@@ -1167,6 +1220,7 @@ const fmtTime = (v) => v ? new Date(v).toLocaleTimeString('ru-RU', { hour: '2-di
 function HistoryList() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedId, setExpandedId] = useState(null)
 
   useEffect(() => {
     api.get('/checklists/history')
@@ -1196,21 +1250,34 @@ function HistoryList() {
           <div className="hist-day-rows">
             {rows.map(h => {
               const loc = [h.location_city, h.location_name].filter(Boolean).join(' · ')
+              const isOpen = expandedId === h.id
               return (
-                <div key={h.id} className="hist-row">
-                  <div className={`hist-avatar`}>{workerInitials(h.assigned_to_name)}</div>
-                  <div className="hist-info">
-                    <div className="hist-name">{h.assigned_to_name || '—'}</div>
-                    <div className="hist-tmpl">{h.template_name}</div>
-                    {loc && <div className="hist-loc">{loc}</div>}
+                <div key={h.id} className={`hist-row ${isOpen ? 'expanded' : ''}`}>
+                  <div
+                    className="hist-row-header"
+                    onClick={() => setExpandedId(isOpen ? null : h.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', width: '100%' }}
+                  >
+                    <div className="hist-avatar">{workerInitials(h.assigned_to_name)}</div>
+                    <div className="hist-info">
+                      <div className="hist-name">{h.assigned_to_name || '—'}</div>
+                      <div className="hist-tmpl">{h.template_name}</div>
+                      {loc && <div className="hist-loc">{loc}</div>}
+                    </div>
+                    <div className="hist-meta">
+                      {h.total_items > 0 && (
+                        <span className="hist-tasks-chip">{h.total_items} задач</span>
+                      )}
+                      <span className="hist-time">{fmtTime(h.completed_at)}</span>
+                      <span className="hist-done-badge"><CheckCircle2 size={11} /> Завершено</span>
+                      <ChevronDown size={14} className={`hist-chevron ${isOpen ? 'open' : ''}`} />
+                    </div>
                   </div>
-                  <div className="hist-meta">
-                    {h.total_items > 0 && (
-                      <span className="hist-tasks-chip">{h.total_items} задач</span>
-                    )}
-                    <span className="hist-time">{fmtTime(h.completed_at)}</span>
-                    <span className="hist-done-badge"><CheckCircle2 size={11} /> Завершено</span>
-                  </div>
+                  {isOpen && (
+                    <div className="hist-detail">
+                      <ShiftDetail checklistId={h.id} />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -1238,10 +1305,11 @@ export default function Checklists() {
   const [editTmpl, setEditTmpl]   = useState(null)
   const [showNew, setShowNew]     = useState(false)
   const [assignTmpl, setAssignTmpl] = useState(null)
+  const [cloneTmpl, setCloneTmpl] = useState(null)
 
   // Active filters
   const [fStatus, setFStatus]   = useState('')        // '' | 'pending' | 'in_progress' | 'completed'
-  const [fDate,   setFDate]     = useState('today')   // '' | 'today' | 'week' | 'YYYY-MM-DD'
+  const [fDate,   setFDate]     = useState('week')    // '' | 'today' | 'week' | 'YYYY-MM-DD'
   const [fWorker, setFWorker]   = useState('')        // free text
 
   const loadAll = useCallback(async () => {
@@ -1326,6 +1394,13 @@ export default function Checklists() {
       await api.delete(`/checklists/templates/${id}`)
       loadAll()
     } catch (e) { alert('Ошибка удаления: ' + (e.response?.data?.error || e.message)) }
+  }
+
+  const cloneTemplate = async (id, data) => {
+    try {
+      await api.post(`/checklists/templates/${id}/clone`, data)
+      loadAll()
+    } catch (e) { alert('Ошибка клонирования: ' + (e.response?.data?.error || e.message)) }
   }
 
   const assignTemplate = async (data) => {
@@ -1453,9 +1528,6 @@ export default function Checklists() {
             Активные смены
             {pendingCount > 0 && <span className="cl-tab-badge red">{pendingCount}</span>}
           </button>
-          <button className={`cl-tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
-            История
-          </button>
         </div>
         {tab === 'templates' && (
           <div className="cl-search-wrap">
@@ -1510,6 +1582,7 @@ export default function Checklists() {
                       onEdit={tmpl => { setEditTmpl(tmpl); setShowNew(true) }}
                       onAssign={tmpl => setAssignTmpl(tmpl)}
                       onDelete={deleteTemplate}
+                      onClone={tmpl => setCloneTmpl(tmpl)}
                     />
                   )
                 }
@@ -1527,6 +1600,7 @@ export default function Checklists() {
                     onEdit={tmpl => { setEditTmpl(tmpl); setShowNew(true) }}
                     onAssign={tmpl => setAssignTmpl(tmpl)}
                     onDelete={deleteTemplate}
+                    onClone={tmpl => setCloneTmpl(tmpl)}
                   />
                 )
               })}
@@ -1535,8 +1609,6 @@ export default function Checklists() {
         )
       )}
 
-      {/* History */}
-      {tab === 'history' && <HistoryList />}
 
       {/* Active checklists monitoring */}
       {tab === 'active' && (
@@ -1631,6 +1703,13 @@ export default function Checklists() {
           active={active}
           onClose={() => setAssignTmpl(null)}
           onSave={assignTemplate}
+        />
+      )}
+      {cloneTmpl && (
+        <CloneModal
+          template={cloneTmpl}
+          onClose={() => setCloneTmpl(null)}
+          onSave={cloneTemplate}
         />
       )}
     </div>

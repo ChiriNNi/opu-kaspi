@@ -4,7 +4,7 @@ import { LogOut, User } from 'lucide-react'
 import './TopNav.css'
 
 const ALL_SECTIONS = [
-  { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator'] },
+  { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor'] },
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
   { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
@@ -12,7 +12,7 @@ const ALL_SECTIONS = [
 
 const SUB_PAGES = {
   checklists: [
-    { label: 'Чек-Листы', path: '/checklists', roles: ['admin', 'partner', 'curator'] },
+    { label: 'Чек-Листы', path: '/checklists', roles: ['admin', 'partner', 'curator', 'auditor'] },
     { label: 'Объекты',   path: '/objects',    roles: ['admin', 'partner', 'curator'] },
   ],
   washing: [

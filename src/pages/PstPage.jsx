@@ -580,6 +580,7 @@ const PstPage = () => {
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [submitError, setSubmitError] = useState('');
   const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА');
+  const [showWorkTypeModal, setShowWorkTypeModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [tab, setTab] = useState('wash');
@@ -800,11 +801,16 @@ const PstPage = () => {
   const hasAfterPhotos = afterPhotos.length > 0;
   const isReady = Boolean(selectedLocation && hasBeforePhotos && hasAfterPhotos);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!isReady || isSubmittingRef.current) return;
     if (!selectedLocation) { setSubmitError('Сначала выберите локацию.'); return; }
     if (!hasBeforePhotos || !hasAfterPhotos) { setSubmitError('Для отправки нужно добавить хотя бы одно фото в разделы «До» и «После».'); return; }
+    setWorkType('ПОЛНАЯ МОЙКА');
+    setShowWorkTypeModal(true);
+  };
 
+  const handleConfirmSubmit = async () => {
+    setShowWorkTypeModal(false);
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError('');
@@ -1154,13 +1160,6 @@ const PstPage = () => {
                                     {location.installPlace}
                                   </span>
                                 </div>
-                                <div style={{ marginTop: '0.5rem', fontSize: '1rem', fontWeight: 900, lineHeight: 1.25, color: '#1A1D1E' }}>
-                                  {capitalizeFirstLetter(location.hint || location.comment || location.address)}
-                                </div>
-                                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', color: 'rgba(26,29,30,0.55)' }}>
-                                  <MapPin size={16} style={{ marginTop: 2, flexShrink: 0, color: '#8fc640' }} />
-                                  <span>{location.address}</span>
-                                </div>
                               </div>
 
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -1201,23 +1200,17 @@ const PstPage = () => {
                   </div>
                   <div style={{ borderRadius: 28, background: '#1A1D1E', padding: '1.25rem', color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
-                      {[selectedLocation.installPlace, selectedLocation.category, selectedLocation.surfaceType || 'Покрытие не указано'].map((tag, i) => (
-                        <span key={i} className={chipClass} style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
-                          {tag}
-                        </span>
-                      ))}
+                      <span className={chipClass} style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
+                        ID {selectedLocation.id}
+                      </span>
+                      <span className={chipClass} style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
+                        {selectedLocation.installPlace}
+                      </span>
                       {selectedDistance !== null && (
                         <span className={chipClass} style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
                           {formatDistance(selectedDistance)}
                         </span>
                       )}
-                    </div>
-                    <div style={{ marginTop: '1rem', fontSize: '1.5rem', fontWeight: 900, lineHeight: 1.25 }}>
-                      {capitalizeFirstLetter(selectedLocation.hint || selectedLocation.comment || selectedLocation.address)}
-                    </div>
-                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.78)' }}>
-                      <Store size={16} style={{ marginTop: 4, flexShrink: 0 }} />
-                      <span>{selectedLocation.address}</span>
                     </div>
                   </div>
                 </div>
@@ -1250,30 +1243,6 @@ const PstPage = () => {
                 </div>
               )}
 
-              {/* WORK TYPE SELECTOR — temporarily hidden, logic preserved
-              <div style={{ marginTop: '1.25rem' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(26,29,30,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Тип работы</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА', 'ИНЦИДЕНТ'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setWorkType(type)}
-                      style={{
-                        flex: 1, padding: '9px 4px', borderRadius: 12,
-                        border: workType === type ? '2px solid #8fc640' : '2px solid rgba(26,29,30,0.1)',
-                        background: workType === type ? '#8fc640' : '#fff',
-                        color: workType === type ? '#1A1D1E' : 'rgba(26,29,30,0.5)',
-                        fontSize: '0.6rem', fontWeight: 800, cursor: 'pointer',
-                        fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.04em',
-                        transition: 'all 0.15s',
-                      }}
-                    >{type}</button>
-                  ))}
-                </div>
-              </div>
-              */}
-
               <div style={{ marginTop: '1.5rem' }}>
                 <button
                   type="button"
@@ -1288,7 +1257,7 @@ const PstPage = () => {
                     border: 'none', transition: 'all 0.2s ease', fontFamily: 'inherit',
                   }}
                 >
-                  {isSubmitting ? 'Отправляем...' : 'Отправить'}
+                  {isSubmitting ? 'Отправляем...' : 'Отправить →'}
                 </button>
                 {!isReady && (
                   <div style={{ marginTop: '0.75rem', fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.6, color: 'rgba(26,29,30,0.48)' }}>
@@ -1314,6 +1283,95 @@ const PstPage = () => {
         </>}
       </div>
     </div>
+
+    {/* МОДАЛКА ВЫБОРА ТИПА РАБОТЫ */}
+    {showWorkTypeModal && (
+      <div
+        onClick={() => setShowWorkTypeModal(false)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 600,
+          background: 'rgba(15,23,42,0.55)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: '100%', maxWidth: 520,
+            background: '#f7f8f3',
+            borderRadius: '28px 28px 0 0',
+            padding: '28px 20px 40px',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Ручка */}
+          <div style={{ width: 40, height: 4, background: 'rgba(26,29,30,0.15)', borderRadius: 99, margin: '0 auto 24px' }} />
+
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#1A1D1E', marginBottom: 6 }}>
+            Тип работы
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(26,29,30,0.5)', marginBottom: 24, lineHeight: 1.5 }}>
+            Выберите тип выполненной работы перед отправкой
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            {[
+              { type: 'ПОЛНАЯ МОЙКА',   desc: 'Полная уборка постомата снаружи и внутри' },
+              { type: 'НАРУЖНЯЯ МОЙКА', desc: 'Уборка только внешних поверхностей' },
+              { type: 'ИНЦИДЕНТ',        desc: 'Устранение загрязнения или инцидента' },
+            ].map(({ type, desc }) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setWorkType(type)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px', borderRadius: 18, border: 'none',
+                  background: workType === type ? '#8fc640' : '#fff',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  boxShadow: workType === type ? '0 4px 16px rgba(143,198,64,0.3)' : '0 1px 4px rgba(0,0,0,0.06)',
+                  transition: 'all 0.15s', textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                  border: workType === type ? '2px solid #1A1D1E' : '2px solid rgba(26,29,30,0.2)',
+                  background: workType === type ? '#1A1D1E' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {workType === type && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8fc640' }} />}
+                </div>
+                <div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 800, textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: workType === type ? '#1A1D1E' : 'rgba(26,29,30,0.8)',
+                  }}>{type}</div>
+                  <div style={{
+                    fontSize: 12, fontWeight: 500, marginTop: 2,
+                    color: workType === type ? 'rgba(26,29,30,0.65)' : 'rgba(26,29,30,0.45)',
+                  }}>{desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleConfirmSubmit}
+            style={{
+              width: '100%', padding: '16px', borderRadius: 18, border: 'none',
+              background: '#1A1D1E', color: '#fff',
+              fontSize: 15, fontWeight: 900, textTransform: 'uppercase',
+              letterSpacing: '0.12em', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Отправить отчёт
+          </button>
+        </div>
+      </div>
+    )}
     </>
   );
 };
