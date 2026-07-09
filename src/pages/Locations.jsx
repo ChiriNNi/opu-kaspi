@@ -274,6 +274,8 @@ function EditModal({ loc, onClose, onSaved }) {
     hint: loc.hint || '',
     lat: loc.lat ?? null,
     lng: loc.lng ?? null,
+    location_type: loc.location_type || '',
+    is_spec_route: loc.is_spec_route || false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -317,6 +319,26 @@ function EditModal({ loc, onClose, onSaved }) {
               </select>
             </label>
             <label>Ячеек<input value={form.cells_count} onChange={e => set('cells_count', e.target.value)} /></label>
+          </div>
+          <div className="loc-form-row">
+            <label>Город / Пригород
+              <select value={form.location_type} onChange={e => set('location_type', e.target.value)}>
+                <option value="">—</option>
+                <option value="город">Город</option>
+                <option value="пригород">Пригород</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              Спец. маршрут
+              <button
+                type="button"
+                className={`loc-toggle ${form.is_spec_route ? 'on' : 'off'}`}
+                onClick={() => set('is_spec_route', !form.is_spec_route)}
+                style={{ alignSelf: 'flex-start', marginTop: 4 }}
+              >
+                <span className="loc-toggle-thumb" />
+              </button>
+            </label>
           </div>
           <div className="loc-form-row">
             <label>Категория<input value={form.category} onChange={e => set('category', e.target.value)} /></label>
