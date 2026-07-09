@@ -329,7 +329,13 @@ export default function LiveStreams({ isAdmin }) {
       setHistoryLoaded(false) // сбросить кэш истории
     }
   }
-  const delStream = async (s) => { if (window.confirm('Удалить эфир?')) { await api.delete(`/live/${s.id}`); load() } }
+  const delStream = async (s) => {
+    if (window.confirm('Удалить эфир?')) {
+      await api.delete(`/live/${s.id}`)
+      load()
+      setHistory(prev => prev.filter(h => h.id !== s.id))
+    }
+  }
 
   if (room) {
     return <LiveRoom stream={room} isAdmin={isAdmin} onClose={() => { setRoom(null); load() }} />
