@@ -8,7 +8,7 @@ const ALL_SECTIONS = [
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
   { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
-  { key: 'realization', label: 'Реализация',   paths: ['/realization'],                    roles: ['admin'] },
+  { key: 'realization', label: 'Реализация',   paths: ['/realization', '/realization/rates'], roles: ['admin'] },
 ]
 
 const SUB_PAGES = {
@@ -19,6 +19,10 @@ const SUB_PAGES = {
   washing: [
     { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator'] },
     { label: 'Постоматы', path: '/locations',   roles: ['admin', 'partner', 'curator'] },
+  ],
+  realization: [
+    { label: 'Отчёт',              path: '/realization',       roles: ['admin'] },
+    { label: 'Стоимость постомата', path: '/realization/rates', roles: ['admin'] },
   ],
 }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import api from '../api'
 import { RefreshCw, AlertTriangle, CheckCircle2, Send } from 'lucide-react'
 import './Realization.css'
@@ -267,19 +268,12 @@ function RatesTab() {
 
 // ── Главная страница ───────────────────────────────────────────────────────────
 export default function Realization() {
-  const [tab, setTab] = useState('report')
+  const { pathname } = useLocation()
+  const isRates = pathname === '/realization/rates'
 
   return (
     <div className="rz-page">
-      <div className="rz-tabs-wrap">
-        <div className="rz-tabs">
-          <button className={tab === 'report' ? 'active' : ''} onClick={() => setTab('report')}>Отчёт</button>
-          <button className={tab === 'rates' ? 'active' : ''} onClick={() => setTab('rates')}>Стоимость постомата</button>
-        </div>
-      </div>
-
-      {tab === 'report' && <ReportTab />}
-      {tab === 'rates' && <RatesTab />}
+      {isRates ? <RatesTab /> : <ReportTab />}
     </div>
   )
 }

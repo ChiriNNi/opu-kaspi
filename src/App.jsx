@@ -224,6 +224,7 @@ export default function App() {
           <Route path="/training"    element={<Training />} />
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/realization" element={<Realization />} />
+          <Route path="/realization/rates" element={<Realization />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
