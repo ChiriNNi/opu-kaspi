@@ -13,6 +13,7 @@ import Objects from './pages/Objects'
 import ChecklistUser from './pages/ChecklistUser'
 import CleanerWork from './pages/CleanerWork'
 import Training from './pages/Training'
+import Placeholder from './pages/Placeholder'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -221,6 +222,7 @@ export default function App() {
           <Route path="/objects"     element={<Objects />} />
           <Route path="/training"    element={<Training />} />
           <Route path="/pst"         element={<PstPage />} />
+          <Route path="/realization" element={<Placeholder title="Реализация" />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

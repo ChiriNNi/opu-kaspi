@@ -8,6 +8,7 @@ const ALL_SECTIONS = [
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
   { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
+  { key: 'realization', label: 'Реализация',   paths: ['/realization'],                    roles: ['admin'] },
 ]
 
 const SUB_PAGES = {
