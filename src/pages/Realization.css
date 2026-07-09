@@ -3,15 +3,16 @@
 .rz-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .rz-header h1 { font-size: 1.4rem; font-weight: 900; color: #1A1D1E; margin: 0; }
 
-.rz-tabs-wrap { display: flex; justify-content: center; }
-.rz-tabs { display: flex; gap: 4px; background: rgba(26,29,30,0.05); padding: 4px; border-radius: 14px; }
+.rz-tabs-wrap { display: flex; justify-content: center; gap: 4px; }
+.rz-tabs { display: flex; gap: 4px; }
 .rz-tabs button {
-  padding: 8px 24px; border: none; background: none; border-radius: 10px;
-  font-size: 0.9375rem; font-weight: 700; color: rgba(26,29,30,0.45); cursor: pointer;
-  font-family: inherit; transition: all 0.12s;
+  padding: 5px 16px; border-radius: 100px; border: 1.5px solid rgba(26,29,30,0.15);
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(26,29,30,0.4); background: none; cursor: pointer;
+  font-family: inherit; transition: all 0.15s; white-space: nowrap;
 }
-.rz-tabs button:hover { color: #1A1D1E; }
-.rz-tabs button.active { background: #1A1D1E; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.rz-tabs button:hover { border-color: rgba(26,29,30,0.3); color: #1A1D1E; }
+.rz-tabs button.active { background: #1A1D1E; border-color: #1A1D1E; color: #fff; }
 
 .rz-tab { display: flex; flex-direction: column; gap: 14px; }
 
