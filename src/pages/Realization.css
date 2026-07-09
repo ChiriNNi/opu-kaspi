@@ -1,12 +1,13 @@
-.rz-page { display: flex; flex-direction: column; gap: 16px; }
+.rz-page { display: flex; flex-direction: column; gap: 20px; }
 
 .rz-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.rz-header h1 { font-size: 1.3rem; font-weight: 900; color: #1A1D1E; margin: 0; }
+.rz-header h1 { font-size: 1.4rem; font-weight: 900; color: #1A1D1E; margin: 0; }
 
+.rz-tabs-wrap { display: flex; justify-content: center; }
 .rz-tabs { display: flex; gap: 4px; background: rgba(26,29,30,0.05); padding: 4px; border-radius: 14px; }
 .rz-tabs button {
-  padding: 8px 20px; border: none; background: none; border-radius: 10px;
-  font-size: 0.8125rem; font-weight: 700; color: rgba(26,29,30,0.45); cursor: pointer;
+  padding: 8px 24px; border: none; background: none; border-radius: 10px;
+  font-size: 0.9375rem; font-weight: 700; color: rgba(26,29,30,0.45); cursor: pointer;
   font-family: inherit; transition: all 0.12s;
 }
 .rz-tabs button:hover { color: #1A1D1E; }
@@ -22,10 +23,12 @@
 }
 .rz-month-input {
   padding: 7px 10px; border: 1px solid rgba(26,29,30,0.1); border-radius: 8px;
-  font-size: 0.8125rem; font-weight: 500; color: #1A1D1E; background: #f8f9f5;
-  outline: none; font-family: inherit;
+  font-size: 0.8125rem; font-weight: 600; color: #1A1D1E; background: #f8f9f5;
+  outline: none; font-family: inherit; appearance: none; -webkit-appearance: none;
+  cursor: pointer; min-width: 140px;
 }
 .rz-month-input:focus { border-color: #8fc640; background: #fff; }
+.rz-month-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
 
 .rz-search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 340px; }
 .rz-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: rgba(26,29,30,0.3); pointer-events: none; }
