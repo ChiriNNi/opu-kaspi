@@ -271,12 +271,6 @@ export default function Realization() {
 
   return (
     <div className="rz-page">
-      <div className="rz-header">
-        <div>
-          <h1>Реализация</h1>
-        </div>
-      </div>
-
       <div className="rz-tabs-wrap">
         <div className="rz-tabs">
           <button className={tab === 'report' ? 'active' : ''} onClick={() => setTab('report')}>Отчёт</button>
