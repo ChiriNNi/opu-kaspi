@@ -185,10 +185,11 @@ export default function App() {
     if (role === 'auditor') return (
       <Layout>
         <Routes>
-          <Route path="/training" element={<Training />} />
-          <Route path="/users"    element={<Users />} />
-          <Route path="/pst"      element={<PstPage />} />
-          <Route path="*"         element={<Navigate to="/training" replace />} />
+          <Route path="/checklists" element={<Checklists />} />
+          <Route path="/training"   element={<Training />} />
+          <Route path="/users"      element={<Users />} />
+          <Route path="/pst"        element={<PstPage />} />
+          <Route path="*"           element={<Navigate to="/checklists" replace />} />
         </Routes>
       </Layout>
     )

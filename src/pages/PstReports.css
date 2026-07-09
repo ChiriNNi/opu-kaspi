@@ -179,6 +179,14 @@
 .btn-zip-row:hover:not(:disabled) { background: #dbeafe; }
 .btn-zip-row:disabled { opacity: .5; cursor: not-allowed; }
 
+.btn-sync-row {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; width: 28px; border-radius: 7px;
+  border: 1px solid #d1fae5; background: #ecfdf5; color: #059669; cursor: pointer; transition: all .15s;
+}
+.btn-sync-row:hover:not(:disabled) { background: #a7f3d0; }
+.btn-sync-row:disabled { opacity: .5; cursor: not-allowed; }
+
 .table-loading, .table-empty {
   padding: 40px; text-align: center; color: rgba(26,29,30,0.4);
   font-weight: 600; font-size: 0.875rem;

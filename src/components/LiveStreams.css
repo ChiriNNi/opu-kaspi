@@ -55,6 +55,13 @@
 .ls-hist-chip.chat { background: #dbeafe; color: #3b82f6; }
 .ls-hist-chip.quiz { background: #dcfce7; color: #16a34a; }
 .ls-hist-arrow { color: #cbd5e1; }
+.ls-hist-del {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  border: 1px solid rgba(239,68,68,0.2); background: #fff5f5; color: #ef4444;
+  cursor: pointer; transition: all .15s;
+}
+.ls-hist-del:hover { background: #fee2e2; border-color: #f87171; }
 
 /* ── Архив эфира ── */
 .ar-wrap {

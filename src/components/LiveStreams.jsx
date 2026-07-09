@@ -444,6 +444,15 @@ export default function LiveStreams({ isAdmin }) {
                     {hasQuiz && (
                       <span className="ls-hist-chip quiz">📝 {s.quiz_submissions || 0} прошли</span>
                     )}
+                    {isAdmin && (
+                      <button
+                        className="ls-hist-del"
+                        title="Удалить эфир"
+                        onClick={e => { e.stopPropagation(); delStream(s) }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                     <ChevronRight size={14} className="ls-hist-arrow" />
                   </div>
                 </div>

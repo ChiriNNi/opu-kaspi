@@ -29,6 +29,7 @@ const COLUMNS = [
   { key: 'distance_meters',label: 'Дист.',       width: 65,  sortable: false },
   { key: 'before_count',   label: 'До',          width: 50,  sortable: false },
   { key: 'after_count',    label: 'После',       width: 55,  sortable: false },
+  { key: 'work_type',      label: 'Тип работы',  width: 130, sortable: false },
 ]
 
 async function downloadReportZip(reportId, label = '') {
@@ -352,6 +353,7 @@ export default function PstReports() {
   const [downloadingPhotos, setDownloadingPhotos] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState('')
   const [zipLoadingId, setZipLoadingId] = useState(null)
+  const [syncingId, setSyncingId] = useState(null)
   const searchTimer = useRef(null)
 
   const fetchReports = useCallback(async (params = {}) => {
@@ -458,6 +460,7 @@ export default function PstReports() {
         'ID точки': r.location_id,
         'Город': r.city || '',
         'Тип': r.install_place || '',
+        'Тип работы': r.work_type || 'ПОЛНАЯ МОЙКА',
         'Название': r.title || '',
         'Адрес': r.address || '',
         'Ячеек': r.cells_count || '',
@@ -538,6 +541,15 @@ export default function PstReports() {
       setDownloadingPhotos(false)
       setDownloadProgress('')
     }
+  }
+
+  const resyncReport = async (id) => {
+    setSyncingId(id)
+    try {
+      await api.post(`/pst/${id}/resync`)
+      await fetchReports({ search, city, dateFrom, dateTo, page, sortBy, sortDir })
+    } catch { alert('Ошибка синхронизации') }
+    finally { setSyncingId(null) }
   }
 
   const resetFilters = () => {
@@ -671,6 +683,11 @@ export default function PstReports() {
                   <span className={`photo-badge ${row.after_count > 0 ? 'has-photos' : ''}`}>{row.after_count}</span>
                 </td>
                 <td>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: row.work_type === 'ИНЦИДЕНТ' ? '#dc2626' : row.work_type === 'НАРУЖНЯЯ МОЙКА' ? '#d97706' : '#5a8a1f' }}>
+                    {row.work_type || 'ПОЛНАЯ МОЙКА'}
+                  </span>
+                </td>
+                <td>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     <button className="btn-view" onClick={() => openDetail(row)} disabled={loadingDetail} title="Просмотр фото">
                       <Eye size={14} />
@@ -689,6 +706,14 @@ export default function PstReports() {
                         {zipLoadingId === row.id ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
                       </button>
                     )}
+                    <button
+                      className="btn-sync-row"
+                      disabled={syncingId === row.id}
+                      title="Синхронизировать с Google Sheets"
+                      onClick={() => resyncReport(row.id)}
+                    >
+                      <RefreshCw size={12} className={syncingId === row.id ? 'spin' : ''} />
+                    </button>
                   </div>
                 </td>
               </tr>

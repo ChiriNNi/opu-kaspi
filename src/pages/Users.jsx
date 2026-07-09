@@ -743,11 +743,9 @@ export default function Users() {
                           <KeyRound size={14}/>
                         </button>
                       )}
-                      {!isAuditor && (
-                        <button className="u-act-btn" onClick={() => setModal(u)} title="Редактировать">
-                          <Pencil size={14}/>
-                        </button>
-                      )}
+                      <button className="u-act-btn" onClick={() => setModal(u)} title="Редактировать">
+                        <Pencil size={14}/>
+                      </button>
                       {!isAuditor && (
                         <button className="u-act-btn danger" onClick={() => handleDelete(u)} title="Удалить">
                           <Trash2 size={14}/>
