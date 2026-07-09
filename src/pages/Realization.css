@@ -59,14 +59,16 @@
 .rz-batch-banner.in_progress { background: #fef9c3; color: #854d0e; }
 .rz-batch-banner.partial { background: #fee2e2; color: #dc2626; }
 
-/* Summary chips — как .loc-plan-btn/семейство мягких заливок */
-.rz-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Summary cards */
+.rz-summary { display: flex; gap: 12px; flex-wrap: wrap; }
 .rz-summary-item {
-  background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px;
-  padding: 10px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 150px;
+  background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 16px;
+  padding: 18px 24px; display: flex; flex-direction: column; gap: 6px; min-width: 180px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
-.rz-summary-item span { font-size: 0.67rem; font-weight: 700; color: rgba(26,29,30,0.45); text-transform: uppercase; letter-spacing: 0.06em; }
-.rz-summary-item b { font-size: 1.05rem; font-weight: 900; color: #1A1D1E; }
+.rz-summary-item.wide { flex: 1; }
+.rz-summary-item span { font-size: 0.72rem; font-weight: 700; color: rgba(26,29,30,0.4); text-transform: uppercase; letter-spacing: 0.07em; }
+.rz-summary-item b { font-size: 1.6rem; font-weight: 900; color: #1A1D1E; line-height: 1.1; }
 .rz-summary-item b.warn { color: #dc2626; }
 
 /* Таблица — точь-в-точь .loc-table */

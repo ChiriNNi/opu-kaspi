@@ -77,6 +77,21 @@ function ReportTab() {
 
   return (
     <div className="rz-tab">
+      <div className="rz-summary">
+        <div className="rz-summary-item">
+          <span>Готово к отправке</span>
+          <b>{loading ? '—' : readyGroups.length} групп</b>
+        </div>
+        <div className="rz-summary-item">
+          <span>Не готово</span>
+          <b className={!loading && notReadyGroups.length ? 'warn' : ''}>{loading ? '—' : notReadyGroups.length} групп</b>
+        </div>
+        <div className="rz-summary-item wide">
+          <span>Сумма (готовые)</span>
+          <b>{loading ? '—' : totalSum.toLocaleString('ru-RU') + ' ₸'}</b>
+        </div>
+      </div>
+
       <div className="rz-toolbar">
         <input type="month" className="rz-month-input" value={month} onChange={e => setMonth(e.target.value)} />
         <button className="rz-refresh" onClick={load} title="Обновить"><RefreshCw size={15} className={loading ? 'spin' : ''} /></button>
@@ -98,11 +113,6 @@ function ReportTab() {
         <div className="rz-empty">Нет помытых постоматов за этот месяц</div>
       ) : (
         <>
-          <div className="rz-summary">
-            <div className="rz-summary-item"><span>Готово к отправке</span><b>{readyGroups.length} групп</b></div>
-            <div className="rz-summary-item"><span>Не готово</span><b className={notReadyGroups.length ? 'warn' : ''}>{notReadyGroups.length} групп</b></div>
-            <div className="rz-summary-item"><span>Сумма (готовые)</span><b>{totalSum.toLocaleString('ru-RU')} ₸</b></div>
-          </div>
 
           <div className="rz-table-wrap">
             <table className="rz-table">
