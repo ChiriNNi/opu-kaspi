@@ -104,28 +104,30 @@ function ReportTab() {
             <div className="rz-summary-item"><span>Сумма (готовые)</span><b>{totalSum.toLocaleString('ru-RU')} ₸</b></div>
           </div>
 
-          <table className="rz-table">
-            <thead>
-              <tr>
-                <th></th><th>Тип</th><th>Город/пригород</th><th>Установка</th><th>Партнёр</th>
-                <th>Кол-во</th><th>Сумма</th><th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g, i) => (
-                <tr key={i} className={g.ready ? '' : 'rz-row-warn'}>
-                  <td>{g.ready ? <CheckCircle2 size={14} className="rz-ok-ico" /> : <AlertTriangle size={14} className="rz-warn-ico" />}</td>
-                  <td>{g.is_spec_route ? 'Спец' : 'Осн'}</td>
-                  <td>{g.location_type || <span className="rz-missing">не указано</span>}</td>
-                  <td>{g.install_place}</td>
-                  <td>{g.partner_name || <span className="rz-missing">не назначен</span>}</td>
-                  <td>{g.postomat_count}</td>
-                  <td>{g.sum_contract != null ? Number(g.sum_contract).toLocaleString('ru-RU') + ' ₸' : <span className="rz-missing">—</span>}</td>
-                  <td className="rz-reasons">{g.reasons?.join(', ')}</td>
+          <div className="rz-table-wrap">
+            <table className="rz-table">
+              <thead>
+                <tr>
+                  <th></th><th>Тип</th><th>Город/пригород</th><th>Установка</th><th>Партнёр</th>
+                  <th>Кол-во</th><th>Сумма</th><th>Статус</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {groups.map((g, i) => (
+                  <tr key={i} className={g.ready ? '' : 'rz-row-warn'}>
+                    <td>{g.ready ? <CheckCircle2 size={14} className="rz-ok-ico" /> : <AlertTriangle size={14} className="rz-warn-ico" />}</td>
+                    <td>{g.is_spec_route ? 'Спец' : 'Осн'}</td>
+                    <td>{g.location_type || <span className="rz-missing">не указано</span>}</td>
+                    <td>{g.install_place}</td>
+                    <td>{g.partner_name || <span className="rz-missing">не назначен</span>}</td>
+                    <td>{g.postomat_count}</td>
+                    <td>{g.sum_contract != null ? Number(g.sum_contract).toLocaleString('ru-RU') + ' ₸' : <span className="rz-missing">—</span>}</td>
+                    <td className="rz-reasons">{g.reasons?.join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <button
             className="rz-btn-create"
@@ -212,49 +214,51 @@ function ClassificationTab() {
       {loading ? <div className="rz-empty">Загрузка...</div> : locations.length === 0 ? (
         <div className="rz-empty">Ничего не найдено</div>
       ) : (
-        <table className="rz-table">
-          <thead>
-            <tr><th>ID</th><th>Город</th><th>Адрес</th><th>Партнёр</th><th>Установка</th><th>Город/пригород</th><th>Спец</th><th>Сумма договора</th></tr>
-          </thead>
-          <tbody>
-            {locations.map(l => (
-              <tr key={l.id}>
-                <td>{l.id}</td>
-                <td>{l.city}</td>
-                <td>{l.address}</td>
-                <td>{l.partner_name || <span className="rz-missing">—</span>}</td>
-                <td>{l.install_place || '—'}</td>
-                <td>
-                  <select value={l.location_type || ''} onChange={e => patch(l.id, { location_type: e.target.value || null })}>
-                    <option value="">—</option>
-                    <option value="город">город</option>
-                    <option value="пригород">пригород</option>
-                  </select>
-                </td>
-                <td>
-                  <button
-                    className={`rz-toggle ${l.is_spec_route ? 'on' : 'off'}`}
-                    onClick={() => patch(l.id, { is_spec_route: !l.is_spec_route })}
-                  ><span className="rz-toggle-thumb" /></button>
-                </td>
-                <td onClick={() => setEditingRate({ id: l.id, value: l.contract_rate ?? '' })}>
-                  {editingRate?.id === l.id ? (
-                    <input
-                      autoFocus type="number" className="rz-rate-input"
-                      value={editingRate.value}
-                      onChange={e => setEditingRate(p => ({ ...p, value: e.target.value }))}
-                      onBlur={e => saveRate(l.id, e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveRate(l.id, editingRate.value); if (e.key === 'Escape') setEditingRate(null) }}
-                      onClick={e => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span className={l.contract_rate ? 'rz-rate-set' : 'rz-missing'}>{l.contract_rate ?? '—'}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="rz-table-wrap">
+          <table className="rz-table">
+            <thead>
+              <tr><th>ID</th><th>Город</th><th>Адрес</th><th>Партнёр</th><th>Установка</th><th>Город/пригород</th><th>Спец</th><th>Сумма договора</th></tr>
+            </thead>
+            <tbody>
+              {locations.map(l => (
+                <tr key={l.id}>
+                  <td>{l.id}</td>
+                  <td>{l.city}</td>
+                  <td>{l.address}</td>
+                  <td>{l.partner_name || <span className="rz-missing">—</span>}</td>
+                  <td>{l.install_place || '—'}</td>
+                  <td>
+                    <select value={l.location_type || ''} onChange={e => patch(l.id, { location_type: e.target.value || null })}>
+                      <option value="">—</option>
+                      <option value="город">город</option>
+                      <option value="пригород">пригород</option>
+                    </select>
+                  </td>
+                  <td>
+                    <button
+                      className={`rz-toggle ${l.is_spec_route ? 'on' : 'off'}`}
+                      onClick={() => patch(l.id, { is_spec_route: !l.is_spec_route })}
+                    ><span className="rz-toggle-thumb" /></button>
+                  </td>
+                  <td onClick={() => setEditingRate({ id: l.id, value: l.contract_rate ?? '' })}>
+                    {editingRate?.id === l.id ? (
+                      <input
+                        autoFocus type="number" className="rz-rate-input"
+                        value={editingRate.value}
+                        onChange={e => setEditingRate(p => ({ ...p, value: e.target.value }))}
+                        onBlur={e => saveRate(l.id, e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveRate(l.id, editingRate.value); if (e.key === 'Escape') setEditingRate(null) }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className={l.contract_rate ? 'rz-rate-set' : 'rz-missing'}>{l.contract_rate ?? '—'}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
@@ -293,38 +297,40 @@ function PartnerMapTab() {
     <div className="rz-tab">
       {error && <div className="rz-error">{error}</div>}
       {loading ? <div className="rz-empty">Загрузка...</div> : (
-        <table className="rz-table">
-          <thead><tr><th>Партнёр</th><th>Наименование ИП в Bitrix</th><th>ID элемента</th><th>Статус</th><th></th></tr></thead>
-          <tbody>
-            {partners.map(p => (
-              <tr key={p.partner_id}>
-                <td>{p.partner_name}</td>
-                <td>{p.bitrix_ip_name || <span className="rz-missing">не сопоставлено</span>}</td>
-                <td>
-                  {editing === p.partner_id ? (
-                    <input
-                      autoFocus type="number" className="rz-rate-input" defaultValue={p.bitrix_ip_element_id || ''}
-                      onKeyDown={e => { if (e.key === 'Enter') save(p.partner_id, Number(e.target.value)) }}
-                      onBlur={e => e.target.value && save(p.partner_id, Number(e.target.value))}
-                    />
-                  ) : (p.bitrix_ip_element_id || '—')}
-                </td>
-                <td>
-                  {p.confirmed_by_admin
-                    ? <span className="rz-badge-ok">Подтверждено</span>
-                    : p.bitrix_ip_element_id
-                      ? <span className="rz-badge-warn">Проверьте (авто)</span>
-                      : <span className="rz-badge-warn">Не задано</span>}
-                </td>
-                <td>
-                  <button className="rz-edit-btn" onClick={() => setEditing(p.partner_id)} disabled={saving}>
-                    {p.bitrix_ip_element_id ? 'Изменить' : 'Задать'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="rz-table-wrap">
+          <table className="rz-table">
+            <thead><tr><th>Партнёр</th><th>Наименование ИП в Bitrix</th><th>ID элемента</th><th>Статус</th><th></th></tr></thead>
+            <tbody>
+              {partners.map(p => (
+                <tr key={p.partner_id}>
+                  <td>{p.partner_name}</td>
+                  <td>{p.bitrix_ip_name || <span className="rz-missing">не сопоставлено</span>}</td>
+                  <td>
+                    {editing === p.partner_id ? (
+                      <input
+                        autoFocus type="number" className="rz-rate-input" defaultValue={p.bitrix_ip_element_id || ''}
+                        onKeyDown={e => { if (e.key === 'Enter') save(p.partner_id, Number(e.target.value)) }}
+                        onBlur={e => e.target.value && save(p.partner_id, Number(e.target.value))}
+                      />
+                    ) : (p.bitrix_ip_element_id || '—')}
+                  </td>
+                  <td>
+                    {p.confirmed_by_admin
+                      ? <span className="rz-badge-ok">Подтверждено</span>
+                      : p.bitrix_ip_element_id
+                        ? <span className="rz-badge-warn">Проверьте (авто)</span>
+                        : <span className="rz-badge-warn">Не задано</span>}
+                  </td>
+                  <td>
+                    <button className="rz-edit-btn" onClick={() => setEditing(p.partner_id)} disabled={saving}>
+                      {p.bitrix_ip_element_id ? 'Изменить' : 'Задать'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

@@ -1,82 +1,180 @@
-.rz-page { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
-.rz-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
-.rz-header h1 { font-size: 1.4rem; font-weight: 900; color: #1A1D1E; }
+.rz-page { display: flex; flex-direction: column; gap: 16px; }
 
-.rz-tabs { display: flex; gap: 6px; background: #f0f1ec; border-radius: 12px; padding: 4px; }
+.rz-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.rz-header h1 { font-size: 1.3rem; font-weight: 900; color: #1A1D1E; margin: 0; }
+
+.rz-tabs { display: flex; gap: 4px; background: rgba(26,29,30,0.05); padding: 4px; border-radius: 14px; }
 .rz-tabs button {
-  padding: 8px 16px; border: none; background: none; border-radius: 9px;
-  font-size: 0.8125rem; font-weight: 700; color: rgba(26,29,30,0.5); cursor: pointer;
-  font-family: inherit; transition: all 0.15s;
+  padding: 8px 20px; border: none; background: none; border-radius: 10px;
+  font-size: 0.8125rem; font-weight: 700; color: rgba(26,29,30,0.45); cursor: pointer;
+  font-family: inherit; transition: all 0.12s;
 }
-.rz-tabs button.active { background: #fff; color: #1A1D1E; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.rz-tabs button:hover { color: #1A1D1E; }
+.rz-tabs button.active { background: #1A1D1E; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
-.rz-tab { display: flex; flex-direction: column; gap: 16px; }
+.rz-tab { display: flex; flex-direction: column; gap: 14px; }
 
-.rz-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.rz-month-input, .rz-search-wrap input {
-  padding: 9px 14px; border-radius: 10px; border: 1.5px solid rgba(26,29,30,0.1);
-  font-size: 0.875rem; font-family: inherit; background: #fff;
+/* Тулбар — как .loc-toolbar */
+.rz-toolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #fff; border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px; padding: 10px 14px;
 }
-.rz-search-wrap { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 10px; border: 1.5px solid rgba(26,29,30,0.1); background: #fff; color: rgba(26,29,30,0.4); flex: 1; max-width: 320px; }
-.rz-search-wrap input { border: none; padding: 9px 0; flex: 1; }
-.rz-refresh { border: 1px solid rgba(26,29,30,0.1); background: #fff; border-radius: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(26,29,30,0.5); }
-.rz-checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: rgba(26,29,30,0.6); cursor: pointer; }
+.rz-month-input {
+  padding: 7px 10px; border: 1px solid rgba(26,29,30,0.1); border-radius: 8px;
+  font-size: 0.8125rem; font-weight: 500; color: #1A1D1E; background: #f8f9f5;
+  outline: none; font-family: inherit;
+}
+.rz-month-input:focus { border-color: #8fc640; background: #fff; }
 
-.rz-error { background: #fee2e2; color: #dc2626; padding: 10px 14px; border-radius: 10px; font-size: 0.8125rem; font-weight: 600; }
+.rz-search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 340px; }
+.rz-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: rgba(26,29,30,0.3); pointer-events: none; }
+.rz-search-wrap input {
+  width: 100%; padding: 7px 10px 7px 30px; box-sizing: border-box;
+  border: 1px solid rgba(26,29,30,0.1); border-radius: 8px;
+  font-size: 0.8125rem; font-weight: 500; color: #1A1D1E;
+  background: #f8f9f5; outline: none; font-family: inherit;
+}
+.rz-search-wrap input:focus { border-color: #8fc640; background: #fff; }
 
-.rz-batch-banner { padding: 12px 16px; border-radius: 12px; font-size: 0.875rem; font-weight: 700; }
+.rz-refresh {
+  width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(26,29,30,0.1);
+  background: #fff; cursor: pointer; color: rgba(26,29,30,0.5);
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0;
+}
+.rz-refresh:hover { background: #f5fbe9; border-color: #8fc640; color: #5a7d20; }
+
+.rz-checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: rgba(26,29,30,0.55); cursor: pointer; white-space: nowrap; }
+
+.rz-error {
+  background: #fee2e2; color: #dc2626; padding: 10px 14px; border-radius: 10px;
+  font-size: 0.8125rem; font-weight: 600;
+}
+
+.rz-batch-banner { padding: 12px 16px; border-radius: 12px; font-size: 0.8125rem; font-weight: 700; }
 .rz-batch-banner.completed { background: rgba(143,198,64,0.12); color: #4f6e1c; }
 .rz-batch-banner.in_progress { background: #fef9c3; color: #854d0e; }
 .rz-batch-banner.partial { background: #fee2e2; color: #dc2626; }
 
-.rz-summary { display: flex; gap: 12px; flex-wrap: wrap; }
-.rz-summary-item { background: #f8f9f5; border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
-.rz-summary-item span { font-size: 0.7rem; font-weight: 700; color: rgba(26,29,30,0.4); text-transform: uppercase; letter-spacing: 0.04em; }
-.rz-summary-item b { font-size: 1.1rem; font-weight: 900; color: #1A1D1E; }
+/* Summary chips — как .loc-plan-btn/семейство мягких заливок */
+.rz-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+.rz-summary-item {
+  background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px;
+  padding: 10px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 150px;
+}
+.rz-summary-item span { font-size: 0.67rem; font-weight: 700; color: rgba(26,29,30,0.45); text-transform: uppercase; letter-spacing: 0.06em; }
+.rz-summary-item b { font-size: 1.05rem; font-weight: 900; color: #1A1D1E; }
 .rz-summary-item b.warn { color: #dc2626; }
 
-.rz-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
-.rz-table th { text-align: left; padding: 10px 14px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(26,29,30,0.4); border-bottom: 1px solid rgba(0,0,0,0.06); }
-.rz-table td { padding: 10px 14px; font-size: 0.8125rem; color: #1A1D1E; border-bottom: 1px solid rgba(0,0,0,0.04); }
-.rz-table tr:last-child td { border-bottom: none; }
-.rz-table tr.rz-row-warn { background: #fff8f8; }
-.rz-table select { padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(26,29,30,0.15); font-family: inherit; font-size: 0.8125rem; }
+/* Таблица — точь-в-точь .loc-table */
+.rz-table-wrap {
+  background: #fff; border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.rz-table { width: 100%; border-collapse: collapse; font-size: 0.785rem; }
+.rz-table thead tr { border-bottom: 2px solid rgba(0,0,0,0.07); }
+.rz-table th {
+  padding: 8px 10px; text-align: left; font-size: 0.67rem; font-weight: 700;
+  color: rgba(26,29,30,0.45); text-transform: uppercase; letter-spacing: 0.06em;
+  background: #f8f9f5; user-select: none; white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+.rz-table tbody tr { border-bottom: 1px solid rgba(0,0,0,0.04); }
+.rz-table tbody tr:last-child { border-bottom: none; }
+.rz-table tbody tr:hover td { background: #f5fbe9 !important; }
+.rz-table tbody tr:nth-child(odd) td { background: #fafbf8; }
+.rz-table tbody tr:nth-child(even) td { background: #fff; }
+.rz-table tbody tr.rz-row-warn:nth-child(odd) td { background: #fff8f8; }
+.rz-table tbody tr.rz-row-warn:nth-child(even) td { background: #fff8f8; }
+.rz-table td { padding: 7px 10px; color: #1A1D1E; vertical-align: middle; }
+.rz-table select {
+  padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(26,29,30,0.1);
+  font-family: inherit; font-size: 0.78rem; background: #f8f9f5; color: #1A1D1E;
+}
 
-.rz-ok-ico { color: #4f6e1c; }
-.rz-warn-ico { color: #dc2626; }
+.rz-ok-ico { color: #8fc640; display: block; }
+.rz-warn-ico { color: #dc2626; display: block; }
 .rz-missing { color: rgba(26,29,30,0.3); font-style: italic; }
-.rz-reasons { font-size: 0.7rem; color: #dc2626; }
+.rz-reasons { font-size: 0.7rem; color: #dc2626; font-weight: 600; }
 
-.rz-rate-input { width: 90px; padding: 5px 8px; border-radius: 8px; border: 1.5px solid #8fc640; font-family: inherit; font-size: 0.8125rem; }
+.rz-rate-input {
+  width: 90px; padding: 5px 8px; border-radius: 8px; border: 1.5px solid #8fc640;
+  font-family: inherit; font-size: 0.78rem; outline: none;
+}
 .rz-rate-set { font-weight: 700; }
 
-.rz-toggle { width: 38px; height: 22px; border-radius: 999px; border: none; background: rgba(26,29,30,0.15); position: relative; cursor: pointer; transition: background 0.15s; }
+/* Toggle — идентично .loc-toggle */
+.rz-toggle {
+  position: relative; display: inline-flex; align-items: center;
+  width: 36px; height: 20px; border-radius: 10px; border: none; cursor: pointer;
+  transition: background 0.2s; padding: 0; flex-shrink: 0;
+  background: rgba(26,29,30,0.12);
+}
 .rz-toggle.on { background: #8fc640; }
-.rz-toggle-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.rz-toggle-thumb {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
 .rz-toggle.on .rz-toggle-thumb { transform: translateX(16px); }
 
-.rz-badge-ok { background: rgba(143,198,64,0.15); color: #4f6e1c; padding: 3px 9px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; }
-.rz-badge-warn { background: #fef9c3; color: #854d0e; padding: 3px 9px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; }
-.rz-edit-btn { border: 1px solid rgba(26,29,30,0.15); background: #fff; border-radius: 8px; padding: 5px 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.rz-badge-ok {
+  background: rgba(143,198,64,0.15); color: #4f6e1c; padding: 3px 9px;
+  border-radius: 6px; font-size: 0.7rem; font-weight: 800; white-space: nowrap;
+}
+.rz-badge-warn {
+  background: #fef9c3; color: #854d0e; padding: 3px 9px;
+  border-radius: 6px; font-size: 0.7rem; font-weight: 800; white-space: nowrap;
+}
+
+/* Кнопки — как .loc-add-btn / .loc-plan-btn */
+.rz-edit-btn {
+  border: 1px solid rgba(26,29,30,0.12); background: #fff; border-radius: 8px;
+  padding: 5px 12px; font-size: 0.74rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; color: #1A1D1E; transition: all 0.15s;
+}
+.rz-edit-btn:hover { border-color: #8fc640; color: #5a7d20; }
 
 .rz-btn-create {
   align-self: flex-start; display: flex; align-items: center; gap: 8px;
-  background: #1A1D1E; color: #fff; border: none; padding: 12px 22px; border-radius: 12px;
-  font-size: 0.875rem; font-weight: 800; cursor: pointer; font-family: inherit;
+  background: #1A1D1E; color: #fff; border: none; padding: 11px 20px; border-radius: 12px;
+  font-size: 0.8125rem; font-weight: 800; cursor: pointer; font-family: inherit;
+  transition: background 0.15s;
 }
+.rz-btn-create:hover:not(:disabled) { background: #8fc640; }
 .rz-btn-create:disabled { opacity: 0.35; cursor: default; }
 
-.rz-empty { padding: 40px; text-align: center; color: rgba(26,29,30,0.35); font-size: 0.875rem; font-weight: 600; }
+.rz-empty {
+  padding: 40px; text-align: center; color: rgba(26,29,30,0.35); font-size: 0.85rem;
+  font-weight: 600; background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 14px;
+}
 
-.rz-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-.rz-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 560px; max-height: 80vh; display: flex; flex-direction: column; padding: 24px; gap: 14px; }
+/* Модалка подтверждения — как loc-backdrop/loc-modal */
+.rz-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+}
+.rz-modal {
+  background: #fff; border-radius: 20px; width: 100%; max-width: 560px; max-height: 80vh;
+  display: flex; flex-direction: column; padding: 24px; gap: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+}
 .rz-modal-head { font-size: 1.05rem; font-weight: 900; color: #1A1D1E; }
 .rz-modal-hint { font-size: 0.8125rem; color: rgba(26,29,30,0.55); line-height: 1.5; }
-.rz-modal-list { overflow-y: auto; max-height: 260px; display: flex; flex-direction: column; gap: 6px; background: #f8f9f5; border-radius: 12px; padding: 12px; }
-.rz-modal-row { font-size: 0.8125rem; padding: 4px 0; }
+.rz-modal-list {
+  overflow-y: auto; max-height: 260px; display: flex; flex-direction: column; gap: 6px;
+  background: #f8f9f5; border-radius: 12px; padding: 12px;
+}
+.rz-modal-row { font-size: 0.8125rem; padding: 4px 0; color: #1A1D1E; }
 .rz-modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
-.rz-btn-cancel { border: 1px solid rgba(26,29,30,0.15); background: #fff; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: inherit; }
-.rz-btn-confirm { border: none; background: #dc2626; color: #fff; padding: 10px 18px; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.rz-btn-cancel {
+  border: 1px solid rgba(26,29,30,0.15); background: #fff; padding: 9px 18px; border-radius: 10px;
+  font-weight: 700; cursor: pointer; font-family: inherit; color: #1A1D1E;
+}
+.rz-btn-confirm {
+  border: none; background: #dc2626; color: #fff; padding: 9px 18px; border-radius: 10px;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.rz-btn-confirm:hover:not(:disabled) { background: #b91c1c; }
 .rz-btn-confirm:disabled { opacity: 0.5; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
