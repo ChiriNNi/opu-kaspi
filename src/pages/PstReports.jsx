@@ -339,8 +339,12 @@ export default function PstReports() {
   const [cities, setCities]       = useState([])
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 50 })
 
+  const [partners, setPartners]   = useState([])
   const [search, setSearch]       = useState('')
   const [city, setCity]           = useState('')
+  const [installPlace, setInstallPlace] = useState('')
+  const [locationZone, setLocationZone] = useState('')
+  const [partnerFilter, setPartnerFilter] = useState('')
   const [dateFrom, setDateFrom]   = useState('')
   const [dateTo, setDateTo]       = useState('')
   const [sortBy, setSortBy]       = useState('submitted_at')
@@ -367,6 +371,9 @@ export default function PstReports() {
         sortDir: params.sortDir ?? sortDir,
         ...(params.search ?? search ? { search: params.search ?? search } : {}),
         ...(params.city ?? city ? { city: params.city ?? city } : {}),
+        ...((params.installPlace ?? installPlace) ? { install_place: params.installPlace ?? installPlace } : {}),
+        ...((params.locationZone ?? locationZone) ? { location_zone: params.locationZone ?? locationZone } : {}),
+        ...((params.partnerFilter ?? partnerFilter) ? { partner_id: params.partnerFilter ?? partnerFilter } : {}),
         ...(params.dateFrom ?? dateFrom ? { dateFrom: params.dateFrom ?? dateFrom } : {}),
         ...(params.dateTo ?? dateTo ? { dateTo: params.dateTo ?? dateTo } : {}),
       })
@@ -378,7 +385,7 @@ export default function PstReports() {
     } finally {
       setLoading(false)
     }
-  }, [page, sortBy, sortDir, search, city, dateFrom, dateTo])
+  }, [page, sortBy, sortDir, search, city, installPlace, locationZone, partnerFilter, dateFrom, dateTo])
 
   const fetchStats = async () => {
     try {
@@ -397,11 +404,12 @@ export default function PstReports() {
   useEffect(() => {
     fetchStats()
     fetchCities()
+    api.get('/users').then(r => setPartners((r.data.users || []).filter(u => u.role === 'partner'))).catch(() => {})
   }, [])
 
   useEffect(() => {
     fetchReports()
-  }, [page, sortBy, sortDir, city, dateFrom, dateTo])
+  }, [page, sortBy, sortDir, city, installPlace, locationZone, partnerFilter, dateFrom, dateTo])
 
   const handleSearch = (val) => {
     setSearch(val)
@@ -553,12 +561,12 @@ export default function PstReports() {
   }
 
   const resetFilters = () => {
-    setSearch(''); setCity(''); setDateFrom(''); setDateTo('')
+    setSearch(''); setCity(''); setInstallPlace(''); setLocationZone(''); setPartnerFilter(''); setDateFrom(''); setDateTo('')
     setPage(1)
-    fetchReports({ search: '', city: '', dateFrom: '', dateTo: '', page: 1 })
+    fetchReports({ search: '', city: '', installPlace: '', locationZone: '', partnerFilter: '', dateFrom: '', dateTo: '', page: 1 })
   }
 
-  const hasFilters = search || city || dateFrom || dateTo
+  const hasFilters = search || city || installPlace || locationZone || partnerFilter || dateFrom || dateTo
 
   return (
     <div className="pst-page">
@@ -601,6 +609,31 @@ export default function PstReports() {
               {cities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+
+          <div className="filter-group">
+            <select value={locationZone} onChange={e => { setLocationZone(e.target.value); setPage(1) }}>
+              <option value="">Г/П</option>
+              <option value="город">Город</option>
+              <option value="пригород">Пригород</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <select value={installPlace} onChange={e => { setInstallPlace(e.target.value); setPage(1) }}>
+              <option value="">Все типы</option>
+              <option value="Комнатный">Комнатный</option>
+              <option value="Уличный">Уличный</option>
+            </select>
+          </div>
+
+          {partners.length > 0 && (
+            <div className="filter-group">
+              <select value={partnerFilter} onChange={e => { setPartnerFilter(e.target.value); setPage(1) }}>
+                <option value="">Все партнёры</option>
+                {partners.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </select>
+            </div>
+          )}
 
           <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} placeholder="Дата от" />
 
