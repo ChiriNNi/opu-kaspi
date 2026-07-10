@@ -21,10 +21,15 @@ async function downloadReportZip(report, label = '') {
   const zip = new JSZip()
   const addPhoto = async (p, name) => {
     try {
-      const url = p?.dataUrl || p
-      if (!url) return
+      let url
+      if (typeof p === 'string') url = p
+      else if (p?.dataUrl) url = p.dataUrl
+      else if (p?.path) {
+        const rel = p.path.replace('/home/icgroup/uploads/', '')
+        url = `https://opu.ic-group.kz/api/pst/img?p=${encodeURIComponent(rel)}`
+      } else return
       if (url.startsWith('data:')) { const [,b64] = url.split(','); zip.file(`${folder}/${name}`, b64, { base64: true }) }
-      else { const fullUrl = url.startsWith('http') ? url : `https://opu.ic-group.kz${url}`; zip.file(`${folder}/${name}`, await (await fetch(fullUrl)).blob()) }
+      else { zip.file(`${folder}/${name}`, await (await fetch(url)).blob()) }
     } catch {}
   }
   await Promise.all([
@@ -413,10 +418,15 @@ function HistoryModal({ loc, onClose }) {
       const zip = new JSZip()
       const addPhotoToZip = async (p, name) => {
         try {
-          const url = p?.dataUrl || p
-          if (!url) return
+          let url
+          if (typeof p === 'string') url = p
+          else if (p?.dataUrl) url = p.dataUrl
+          else if (p?.path) {
+            const rel = p.path.replace('/home/icgroup/uploads/', '')
+            url = `https://opu.ic-group.kz/api/pst/img?p=${encodeURIComponent(rel)}`
+          } else return
           if (url.startsWith('data:')) { const [,b64] = url.split(','); zip.file(name, b64, { base64: true }) }
-          else { const fu = url.startsWith('http') ? url : `https://opu.ic-group.kz${url}`; zip.file(name, await (await fetch(fu)).blob()) }
+          else { zip.file(name, await (await fetch(url)).blob()) }
         } catch {}
       }
       for (let i = 0; i < reports.length; i++) {
