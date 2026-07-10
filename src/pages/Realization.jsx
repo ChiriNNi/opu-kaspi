@@ -46,9 +46,28 @@ function ReportTab() {
     return () => clearInterval(t)
   }, [batch, load])
 
+  const [fType, setFType] = useState('')
+  const [fZone, setFZone] = useState('')
+  const [fInstall, setFInstall] = useState('')
+  const [fPartner, setFPartner] = useState('')
+  const [fStatus, setFStatus] = useState('')
+
   const readyGroups = groups.filter(g => g.ready)
   const notReadyGroups = groups.filter(g => !g.ready)
   const totalSum = readyGroups.reduce((s, g) => s + (Number(g.sum_contract) || 0), 0)
+
+  const partners = [...new Map(groups.filter(g => g.partner_id).map(g => [g.partner_id, g.partner_name])).entries()]
+
+  const filtered = groups.filter(g => {
+    if (fType === 'спец' && !g.is_spec_route) return false
+    if (fType === 'осн' && g.is_spec_route) return false
+    if (fZone && g.location_type !== fZone) return false
+    if (fInstall && g.install_place?.toLowerCase() !== fInstall) return false
+    if (fPartner && String(g.partner_id) !== fPartner) return false
+    if (fStatus === 'ready' && !g.ready) return false
+    if (fStatus === 'warn' && g.ready) return false
+    return true
+  })
 
   const openConfirm = async () => {
     setError('')
@@ -80,21 +99,45 @@ function ReportTab() {
     <div className="rz-tab">
       <div className="rz-summary">
         <div className="rz-summary-item">
-          <span>Готово к отправке</span>
           <b>{loading ? '—' : readyGroups.length} групп</b>
+          <span>Готово к отправке</span>
         </div>
         <div className="rz-summary-item">
-          <span>Не готово</span>
           <b className={!loading && notReadyGroups.length ? 'warn' : ''}>{loading ? '—' : notReadyGroups.length} групп</b>
+          <span>Не готово</span>
         </div>
-        <div className="rz-summary-item wide">
-          <span>Сумма (готовые)</span>
+        <div className="rz-summary-item">
           <b>{loading ? '—' : totalSum.toLocaleString('ru-RU') + ' ₸'}</b>
+          <span>Сумма (готовые)</span>
         </div>
       </div>
 
       <div className="rz-toolbar">
         <input type="month" className="rz-month-input" value={month} onChange={e => setMonth(e.target.value)} />
+        <select className="rz-filter-select" value={fType} onChange={e => setFType(e.target.value)}>
+          <option value="">Все типы</option>
+          <option value="осн">Основной</option>
+          <option value="спец">Спец</option>
+        </select>
+        <select className="rz-filter-select" value={fZone} onChange={e => setFZone(e.target.value)}>
+          <option value="">Г/П</option>
+          <option value="город">Город</option>
+          <option value="пригород">Пригород</option>
+        </select>
+        <select className="rz-filter-select" value={fInstall} onChange={e => setFInstall(e.target.value)}>
+          <option value="">Все установки</option>
+          <option value="комнатный">Комнатный</option>
+          <option value="уличный">Уличный</option>
+        </select>
+        <select className="rz-filter-select" value={fPartner} onChange={e => setFPartner(e.target.value)}>
+          <option value="">Все партнёры</option>
+          {partners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <select className="rz-filter-select" value={fStatus} onChange={e => setFStatus(e.target.value)}>
+          <option value="">Все статусы</option>
+          <option value="ready">Готово</option>
+          <option value="warn">Не готово</option>
+        </select>
         <button className="rz-refresh" onClick={load} title="Обновить"><RefreshCw size={15} className={loading ? 'spin' : ''} /></button>
       </div>
 
@@ -120,20 +163,32 @@ function ReportTab() {
               <thead>
                 <tr>
                   <th></th><th>Тип</th><th>Город/пригород</th><th>Установка</th><th>Партнёр</th>
-                  <th>Кол-во</th><th>Сумма</th><th>Статус</th>
+                  <th>Кол-во</th><th>Сумма</th><th>Статус / ID</th>
                 </tr>
               </thead>
               <tbody>
-                {groups.map((g, i) => (
+                {filtered.length === 0 && (
+                  <tr><td colSpan={8} className="rz-table-empty">Нет строк по выбранным фильтрам</td></tr>
+                )}
+                {filtered.map((g, i) => (
                   <tr key={i} className={g.ready ? '' : 'rz-row-warn'}>
                     <td>{g.ready ? <CheckCircle2 size={14} className="rz-ok-ico" /> : <AlertTriangle size={14} className="rz-warn-ico" />}</td>
                     <td>{g.is_spec_route ? 'Спец' : 'Осн'}</td>
                     <td>{g.location_type || <span className="rz-missing">не указано</span>}</td>
-                    <td>{g.install_place}</td>
+                    <td>{g.install_place || <span className="rz-missing">—</span>}</td>
                     <td>{g.partner_name || <span className="rz-missing">не назначен</span>}</td>
                     <td>{g.postomat_count}</td>
                     <td>{g.sum_contract != null ? Number(g.sum_contract).toLocaleString('ru-RU') + ' ₸' : <span className="rz-missing">—</span>}</td>
-                    <td className="rz-reasons">{g.reasons?.join(', ')}</td>
+                    <td className="rz-reasons">
+                      {g.reasons?.join(', ')}
+                      {!g.ready && g.postomat_ids?.length > 0 && (
+                        <div className="rz-ids">
+                          {g.postomat_ids.map(id => (
+                            <span key={id} className="rz-id-chip">{id}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
