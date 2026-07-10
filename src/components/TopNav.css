@@ -138,7 +138,37 @@
 
 /* ── Mobile ─────────────────────────────── */
 @media (max-width: 768px) {
-  .topnav-top { padding: 0 16px; gap: 12px; height: 52px; }
+  .topnav-top {
+    padding: 0 16px 8px;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  /* Первая строка: лого + кнопка выхода */
+  .topnav-brand {
+    flex: 1;
+    padding-top: 12px;
+  }
+  .topnav-user {
+    padding-top: 12px;
+  }
+
+  /* Вторая строка: навигация на всю ширину */
+  .topnav-main {
+    position: static;
+    transform: none;
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding: 6px 0 2px;
+    gap: 2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topnav-main::-webkit-scrollbar { display: none; }
+
   .topnav-sub { padding: 0 16px 10px; }
   .tnav-item { padding: 5px 10px; font-size: 0.65rem; }
   .brand-sub { display: none; }
