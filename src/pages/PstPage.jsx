@@ -763,8 +763,7 @@ const PstPage = () => {
       .slice(0, 30);
   }, [coords, deferredSearchTerm, indexedLocations, nearestLocations]);
 
-  const visibleLocations = searchTerm ? manualResults : nearestLocations;
-  // На десктопе без ближайших точек — подсказка появляется автоматически из-за nearestLocations.length === 0
+  const visibleLocations = searchTerm ? manualResults : [];
   const selectedLocation = indexedLocations.find((location) => location.id === selectedLocationId) ?? null;
   const selectedDistance = coords && selectedLocation ? getDistanceKm(coords, selectedLocation) : null;
 
