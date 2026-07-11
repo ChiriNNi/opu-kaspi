@@ -8,6 +8,7 @@ import {
   Eye, Building2, Download, ImageDown
 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
+import { useStore } from '../store'
 import './PstReports.css'
 
 const formatDate = (val) => {
@@ -332,6 +333,8 @@ function PhotoModal({ report, onClose }) {
 }
 
 export default function PstReports() {
+  const { user } = useStore()
+  const isAuditor = user?.role === 'auditor'
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
@@ -739,14 +742,16 @@ export default function PstReports() {
                         {zipLoadingId === row.id ? <RefreshCw size={12} className="spin" /> : <Download size={12} />}
                       </button>
                     )}
-                    <button
-                      className="btn-sync-row"
-                      disabled={syncingId === row.id}
-                      title="Синхронизировать с Google Sheets"
-                      onClick={() => resyncReport(row.id)}
-                    >
-                      <RefreshCw size={12} className={syncingId === row.id ? 'spin' : ''} />
-                    </button>
+                    {!isAuditor && (
+                      <button
+                        className="btn-sync-row"
+                        disabled={syncingId === row.id}
+                        title="Синхронизировать с Google Sheets"
+                        onClick={() => resyncReport(row.id)}
+                      >
+                        <RefreshCw size={12} className={syncingId === row.id ? 'spin' : ''} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

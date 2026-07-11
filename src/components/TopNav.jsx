@@ -6,7 +6,7 @@ import './TopNav.css'
 const ALL_SECTIONS = [
   { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor'] },
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
-  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner'] },
+  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner', 'auditor'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
   { key: 'realization', label: 'Реализация',   paths: ['/realization', '/realization/rates'], roles: ['admin'] },
 ]
@@ -17,8 +17,8 @@ const SUB_PAGES = {
     { label: 'Объекты',   path: '/objects',    roles: ['admin', 'partner', 'curator'] },
   ],
   washing: [
-    { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator'] },
-    { label: 'Постоматы', path: '/locations',   roles: ['admin', 'partner', 'curator'] },
+    { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator', 'auditor'] },
+    { label: 'Постоматы', path: '/locations',   roles: ['admin', 'partner', 'curator', 'auditor'] },
   ],
   realization: [
     { label: 'Отчёт',              path: '/realization',       roles: ['admin'] },

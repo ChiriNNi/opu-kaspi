@@ -8,6 +8,7 @@ import {
   Circle, Filter, Plus, Trash2, MapPin, History, Download
 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
+import { useStore } from '../store'
 import './Locations.css'
 
 async function downloadReportZip(report, label = '') {
@@ -518,6 +519,8 @@ function HistoryModal({ loc, onClose }) {
 }
 
 export default function Locations() {
+  const { user } = useStore()
+  const isAuditor = user?.role === 'auditor'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 100 })
@@ -728,12 +731,12 @@ export default function Locations() {
             <button className="loc-excel-btn" onClick={exportExcel} disabled={exporting}>
               <Download size={14} /> {exporting ? 'Выгрузка...' : 'Excel'}
             </button>
-            <button className="loc-plan-btn" onClick={() => { setBulkPlanValue(''); setBulkPlanModal(true) }}>
+            {!isAuditor && <button className="loc-plan-btn" onClick={() => { setBulkPlanValue(''); setBulkPlanModal(true) }}>
               Установить план
-            </button>
-            <button className="loc-add-btn" onClick={() => setShowAdd(true)}>
+            </button>}
+            {!isAuditor && <button className="loc-add-btn" onClick={() => setShowAdd(true)}>
               <Plus size={14} /> Добавить
-            </button>
+            </button>}
           </>}
           <button className="loc-refresh" onClick={() => viewMode === 'table' ? fetch() : loadCityPlans()} title="Обновить">
             <RefreshCw size={14} className={(loading || cityPlansLoading) ? 'spin' : ''} />
@@ -964,7 +967,7 @@ export default function Locations() {
                   </td>
                   <td className="loc-who">{r.last_cleaned_by || (hasCleaned ? '—' : '')}</td>
                   <td className="loc-hint-cell">{r.hint || '—'}</td>
-                  <td className="loc-plan-cell" onClick={() => setEditingPlan({ id: r.id, value: r.plan_per_month ?? '' })}>
+                  <td className="loc-plan-cell" onClick={() => !isAuditor && setEditingPlan({ id: r.id, value: r.plan_per_month ?? '' })}>
                     {editingPlan?.id === r.id ? (
                       <input
                         className="loc-plan-input"
@@ -989,8 +992,9 @@ export default function Locations() {
                   <td>
                     <button
                       className={`loc-toggle ${r.is_active !== false ? 'on' : 'off'}`}
-                      onClick={() => toggleActive(r)}
+                      onClick={() => !isAuditor && toggleActive(r)}
                       title={r.is_active !== false ? 'Деактивировать' : 'Активировать'}
+                      style={isAuditor ? { cursor: 'default', opacity: 0.6 } : {}}
                     >
                       <span className="loc-toggle-thumb" />
                     </button>
@@ -1002,9 +1006,11 @@ export default function Locations() {
                           <History size={13} />
                         </button>
                       )}
-                      <button className="loc-edit-btn" onClick={() => setEditLoc(r)} title="Редактировать">
-                        <Pencil size={13} />
-                      </button>
+                      {!isAuditor && (
+                        <button className="loc-edit-btn" onClick={() => setEditLoc(r)} title="Редактировать">
+                          <Pencil size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
