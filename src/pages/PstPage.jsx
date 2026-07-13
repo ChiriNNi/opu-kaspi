@@ -1180,14 +1180,17 @@ const PstPage = () => {
                         <button
                           onClick={openScanner}
                           style={{
-                            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: 52, height: 52, borderRadius: 16, border: 'none',
-                            background: '#8fc640', color: '#fff', cursor: 'pointer',
-                            boxShadow: '0 2px 12px rgba(143,198,64,0.35)',
+                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            gap: 12, padding: '16px 24px', border: 'none', borderRadius: 20,
+                            background: 'linear-gradient(135deg, #8fc640 0%, #6fa832 100%)',
+                            color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+                            fontWeight: 900, fontSize: '0.95rem', letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            boxShadow: '0 8px 24px rgba(143,198,64,0.4), 0 2px 6px rgba(143,198,64,0.2)',
                           }}
-                          title="Сканировать QR"
                         >
-                          <QrCode size={22} />
+                          <QrCode size={22} strokeWidth={2.5} />
+                          Отсканировать QR
                         </button>
                       )}
                     </div>
