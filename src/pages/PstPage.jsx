@@ -644,6 +644,12 @@ const PstPage = () => {
           const match = code.data.match(/^PST(\d+)/i);
           if (match) {
             const pstId = match[1];
+            const found = indexedLocations.find(l => l.id === pstId);
+            if (!found) {
+              setScanError(`Постомат ID ${pstId} не найден в системе`);
+              scanRafRef.current = requestAnimationFrame(tick);
+              return;
+            }
             stopScanner();
             setSelectedLocationId(pstId);
             setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
