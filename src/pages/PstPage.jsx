@@ -646,7 +646,7 @@ const PstPage = () => {
             const pstId = match[1];
             const found = indexedLocations.find(l => l.id === pstId);
             if (!found) {
-              setScanError(`Постомат ID ${pstId} не найден в системе`);
+              setScanError({ title: `Postomat ID ${pstId}`, sub: 'не найден в системе' });
               scanRafRef.current = requestAnimationFrame(tick);
               return;
             }
@@ -1218,8 +1218,15 @@ const PstPage = () => {
                           </div>
                         </div>
                         {scanError && (
-                          <div style={{ color: '#ff6b6b', marginTop: 16, fontWeight: 700, textAlign: 'center', padding: '0 24px' }}>
-                            {scanError}
+                          <div style={{ marginTop: 16, textAlign: 'center', padding: '0 24px' }}>
+                            <div style={{ color: '#ff6b6b', fontWeight: 900, fontSize: '1rem' }}>
+                              {typeof scanError === 'object' ? scanError.title : scanError}
+                            </div>
+                            {typeof scanError === 'object' && (
+                              <div style={{ color: 'rgba(255,107,107,0.75)', fontWeight: 600, fontSize: '0.85rem', marginTop: 4 }}>
+                                {scanError.sub}
+                              </div>
+                            )}
                           </div>
                         )}
                         <p style={{ color: 'rgba(255,255,255,0.6)', marginTop: 20, fontSize: '0.85rem', fontWeight: 600 }}>
