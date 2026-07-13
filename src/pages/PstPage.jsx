@@ -644,7 +644,7 @@ const PstPage = () => {
           const match = code.data.match(/^PST(\d+)/i);
           if (match) {
             const pstId = match[1];
-            const found = indexedLocations.find(l => l.id === pstId);
+            const found = indexedLocations.find(l => String(l.id) === String(pstId));
             if (!found) {
               setScanError({ title: `Postomat ID ${pstId}`, sub: 'не найден в системе' });
               scanRafRef.current = requestAnimationFrame(tick);
@@ -829,7 +829,7 @@ const PstPage = () => {
   }, [coords, deferredSearchTerm, indexedLocations, nearestLocations]);
 
   const visibleLocations = searchTerm ? manualResults : [];
-  const selectedLocation = indexedLocations.find((location) => location.id === selectedLocationId) ?? null;
+  const selectedLocation = indexedLocations.find((location) => String(location.id) === String(selectedLocationId)) ?? null;
   const selectedDistance = coords && selectedLocation ? getDistanceKm(coords, selectedLocation) : null;
 
   const handlePhotosSelected = (event, section) => {
