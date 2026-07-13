@@ -586,6 +586,7 @@ const PstPage = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const scanRafRef = useRef(null);
+  const scanErrorTimerRef = useRef(null);
   const indexedLocationsRef = useRef([]);
   const [beforePhotos, setBeforePhotos] = useState([]);
   const [afterPhotos, setAfterPhotos] = useState([]);
@@ -614,6 +615,7 @@ const PstPage = () => {
 
   const stopScanner = useCallback(() => {
     if (scanRafRef.current) { cancelAnimationFrame(scanRafRef.current); scanRafRef.current = null; }
+    if (scanErrorTimerRef.current) { clearTimeout(scanErrorTimerRef.current); scanErrorTimerRef.current = null; }
     if (videoRef.current?.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
@@ -653,7 +655,10 @@ const PstPage = () => {
             }
             const found = locs.find(l => String(l.id) === String(pstId));
             if (!found) {
+              navigator.vibrate?.(200);
               setScanError({ title: `Postomat ID ${pstId}`, sub: 'не найден в системе' });
+              if (scanErrorTimerRef.current) clearTimeout(scanErrorTimerRef.current);
+              scanErrorTimerRef.current = setTimeout(() => setScanError(''), 3000);
               scanRafRef.current = requestAnimationFrame(tick);
               return;
             }
