@@ -644,6 +644,11 @@ const PstPage = () => {
           const match = code.data.match(/^PST(\d+)/i);
           if (match) {
             const pstId = match[1];
+            if (indexedLocations.length === 0) {
+              setScanError({ title: `Postomat ID ${pstId}`, sub: 'список ещё загружается, подождите...' });
+              scanRafRef.current = requestAnimationFrame(tick);
+              return;
+            }
             const found = indexedLocations.find(l => String(l.id) === String(pstId));
             if (!found) {
               setScanError({ title: `Postomat ID ${pstId}`, sub: 'не найден в системе' });
@@ -651,7 +656,7 @@ const PstPage = () => {
               return;
             }
             stopScanner();
-            setSelectedLocationId(pstId);
+            setSelectedLocationId(String(found.id));
             setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
             return;
           }
