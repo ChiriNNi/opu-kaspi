@@ -1229,9 +1229,9 @@ const PstPage = () => {
                             )}
                           </div>
                         )}
-                        <p style={{ color: 'rgba(255,255,255,0.6)', marginTop: 20, fontSize: '0.85rem', fontWeight: 600 }}>
+                        {!scanError && <p style={{ color: 'rgba(255,255,255,0.6)', marginTop: 20, fontSize: '0.85rem', fontWeight: 600 }}>
                           Наведите камеру на QR-код постомата
-                        </p>
+                        </p>}
                         <button onClick={stopScanner} style={{
                           marginTop: 24, padding: '12px 32px', borderRadius: 14, border: 'none',
                           background: 'rgba(255,255,255,0.12)', color: '#fff', fontWeight: 700,
