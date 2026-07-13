@@ -1,4 +1,6 @@
 import { useDeferredValue, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import jsQR from 'jsqr';
 import {
   Camera,
   ChevronRight,
@@ -6,6 +8,7 @@ import {
   LocateFixed,
   MapPin,
   Plus,
+  QrCode,
   RefreshCw,
   Store,
   Trash2,
@@ -576,6 +579,13 @@ const PstPage = () => {
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const photosSectionRef = useRef(null);
+  const [searchParams] = useSearchParams();
+  const scanEnabled = searchParams.get('scan') === '1';
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const scanRafRef = useRef(null);
   const [beforePhotos, setBeforePhotos] = useState([]);
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [submitError, setSubmitError] = useState('');
@@ -600,6 +610,55 @@ const PstPage = () => {
   const draftSaveTimeoutRef = useRef(null);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  const stopScanner = useCallback(() => {
+    if (scanRafRef.current) { cancelAnimationFrame(scanRafRef.current); scanRafRef.current = null; }
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    setScannerOpen(false);
+    setScanError('');
+  }, []);
+
+  const openScanner = useCallback(async () => {
+    setScanError('');
+    setScannerOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      const tick = () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
+          scanRafRef.current = requestAnimationFrame(tick); return;
+        }
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code?.data) {
+          const match = code.data.match(/^PST(\d+)/i);
+          if (match) {
+            const pstId = match[1];
+            stopScanner();
+            setSelectedLocationId(pstId);
+            setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            return;
+          }
+        }
+        scanRafRef.current = requestAnimationFrame(tick);
+      };
+      scanRafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      setScanError('Нет доступа к камере. Разрешите доступ и попробуйте снова.');
+    }
+  }, [stopScanner]);
+
+  useEffect(() => () => stopScanner(), [stopScanner]);
 
   useEffect(() => {
     document.title = 'Админка | IC Group';
@@ -1095,25 +1154,75 @@ const PstPage = () => {
               {!isLoadingLocations && (
                 <>
                   <div className="mt-6">
-                    <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                      <input
-                        type="search"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        placeholder="Поиск по ID, адресу, названию..."
-                        style={{
-                          width: '100%', boxSizing: 'border-box',
-                          padding: '14px 44px 14px 18px',
-                          borderRadius: 20, border: '1.5px solid rgba(26,29,30,0.1)',
-                          background: '#fff', fontSize: '0.9rem', fontWeight: 600,
-                          fontFamily: 'inherit', color: '#1A1D1E',
-                          outline: 'none', boxShadow: '0 2px 12px rgba(15,23,42,0.06)',
-                        }}
-                        onFocus={e => e.target.style.borderColor = '#8fc640'}
-                        onBlur={e => e.target.style.borderColor = 'rgba(26,29,30,0.1)'}
-                      />
-                      <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.35, pointerEvents: 'none' }}>🔍</span>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <input
+                          type="search"
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                          placeholder="Поиск по ID, адресу, названию..."
+                          style={{
+                            width: '100%', boxSizing: 'border-box',
+                            padding: '14px 44px 14px 18px',
+                            borderRadius: 20, border: '1.5px solid rgba(26,29,30,0.1)',
+                            background: '#fff', fontSize: '0.9rem', fontWeight: 600,
+                            fontFamily: 'inherit', color: '#1A1D1E',
+                            outline: 'none', boxShadow: '0 2px 12px rgba(15,23,42,0.06)',
+                          }}
+                          onFocus={e => e.target.style.borderColor = '#8fc640'}
+                          onBlur={e => e.target.style.borderColor = 'rgba(26,29,30,0.1)'}
+                        />
+                        <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.35, pointerEvents: 'none' }}>🔍</span>
+                      </div>
+                      {scanEnabled && (
+                        <button
+                          onClick={openScanner}
+                          style={{
+                            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 52, height: 52, borderRadius: 16, border: 'none',
+                            background: '#8fc640', color: '#fff', cursor: 'pointer',
+                            boxShadow: '0 2px 12px rgba(143,198,64,0.35)',
+                          }}
+                          title="Сканировать QR"
+                        >
+                          <QrCode size={22} />
+                        </button>
+                      )}
                     </div>
+
+                    {scannerOpen && (
+                      <div style={{
+                        position: 'fixed', inset: 0, zIndex: 9999,
+                        background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <div style={{ position: 'relative', width: '100%', maxWidth: 420 }}>
+                          <video ref={videoRef} playsInline muted style={{ width: '100%', borderRadius: 20, display: 'block' }} />
+                          <canvas ref={canvasRef} style={{ display: 'none' }} />
+                          <div style={{
+                            position: 'absolute', inset: 0, pointerEvents: 'none',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <div style={{ width: 220, height: 220, border: '3px solid #8fc640', borderRadius: 20, boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
+                          </div>
+                        </div>
+                        {scanError && (
+                          <div style={{ color: '#ff6b6b', marginTop: 16, fontWeight: 700, textAlign: 'center', padding: '0 24px' }}>
+                            {scanError}
+                          </div>
+                        )}
+                        <p style={{ color: 'rgba(255,255,255,0.6)', marginTop: 20, fontSize: '0.85rem', fontWeight: 600 }}>
+                          Наведите камеру на QR-код постомата
+                        </p>
+                        <button onClick={stopScanner} style={{
+                          marginTop: 24, padding: '12px 32px', borderRadius: 14, border: 'none',
+                          background: 'rgba(255,255,255,0.12)', color: '#fff', fontWeight: 700,
+                          fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit',
+                        }}>
+                          Отмена
+                        </button>
+                      </div>
+                    )}
 
                     {visibleLocations.length > 0 && (
                       <div className="mb-4 text-[11px] font-black uppercase tracking-[0.24em] text-brand-dark/45">
