@@ -586,6 +586,7 @@ const PstPage = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const scanRafRef = useRef(null);
+  const indexedLocationsRef = useRef([]);
   const [beforePhotos, setBeforePhotos] = useState([]);
   const [afterPhotos, setAfterPhotos] = useState([]);
   const [submitError, setSubmitError] = useState('');
@@ -644,12 +645,13 @@ const PstPage = () => {
           const match = code.data.match(/^PST(\d+)/i);
           if (match) {
             const pstId = match[1];
-            if (indexedLocations.length === 0) {
+            const locs = indexedLocationsRef.current;
+            if (locs.length === 0) {
               setScanError({ title: `Postomat ID ${pstId}`, sub: 'список ещё загружается, подождите...' });
               scanRafRef.current = requestAnimationFrame(tick);
               return;
             }
-            const found = indexedLocations.find(l => String(l.id) === String(pstId));
+            const found = locs.find(l => String(l.id) === String(pstId));
             if (!found) {
               setScanError({ title: `Postomat ID ${pstId}`, sub: 'не найден в системе' });
               scanRafRef.current = requestAnimationFrame(tick);
@@ -813,6 +815,7 @@ const PstPage = () => {
     () => locations.map((location) => ({ ...location, searchIndex: buildSearchIndex(location) })),
     [locations]
   );
+  indexedLocationsRef.current = indexedLocations;
 
   const nearestLocations = useMemo(() => {
     if (!coords) return [];
