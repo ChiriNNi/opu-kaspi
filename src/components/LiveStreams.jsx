@@ -6,7 +6,7 @@ import {
   Radio, Plus, X, Send, Trash2, Clock, Play, Square,
   Users as UsersIcon, Video, Monitor, Camera, Layers,
   Mic, MicOff, VideoOff, AlertCircle, ChevronRight, ChevronDown,
-  Youtube, Crown, Volume2, VolumeX, Maximize2, HelpCircle, Languages
+  Youtube, Crown, Volume2, VolumeX, Maximize2, HelpCircle, Languages, Copy
 } from 'lucide-react'
 import api from '../api'
 import { useStore } from '../store'
@@ -299,6 +299,7 @@ export default function LiveStreams({ isAdmin }) {
   const [showHistory, setShowHistory] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [editStream, setEditStream] = useState(null)
+  const [copyOf, setCopyOf] = useState(null)
   const [room, setRoom] = useState(null)
   const [archive, setArchive] = useState(null) // открытый архив
 
@@ -452,6 +453,15 @@ export default function LiveStreams({ isAdmin }) {
                     )}
                     {isAdmin && (
                       <button
+                        className="ls-hist-copy"
+                        title="Скопировать эфир"
+                        onClick={e => { e.stopPropagation(); setCopyOf(s); setEditStream(null); setCreateOpen(true) }}
+                      >
+                        <Copy size={13} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
                         className="ls-hist-del"
                         title="Удалить эфир"
                         onClick={e => { e.stopPropagation(); delStream(s) }}
@@ -471,8 +481,9 @@ export default function LiveStreams({ isAdmin }) {
       {createOpen && (
         <CreateStreamModal
           stream={editStream}
-          onClose={() => { setCreateOpen(false); setEditStream(null) }}
-          onSaved={() => { setCreateOpen(false); setEditStream(null); load() }}
+          copyOf={copyOf}
+          onClose={() => { setCreateOpen(false); setEditStream(null); setCopyOf(null) }}
+          onSaved={() => { setCreateOpen(false); setEditStream(null); setCopyOf(null); load() }}
         />
       )}
     </div>
@@ -957,28 +968,30 @@ function DateTimePicker({ value, onChange }) {
 }
 
 // ── Модалка создания/редактирования ──────────────────────────────────────────
-function CreateStreamModal({ stream, onClose, onSaved }) {
-  const isNew = !stream
-  const [title, setTitle] = useState(stream?.title || '')
-  const [desc, setDesc] = useState(stream?.description || '')
-  const [url] = useState(stream?.youtube_url || '')
-  const [streamType] = useState(stream?.stream_type || 'camera_screen')
+function CreateStreamModal({ stream, copyOf, onClose, onSaved }) {
+  const src = copyOf || stream  // источник данных для предзаполнения
+  const isNew = !stream         // режим: нет stream → создать новый (copyOf не влияет)
+  const [title, setTitle] = useState(copyOf ? `${copyOf.title} (копия)` : (stream?.title || ''))
+  const [desc, setDesc] = useState(src?.description || '')
+  const [url] = useState(src?.youtube_url || '')
+  const [streamType] = useState(src?.stream_type || 'camera_screen')
   const [dt, setDt] = useState(() => {
-    if (stream?.starts_at) {
+    // При копировании дату не переносим — пусть выберет новую
+    if (!copyOf && stream?.starts_at) {
       const d = new Date(stream.starts_at)
       const off = d.getTimezoneOffset() * 60000
       return new Date(d - off).toISOString().slice(0, 16)
     }
     return ''
   })
-  const [videoId] = useState(stream?.video_id || '')
+  const [videoId] = useState(src?.video_id || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   // Квиз после эфира (двуязычный: RU + KZ, correct — общий индекс для обоих языков)
-  const [quizEnabled, setQuizEnabled] = useState(!!(stream?.quiz?.questions?.length))
+  const [quizEnabled, setQuizEnabled] = useState(!!(src?.quiz?.questions?.length))
   const [questions, setQuestions] = useState(() => {
-    if (stream?.quiz?.questions?.length) return stream.quiz.questions
+    if (src?.quiz?.questions?.length) return src.quiz.questions
     return [{ text: '', text_kk: '', options: ['', ''], options_kk: ['', ''], correct: 0 }]
   })
   const [quizLang, setQuizLang] = useState('ru')
@@ -1074,7 +1087,7 @@ function CreateStreamModal({ stream, onClose, onSaved }) {
     <div className="ls-backdrop" onClick={onClose}>
       <div className="ls-modal" onClick={e => e.stopPropagation()}>
         <div className="ls-modal-head">
-          <span>{isNew ? 'Новый эфир' : 'Редактировать эфир'}</span>
+          <span>{copyOf ? 'Копия эфира' : isNew ? 'Новый эфир' : 'Редактировать эфир'}</span>
           <button className="ls-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="ls-form">

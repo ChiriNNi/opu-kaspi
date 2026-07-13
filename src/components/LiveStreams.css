@@ -55,6 +55,13 @@
 .ls-hist-chip.chat { background: #dbeafe; color: #3b82f6; }
 .ls-hist-chip.quiz { background: #dcfce7; color: #16a34a; }
 .ls-hist-arrow { color: #cbd5e1; }
+.ls-hist-copy {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+  border: 1px solid rgba(100,116,139,0.2); background: #f8fafc; color: #64748b;
+  cursor: pointer; transition: all .15s;
+}
+.ls-hist-copy:hover { background: #e2e8f0; border-color: #94a3b8; color: #1e293b; }
 .ls-hist-del {
   display: flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
