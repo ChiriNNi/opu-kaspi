@@ -1138,13 +1138,6 @@ const PstPage = () => {
                     <LocateFixed size={18} />
                     Геолокация определена
                   </div>
-                  <button
-                    type="button"
-                    onClick={requestLocation}
-                    className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-brand-green/25 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.02em] text-brand-green"
-                  >
-                    <RefreshCw size={13} /> Обновить
-                  </button>
                 </div>
                 <div className="mt-2 text-sm font-semibold leading-6 text-brand-dark/60">
                   GPS: {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
@@ -1171,40 +1164,20 @@ const PstPage = () => {
                 <>
                   <div className="mt-6">
                     <div style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <input
-                          type="search"
-                          value={searchTerm}
-                          onChange={e => setSearchTerm(e.target.value)}
-                          placeholder="Поиск по ID, адресу, названию..."
-                          style={{
-                            width: '100%', boxSizing: 'border-box',
-                            padding: '14px 44px 14px 18px',
-                            borderRadius: 20, border: '1.5px solid rgba(26,29,30,0.1)',
-                            background: '#fff', fontSize: '0.9rem', fontWeight: 600,
-                            fontFamily: 'inherit', color: '#1A1D1E',
-                            outline: 'none', boxShadow: '0 2px 12px rgba(15,23,42,0.06)',
-                          }}
-                          onFocus={e => e.target.style.borderColor = '#8fc640'}
-                          onBlur={e => e.target.style.borderColor = 'rgba(26,29,30,0.1)'}
-                        />
-                        <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.35, pointerEvents: 'none' }}>🔍</span>
-                      </div>
                       <button
                         onClick={openScanner}
-                        title="Отсканировать QR"
                         style={{
-                          flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          gap: 8, padding: '14px 18px', border: 'none', borderRadius: 20,
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          gap: 12, padding: '16px 24px', border: 'none', borderRadius: 20,
                           background: 'linear-gradient(135deg, #8fc640 0%, #6fa832 100%)',
                           color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
-                          fontWeight: 900, fontSize: '0.85rem', letterSpacing: '0.06em',
+                          fontWeight: 900, fontSize: '0.95rem', letterSpacing: '0.08em',
                           textTransform: 'uppercase',
-                          boxShadow: '0 4px 16px rgba(143,198,64,0.35)',
+                          boxShadow: '0 8px 24px rgba(143,198,64,0.4), 0 2px 6px rgba(143,198,64,0.2)',
                         }}
                       >
-                        <QrCode size={20} strokeWidth={2.5} />
-                        QR
+                        <QrCode size={22} strokeWidth={2.5} />
+                        Отсканировать QR
                       </button>
                     </div>
 
