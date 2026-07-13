@@ -1122,13 +1122,15 @@ const PstPage = () => {
                     <LocateFixed size={18} />
                     Геолокация определена
                   </div>
-                  <button
-                    type="button"
-                    onClick={requestLocation}
-                    className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-brand-green/25 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.02em] text-brand-green"
-                  >
-                    <RefreshCw size={13} /> Обновить
-                  </button>
+                  {!scanEnabled && (
+                    <button
+                      type="button"
+                      onClick={requestLocation}
+                      className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-brand-green/25 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-[0.02em] text-brand-green"
+                    >
+                      <RefreshCw size={13} /> Обновить
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2 text-sm font-semibold leading-6 text-brand-dark/60">
                   GPS: {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
@@ -1155,7 +1157,7 @@ const PstPage = () => {
                 <>
                   <div className="mt-6">
                     <div style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
+                      {!scanEnabled && <div style={{ position: 'relative', flex: 1 }}>
                         <input
                           type="search"
                           value={searchTerm}
@@ -1173,7 +1175,7 @@ const PstPage = () => {
                           onBlur={e => e.target.style.borderColor = 'rgba(26,29,30,0.1)'}
                         />
                         <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.35, pointerEvents: 'none' }}>🔍</span>
-                      </div>
+                      </div>}
                       {scanEnabled && (
                         <button
                           onClick={openScanner}
