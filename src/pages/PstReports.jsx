@@ -390,7 +390,7 @@ export default function PstReports() {
     } finally {
       setLoading(false)
     }
-  }, [page, sortBy, sortDir, search, city, installPlace, locationZone, partnerFilter, dateFrom, dateTo])
+  }, [page, sortBy, sortDir, search, city, installPlace, locationZone, partnerFilter, workTypeFilter, dateFrom, dateTo])
 
   const fetchStats = async () => {
     try {
