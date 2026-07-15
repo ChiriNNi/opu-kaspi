@@ -334,7 +334,7 @@ function PhotoModal({ report, onClose }) {
 
 export default function PstReports() {
   const { user } = useStore()
-  const isAuditor = user?.role === 'auditor'
+  const isAuditor = ['auditor', 'kaspi'].includes(user?.role)
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')

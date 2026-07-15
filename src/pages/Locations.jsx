@@ -520,7 +520,7 @@ function HistoryModal({ loc, onClose }) {
 
 export default function Locations() {
   const { user } = useStore()
-  const isAuditor = user?.role === 'auditor'
+  const isAuditor = ['auditor', 'kaspi'].includes(user?.role)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 100 })

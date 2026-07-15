@@ -198,6 +198,18 @@ export default function App() {
       </Layout>
     )
 
+    if (role === 'kaspi') return (
+      <Layout>
+        <Routes>
+          <Route path="/checklists"  element={<Checklists />} />
+          <Route path="/pst"         element={<PstPage />} />
+          <Route path="/pst-reports" element={<PstReports />} />
+          <Route path="/locations"   element={<Locations />} />
+          <Route path="*"            element={<Navigate to="/checklists" replace />} />
+        </Routes>
+      </Layout>
+    )
+
     if (role === 'partner') return (
       <Layout>
         <Routes>

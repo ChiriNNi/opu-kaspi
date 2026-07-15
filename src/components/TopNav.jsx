@@ -4,21 +4,21 @@ import { LogOut, User } from 'lucide-react'
 import './TopNav.css'
 
 const ALL_SECTIONS = [
-  { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor'] },
+  { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
-  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner', 'auditor'] },
+  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations'], roles: ['admin', 'partner', 'auditor', 'kaspi'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
   { key: 'realization', label: 'Реализация',   paths: ['/realization', '/realization/rates'], roles: ['admin'] },
 ]
 
 const SUB_PAGES = {
   checklists: [
-    { label: 'Чек-Листы', path: '/checklists', roles: ['admin', 'partner', 'curator', 'auditor'] },
+    { label: 'Чек-Листы', path: '/checklists', roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
     { label: 'Объекты',   path: '/objects',    roles: ['admin', 'partner', 'curator'] },
   ],
   washing: [
-    { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator', 'auditor'] },
-    { label: 'Постоматы', path: '/locations',   roles: ['admin', 'partner', 'curator', 'auditor'] },
+    { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
+    { label: 'Постоматы', path: '/locations',   roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
   ],
   realization: [
     { label: 'Отчёт',              path: '/realization',       roles: ['admin'] },
@@ -31,6 +31,7 @@ const ROLE_LABEL = {
   partner: 'Партнёр',
   curator: 'Куратор',
   auditor: 'Аудитор',
+  kaspi:   'Kaspi-сотрудник',
 }
 
 export default function TopNav() {

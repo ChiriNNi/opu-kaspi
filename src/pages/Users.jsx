@@ -199,6 +199,7 @@ function UserModal({ user, defaultRole, onClose, onSaved, allUsers = [], callerR
                   <option value="cleaner">Клинер (уборка)</option>
                   {!['partner','auditor'].includes(callerRole) && <option value="curator">Куратор</option>}
                   {!['partner','auditor'].includes(callerRole) && <option value="auditor">Аудитор</option>}
+                  {!['partner','auditor'].includes(callerRole) && <option value="kaspi">Kaspi-сотрудник</option>}
                   {!['partner','auditor'].includes(callerRole) && <option value="partner">Партнёр</option>}
                   {!['partner','auditor'].includes(callerRole) && <option value="admin">Администратор</option>}
                 </select>
@@ -515,13 +516,14 @@ function TempPasswordModal({ user, onClose }) {
   )
 }
 
-const ROLE_LABELS = { admin: 'Админ', partner: 'Партнёр', curator: 'Куратор', cleaner: 'Клинер', auditor: 'Аудитор' }
+const ROLE_LABELS = { admin: 'Админ', partner: 'Партнёр', curator: 'Куратор', cleaner: 'Клинер', auditor: 'Аудитор', kaspi: 'Kaspi-сотрудник' }
 
 const ROLE_PILLS = [
   { key: 'admin',   label: 'Админы' },
   { key: 'partner', label: 'Партнёры' },
   { key: 'curator', label: 'Кураторы' },
   { key: 'auditor', label: 'Аудиторы' },
+  { key: 'kaspi',   label: 'Kaspi' },
   { key: 'cleaner', label: 'Клинеры' },
 ]
 
