@@ -348,6 +348,7 @@ export default function PstReports() {
   const [installPlace, setInstallPlace] = useState('')
   const [locationZone, setLocationZone] = useState('')
   const [partnerFilter, setPartnerFilter] = useState('')
+  const [workTypeFilter, setWorkTypeFilter] = useState('')
   const [dateFrom, setDateFrom]   = useState('')
   const [dateTo, setDateTo]       = useState('')
   const [sortBy, setSortBy]       = useState('submitted_at')
@@ -377,6 +378,7 @@ export default function PstReports() {
         ...((params.installPlace ?? installPlace) ? { install_place: params.installPlace ?? installPlace } : {}),
         ...((params.locationZone ?? locationZone) ? { location_zone: params.locationZone ?? locationZone } : {}),
         ...((params.partnerFilter ?? partnerFilter) ? { partner_id: params.partnerFilter ?? partnerFilter } : {}),
+        ...((params.workTypeFilter ?? workTypeFilter) ? { work_type: params.workTypeFilter ?? workTypeFilter } : {}),
         ...(params.dateFrom ?? dateFrom ? { dateFrom: params.dateFrom ?? dateFrom } : {}),
         ...(params.dateTo ?? dateTo ? { dateTo: params.dateTo ?? dateTo } : {}),
       })
@@ -564,12 +566,12 @@ export default function PstReports() {
   }
 
   const resetFilters = () => {
-    setSearch(''); setCity(''); setInstallPlace(''); setLocationZone(''); setPartnerFilter(''); setDateFrom(''); setDateTo('')
+    setSearch(''); setCity(''); setInstallPlace(''); setLocationZone(''); setPartnerFilter(''); setWorkTypeFilter(''); setDateFrom(''); setDateTo('')
     setPage(1)
-    fetchReports({ search: '', city: '', installPlace: '', locationZone: '', partnerFilter: '', dateFrom: '', dateTo: '', page: 1 })
+    fetchReports({ search: '', city: '', installPlace: '', locationZone: '', partnerFilter: '', workTypeFilter: '', dateFrom: '', dateTo: '', page: 1 })
   }
 
-  const hasFilters = search || city || installPlace || locationZone || partnerFilter || dateFrom || dateTo
+  const hasFilters = search || city || installPlace || locationZone || partnerFilter || workTypeFilter || dateFrom || dateTo
 
   return (
     <div className="pst-page">
@@ -659,10 +661,14 @@ export default function PstReports() {
             {exporting ? 'Выгрузка...' : 'Excel'}
           </button>
 
-          <button className="btn-photos" onClick={downloadPhotos} disabled={downloadingPhotos} title="Скачать все фотографии ZIP-архивом">
-            <ImageDown size={14} />
-            {downloadingPhotos ? (downloadProgress || 'Скачивание...') : 'Фото ZIP'}
-          </button>
+          <div className="filter-group">
+            <select value={workTypeFilter} onChange={e => { setWorkTypeFilter(e.target.value); setPage(1) }}>
+              <option value="">Все типы мойки</option>
+              <option value="ПОЛНАЯ МОЙКА">Полная мойка</option>
+              <option value="НАРУЖНЯЯ МОЙКА">Наружняя мойка</option>
+              <option value="ИНЦИДЕНТ">Инцидент</option>
+            </select>
+          </div>
         </div>
       </div>
 
