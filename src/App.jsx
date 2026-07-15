@@ -15,6 +15,7 @@ import CleanerWork from './pages/CleanerWork'
 import Training from './pages/Training'
 import Placeholder from './pages/Placeholder'
 import Realization from './pages/Realization'
+import PstIncidents from './pages/PstIncidents'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -193,6 +194,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
         </Routes>
       </Layout>
@@ -205,6 +207,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
         </Routes>
       </Layout>
@@ -221,6 +224,7 @@ export default function App() {
           <Route path="/users"       element={<Users />} />
           <Route path="/training"    element={<Training />} />
           <Route path="/pst"         element={<PstPage />} />
+          <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
@@ -239,6 +243,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/realization" element={<Realization />} />
           <Route path="/realization/rates" element={<Realization />} />
+          <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
