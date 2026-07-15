@@ -332,8 +332,54 @@ function PhotoModal({ report, onClose }) {
   )
 }
 
+const WORK_TYPES = ['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА']
+
+const WT_COLOR = {
+  'ИНЦИДЕНТ': '#dc2626',
+  'НАРУЖНЯЯ МОЙКА': '#d97706',
+  'ПОЛНАЯ МОЙКА': '#5a8a1f',
+}
+
+function WorkTypeCell({ row, onUpdate }) {
+  const [saving, setSaving] = useState(false)
+
+  const handleChange = async (e) => {
+    const wt = e.target.value
+    setSaving(true)
+    try {
+      await api.patch(`/pst/${row.id}/work-type`, { work_type: wt })
+      onUpdate(row.id, wt)
+    } catch {
+      alert('Ошибка при обновлении типа работы')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const current = row.work_type || 'ПОЛНАЯ МОЙКА'
+  return (
+    <select
+      value={current}
+      onChange={handleChange}
+      disabled={saving}
+      style={{
+        fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+        color: WT_COLOR[current] || '#5a8a1f',
+        border: 'none', background: 'transparent', cursor: 'pointer',
+        padding: '2px 0', outline: 'none', appearance: 'auto',
+        opacity: saving ? 0.5 : 1,
+      }}
+    >
+      {WORK_TYPES.map(wt => (
+        <option key={wt} value={wt}>{wt}</option>
+      ))}
+    </select>
+  )
+}
+
 export default function PstReports() {
   const { user } = useStore()
+  const isAdmin = user?.role === 'admin'
   const isAuditor = ['auditor', 'kaspi'].includes(user?.role)
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
@@ -725,9 +771,16 @@ export default function PstReports() {
                   <span className={`photo-badge ${row.after_count > 0 ? 'has-photos' : ''}`}>{row.after_count}</span>
                 </td>
                 <td>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: row.work_type === 'ИНЦИДЕНТ' ? '#dc2626' : row.work_type === 'НАРУЖНЯЯ МОЙКА' ? '#d97706' : '#5a8a1f' }}>
-                    {row.work_type || 'ПОЛНАЯ МОЙКА'}
-                  </span>
+                  {isAdmin ? (
+                    <WorkTypeCell
+                      row={row}
+                      onUpdate={(id, wt) => setRows(prev => prev.map(r => r.id === id ? { ...r, work_type: wt } : r))}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: WT_COLOR[row.work_type] || '#5a8a1f' }}>
+                      {row.work_type || 'ПОЛНАЯ МОЙКА'}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
