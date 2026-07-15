@@ -414,7 +414,7 @@ export default function PstReports() {
 
   useEffect(() => {
     fetchReports()
-  }, [page, sortBy, sortDir, city, installPlace, locationZone, partnerFilter, dateFrom, dateTo])
+  }, [page, sortBy, sortDir, city, installPlace, locationZone, partnerFilter, workTypeFilter, dateFrom, dateTo])
 
   const handleSearch = (val) => {
     setSearch(val)
