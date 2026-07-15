@@ -27,8 +27,8 @@ export default function PstIncidents() {
   const fetchIncidents = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/pst-reports', { params: { work_type: 'ИНЦИДЕНТ', limit: 200, sort_by: 'submitted_at', sort_dir: 'desc' } })
-      setIncidents(res.data.reports || [])
+      const res = await api.get('/pst/incidents')
+      setIncidents(res.data.incidents || [])
     } catch {
       // silent
     } finally {
@@ -154,24 +154,21 @@ export default function PstIncidents() {
               </tr>
             </thead>
             <tbody>
-              {incidents.map((r, i) => {
-                const loc = typeof r.location_data === 'string' ? JSON.parse(r.location_data) : (r.location_data || {})
-                return (
-                  <tr key={r.id} className={i % 2 === 0 ? 'even' : 'odd'}>
-                    <td className="cell-num">{r.id}</td>
-                    <td>{r.location_id || '—'}</td>
-                    <td className="cell-date">{formatDate(r.submitted_at)}</td>
-                    <td>{loc.city || r.city || '—'}</td>
-                    <td className="cell-branch">{loc.branch || r.branch || '—'}</td>
-                    <td className="cell-address">{loc.address || r.address || '—'}</td>
-                    <td>
-                      <span className={`sync-badge sync-${r.sync_status}`}>
-                        {r.sync_status === 'synced' ? 'OK' : r.sync_status === 'pending' ? '...' : 'Ошибка'}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
+              {incidents.map((r, i) => (
+                <tr key={r.id} className={i % 2 === 0 ? 'even' : 'odd'}>
+                  <td className="cell-num">{r.id}</td>
+                  <td>{r.postomat_id || '—'}</td>
+                  <td className="cell-date">{formatDate(r.created_at)}</td>
+                  <td>{r.city || '—'}</td>
+                  <td className="cell-branch">{r.branch || '—'}</td>
+                  <td className="cell-address">{r.address || '—'}</td>
+                  <td>
+                    <span className={`sync-badge sync-${r.sync_status}`}>
+                      {r.sync_status === 'synced' ? 'OK' : r.sync_status === 'pending' ? '...' : 'Ошибка'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
