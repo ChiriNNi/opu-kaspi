@@ -639,7 +639,7 @@ export default function CleanerWork() {
                 </button>
               </div>
 
-              <div className="cw-task-photos">
+              {/* <div className="cw-task-photos">
                 <PhotoSection
                   title="ДО"
                   photos={getPhotos(currentStep.id, 'before')}
@@ -652,7 +652,7 @@ export default function CleanerWork() {
                   onAdd={files => addPhotos(currentStep.id, 'after', files)}
                   onRemove={idx => removePhoto(currentStep.id, 'after', idx)}
                 />
-              </div>
+              </div> */}
             </div>
 
             {/* Submit button */}
