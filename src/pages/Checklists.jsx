@@ -941,21 +941,30 @@ function ShiftDetail({ checklistId }) {
   }
 
   const STATUS_CFG = {
-    done:     { label: '✓ В срок',       color: '#16a34a' },
-    active:   { label: '⚡ Идёт',         color: '#f59e0b' },
-    late:     { label: '⚠ Опаздывает',   color: '#ef4444' },
-    upcoming: { label: 'Ожидает',          color: '#9ca3af' },
+    done:      { label: '✓ В срок',        color: '#16a34a' },
+    late_done: { label: '⚠ С опозданием',  color: '#f59e0b' },
+    active:    { label: '⚡ Идёт',          color: '#2563eb' },
+    late:      { label: '⚠ Опаздывает',    color: '#ef4444' },
+    upcoming:  { label: 'Ожидает',           color: '#9ca3af' },
   }
+
+  function toMin(hhmm) { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m }
 
   function zoneStatus(zItems, zt) {
     if (!zt?.start || !zt?.end) return null
-    if (zItems.every(it => it.completed)) return 'done'
-    const now = new Date()
-    const nowMin = now.getHours() * 60 + now.getMinutes()
-    const [sh, sm] = zt.start.split(':').map(Number)
-    const [eh, em] = zt.end.split(':').map(Number)
-    if (nowMin < sh * 60 + sm) return 'upcoming'
-    if (nowMin <= eh * 60 + em) return 'active'
+    const endMin = toMin(zt.end)
+    if (zItems.every(it => it.completed)) {
+      const times = zItems.map(it => it.completed_at ? new Date(it.completed_at) : null).filter(Boolean)
+      const lastDone = times.length ? new Date(Math.max(...times)) : null
+      if (lastDone) {
+        const doneMin = lastDone.getHours() * 60 + lastDone.getMinutes()
+        return doneMin <= endMin ? 'done' : 'late_done'
+      }
+      return 'done'
+    }
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
+    if (nowMin < toMin(zt.start)) return 'upcoming'
+    if (nowMin <= endMin) return 'active'
     return 'late'
   }
 
