@@ -935,6 +935,30 @@ function ShiftDetail({ checklistId }) {
   const zones = [...new Set(items.map(it => it.zone || 'Общие'))]
   const done  = items.filter(it => it.completed).length
 
+  const zoneTimes = {}
+  if (Array.isArray(data.template_zones)) {
+    data.template_zones.forEach(z => { if (z.name) zoneTimes[z.name] = { start: z.time_start, end: z.time_end } })
+  }
+
+  const STATUS_CFG = {
+    done:     { label: '✓ В срок',       color: '#16a34a' },
+    active:   { label: '⚡ Идёт',         color: '#f59e0b' },
+    late:     { label: '⚠ Опаздывает',   color: '#ef4444' },
+    upcoming: { label: 'Ожидает',          color: '#9ca3af' },
+  }
+
+  function zoneStatus(zItems, zt) {
+    if (!zt?.start || !zt?.end) return null
+    if (zItems.every(it => it.completed)) return 'done'
+    const now = new Date()
+    const nowMin = now.getHours() * 60 + now.getMinutes()
+    const [sh, sm] = zt.start.split(':').map(Number)
+    const [eh, em] = zt.end.split(':').map(Number)
+    if (nowMin < sh * 60 + sm) return 'upcoming'
+    if (nowMin <= eh * 60 + em) return 'active'
+    return 'late'
+  }
+
   const toggleZone = (zone) =>
     setOpenZones(s => ({ ...s, [zone]: !s[zone] }))
 
@@ -951,11 +975,16 @@ function ShiftDetail({ checklistId }) {
         const zDone    = zItems.filter(it => it.completed).length
         const isOpen   = !!openZones[zone]
         const allDone  = zDone === zItems.length
+        const zt       = zoneTimes[zone]
+        const status   = zoneStatus(zItems, zt)
+        const cfg      = status ? STATUS_CFG[status] : null
         return (
           <div key={zone} className="sd-zone">
             <div className="sd-zone-header clickable" onClick={() => toggleZone(zone)}>
               <div className={`sd-zone-dot ${allDone ? 'full' : zDone > 0 ? 'partial' : ''}`} />
               <span className="sd-zone-name">{zone}</span>
+              {zt?.start && <span className="sd-zone-time">{zt.start}–{zt.end}</span>}
+              {cfg && <span className="sd-zone-status" style={{ color: cfg.color }}>{cfg.label}</span>}
               <span className={`sd-zone-count ${allDone ? 'full' : ''}`}>{zDone}/{zItems.length}</span>
               <ChevronDown size={12} className={`sd-zone-chevron ${isOpen ? 'open' : ''}`} />
             </div>
