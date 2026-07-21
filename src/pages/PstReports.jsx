@@ -332,7 +332,7 @@ function PhotoModal({ report, onClose }) {
   )
 }
 
-const WORK_TYPES = ['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА']
+const WORK_TYPES = ['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА', 'ИНЦИДЕНТ']
 
 const WT_COLOR = {
   'ИНЦИДЕНТ': '#dc2626',
@@ -370,8 +370,8 @@ function WorkTypeCell({ row, onUpdate }) {
         opacity: saving ? 0.5 : 1,
       }}
     >
-      {WORK_TYPES.map(wt => (
-        <option key={wt} value={wt}>{wt}</option>
+      {(WORK_TYPES.includes(current) ? WORK_TYPES : [current, ...WORK_TYPES]).map(wt => (
+        <option key={wt} value={wt} disabled={!WORK_TYPES.includes(wt)}>{wt}</option>
       ))}
     </select>
   )
