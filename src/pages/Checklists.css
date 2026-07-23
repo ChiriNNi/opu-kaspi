@@ -314,6 +314,10 @@
 .zone-suggestion-item:hover { background: #f5f7f2; }
 
 .zone-time-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.zone-photo-toggle { display: flex; align-items: center; gap: 3px; cursor: pointer; padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 600; color: rgba(26,29,30,0.4); border: 1.5px solid rgba(26,29,30,0.12); background: transparent; flex-shrink: 0; transition: all .15s; }
+.zone-photo-toggle input { display: none; }
+.zone-photo-toggle.active { color: #6366F1; border-color: #6366F1; background: #EEF2FF; }
+.zone-photo-toggle:hover { border-color: rgba(26,29,30,0.25); }
 .zone-time { border: 1px solid rgba(26,29,30,0.1); border-radius: 8px; padding: 4px 7px; font-size: 12px; font-weight: 700; color: #1A1D1E; background: rgba(255,255,255,0.7); outline: none; width: 88px; }
 .zone-time:focus { border-color: #1A1D1E; }
 .zone-time-sep { color: rgba(26,29,30,0.3); font-size: 12px; }
@@ -717,6 +721,10 @@
 .sd-zone-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(26,29,30,0.5); flex: 1; }
 .sd-zone-time { font-size: 10px; font-weight: 600; color: rgba(26,29,30,0.35); white-space: nowrap; letter-spacing: 0; margin-left: 6px; }
 .sd-zone-status { font-size: 10px; font-weight: 700; white-space: nowrap; margin-left: 4px; }
+
+.sd-photos-wrap { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.sd-photos-group { display: flex; align-items: center; gap: 6px; }
+.sd-photos-label { font-size: 9px; font-weight: 700; color: rgba(26,29,30,0.4); letter-spacing: .5px; min-width: 28px; text-transform: uppercase; }
 .sd-zone-count { font-size: 11px; font-weight: 700; color: rgba(26,29,30,0.3); }
 .sd-zone-count.full { color: #16a34a; }
 .sd-zone-chevron { color: rgba(26,29,30,0.3); transition: transform 0.2s; flex-shrink: 0; }

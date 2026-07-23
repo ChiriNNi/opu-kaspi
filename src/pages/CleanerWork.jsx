@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
 import CleanerNav from '../components/CleanerNav'
@@ -205,6 +205,7 @@ export default function CleanerWork() {
   const [gpsLoading, setGpsLoading] = useState(true)
   const [gpsError, setGpsError] = useState('')
   const [checklist, setChecklist] = useState(null)   // active checklist (first assigned)
+  const [templateZones, setTemplateZones] = useState([])
   const [items, setItems] = useState([])              // full item list with zone/completed
   const [checkedMap, setCheckedMap] = useState({})    // itemId -> boolean (local optimistic)
   const [taskPhotos, setTaskPhotos] = useState({})    // "itemId-before/after" -> [{file,preview}]
@@ -222,6 +223,12 @@ export default function CleanerWork() {
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
   const today = fmtDate()
+
+  const zonePhotoRequired = useMemo(() => {
+    const map = {}
+    templateZones.forEach(z => { if (z.name) map[z.name] = !!z.requires_photo })
+    return map
+  }, [templateZones])
 
   // ── Check training status ────────────────────────────────────────────────────
   useEffect(() => {
@@ -260,6 +267,7 @@ export default function CleanerWork() {
       const dData = await detail.json()
       const clItems = dData.checklist?.items || []
       setItems(clItems)
+      setTemplateZones(dData.checklist?.template_zones || [])
 
       const map = {}
       clItems.forEach(it => { map[it.id] = it.completed })
@@ -365,16 +373,20 @@ export default function CleanerWork() {
       if (pendingPhotoOpsRef.current.length) await Promise.all(pendingPhotoOpsRef.current)
 
       // Mark item done — send photos via FormData if any
-      const beforeKey = photoKey(currentStep.id, 'before')
-      const afterKey  = photoKey(currentStep.id, 'after')
-      const allPhotos = [...(taskPhotos[beforeKey] || []), ...(taskPhotos[afterKey] || [])]
+      const beforeKey    = photoKey(currentStep.id, 'before')
+      const afterKey     = photoKey(currentStep.id, 'after')
+      const beforePhotos = taskPhotos[beforeKey] || []
+      const afterPhotos  = taskPhotos[afterKey]  || []
+      const hasPhotos    = beforePhotos.length > 0 || afterPhotos.length > 0
 
       let fetchOpts
-      if (allPhotos.length > 0) {
+      if (hasPhotos) {
         const fd = new FormData()
         fd.append('completed', 'true')
         fd.append('note', currentStep.title)
-        allPhotos.forEach(p => fd.append('photos', p.file))   // все фото, не только последнее
+        fd.append('zone', currentStep.zone || 'general')
+        beforePhotos.forEach(p => fd.append('photos_before', p.file))
+        afterPhotos.forEach(p  => fd.append('photos_after',  p.file))
         fetchOpts = { method: 'POST', headers: { Authorization: headers.Authorization }, body: fd }
       } else {
         fetchOpts = { method: 'POST', headers, body: JSON.stringify({ completed: true, note: currentStep.title }) }
@@ -639,20 +651,22 @@ export default function CleanerWork() {
                 </button>
               </div>
 
-              {/* <div className="cw-task-photos">
-                <PhotoSection
-                  title="ДО"
-                  photos={getPhotos(currentStep.id, 'before')}
-                  onAdd={files => addPhotos(currentStep.id, 'before', files)}
-                  onRemove={idx => removePhoto(currentStep.id, 'before', idx)}
-                />
-                <PhotoSection
-                  title="ПОСЛЕ"
-                  photos={getPhotos(currentStep.id, 'after')}
-                  onAdd={files => addPhotos(currentStep.id, 'after', files)}
-                  onRemove={idx => removePhoto(currentStep.id, 'after', idx)}
-                />
-              </div> */}
+              {zonePhotoRequired[currentStep.zone] && (
+                <div className="cw-task-photos">
+                  <PhotoSection
+                    title="ДО"
+                    photos={getPhotos(currentStep.id, 'before')}
+                    onAdd={files => addPhotos(currentStep.id, 'before', files)}
+                    onRemove={idx => removePhoto(currentStep.id, 'before', idx)}
+                  />
+                  <PhotoSection
+                    title="ПОСЛЕ"
+                    photos={getPhotos(currentStep.id, 'after')}
+                    onAdd={files => addPhotos(currentStep.id, 'after', files)}
+                    onRemove={idx => removePhoto(currentStep.id, 'after', idx)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Submit button */}

@@ -68,6 +68,11 @@ function ZoneBlock({ zone, idx, total, color, onChange, onDelete, onMoveUp, onMo
           <span className="zone-time-sep">—</span>
           <input className="zone-time" type="time" value={zone.time_end || ''} onChange={e => onChange({ ...zone, time_end: e.target.value })} />
         </div>
+        <label className={`zone-photo-toggle ${zone.requires_photo ? 'active' : ''}`} title="Требовать фото в этой зоне">
+          <input type="checkbox" checked={!!zone.requires_photo} onChange={e => onChange({ ...zone, requires_photo: e.target.checked })} />
+          <Camera size={12} />
+          <span>Фото</span>
+        </label>
         <div className="zone-actions">
           <button className="zone-move-btn" onClick={onMoveUp}   disabled={idx === 0}><ChevronUp size={13} /></button>
           <button className="zone-move-btn" onClick={onMoveDown} disabled={idx === total - 1}><ChevronDown size={13} /></button>
@@ -1011,22 +1016,48 @@ function ShiftDetail({ checklistId }) {
                 )}
                 {!item.completed && <span className="sd-miss-label">Не выполнено</span>}
                 {(() => {
-                  const raw = (item.photos && item.photos.length) ? item.photos : (item.photo_url ? [item.photo_url] : [])
-                  if (!raw.length) return null
-                  const urls = raw.map(p => API_BASE + p)
+                  const beforeUrls = (item.photos_before || []).map(p => API_BASE + p)
+                  const afterUrls  = (item.photos_after  || []).map(p => API_BASE + p)
+                  const legacyUrls = (!beforeUrls.length && !afterUrls.length && item.photos?.length)
+                    ? item.photos.map(p => API_BASE + p) : []
+                  if (!beforeUrls.length && !afterUrls.length && !legacyUrls.length) return null
+                  const allUrls = [...beforeUrls, ...afterUrls, ...legacyUrls]
                   return (
-                    <div className="sd-photos">
-                      {urls.slice(0, 4).map((u, idx) => (
-                        <button
-                          key={idx}
-                          className="sd-photo-btn"
-                          onClick={() => setLightbox({ list: urls, i: idx })}
-                          title="Посмотреть фото"
-                        >
-                          <img src={u} className="sd-photo-thumb" alt="" />
-                          {idx === 0 && urls.length > 1 && <span className="sd-photo-badge">{urls.length}</span>}
-                        </button>
-                      ))}
+                    <div className="sd-photos-wrap">
+                      {beforeUrls.length > 0 && (
+                        <div className="sd-photos-group">
+                          <span className="sd-photos-label">ДО</span>
+                          <div className="sd-photos">
+                            {beforeUrls.map((u, i) => (
+                              <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: allUrls, i })}>
+                                <img src={u} className="sd-photo-thumb" alt="" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {afterUrls.length > 0 && (
+                        <div className="sd-photos-group">
+                          <span className="sd-photos-label">ПОСЛЕ</span>
+                          <div className="sd-photos">
+                            {afterUrls.map((u, i) => (
+                              <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: allUrls, i: beforeUrls.length + i })}>
+                                <img src={u} className="sd-photo-thumb" alt="" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {legacyUrls.length > 0 && (
+                        <div className="sd-photos">
+                          {legacyUrls.slice(0, 4).map((u, i) => (
+                            <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: legacyUrls, i })}>
+                              <img src={u} className="sd-photo-thumb" alt="" />
+                              {i === 0 && legacyUrls.length > 1 && <span className="sd-photo-badge">{legacyUrls.length}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
