@@ -217,6 +217,7 @@ function TemplateModal({ template, onClose, onSave }) {
         name: z.name || '',
         time_start: z.time_start || '',
         time_end: z.time_end || '',
+        requires_photo: !!z.requires_photo,
         tasks: z.tasks?.length
           ? z.tasks
           : items
