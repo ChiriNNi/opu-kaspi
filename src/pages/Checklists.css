@@ -722,9 +722,25 @@
 .sd-zone-time { font-size: 10px; font-weight: 600; color: rgba(26,29,30,0.35); white-space: nowrap; letter-spacing: 0; margin-left: 6px; }
 .sd-zone-status { font-size: 10px; font-weight: 700; white-space: nowrap; margin-left: 4px; }
 
-.sd-photos-wrap { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-.sd-photos-group { display: flex; align-items: center; gap: 6px; }
-.sd-photos-label { font-size: 9px; font-weight: 700; color: rgba(26,29,30,0.4); letter-spacing: .5px; min-width: 28px; text-transform: uppercase; }
+.sd-eye-btn { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 8px; border-radius: 6px; border: 1.5px solid rgba(26,29,30,0.15); background: transparent; color: rgba(26,29,30,0.5); font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; transition: all .15s; font-family: inherit; }
+.sd-eye-btn:hover { border-color: #6366F1; color: #6366F1; background: #EEF2FF; }
+
+/* ── Item Photo Modal (reuses PstReports modal styles) ── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; backdrop-filter: blur(4px); }
+.modal-card { background: #fff; border-radius: 24px; width: 100%; max-width: 700px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.18); overflow: hidden; }
+.modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid rgba(0,0,0,0.06); flex-shrink: 0; }
+.modal-title { font-size: 14px; font-weight: 700; color: #1A1D1E; }
+.modal-close { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(26,29,30,0.1); background: none; cursor: pointer; color: rgba(26,29,30,0.5); transition: all .15s; }
+.modal-close:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+.modal-tabs { display: flex; flex-shrink: 0; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 0 24px; }
+.modal-tab { padding: 10px 16px; font-size: 14px; font-weight: 700; border: none; background: none; cursor: pointer; color: rgba(26,29,30,0.45); border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; transition: all .15s; }
+.modal-tab.active { color: #1A1D1E; border-bottom-color: #6366F1; }
+.modal-tab:hover:not(.active) { color: rgba(26,29,30,0.7); }
+.modal-photos { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 24px; overflow-y: auto; flex: 1; }
+.modal-empty { width: 100%; padding: 32px; text-align: center; color: rgba(26,29,30,0.35); font-size: 14px; font-weight: 600; }
+.photo-thumb { position: relative; display: block; border-radius: 12px; overflow: hidden; width: calc(33.333% - 7px); aspect-ratio: 4/3; border: 1px solid rgba(0,0,0,0.06); flex-shrink: 0; background: none; padding: 0; cursor: pointer; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.photo-thumb:hover img { transform: scale(1.04); }
 .sd-zone-count { font-size: 11px; font-weight: 700; color: rgba(26,29,30,0.3); }
 .sd-zone-count.full { color: #16a34a; }
 .sd-zone-chevron { color: rgba(26,29,30,0.3); transition: transform 0.2s; flex-shrink: 0; }

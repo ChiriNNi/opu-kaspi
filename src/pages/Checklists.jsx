@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import api from '../api'
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronUp, X,
-  Clock, GripVertical, RefreshCw, Search, Camera,
+  Clock, GripVertical, RefreshCw, Search, Camera, Eye,
   ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe, Copy
 } from 'lucide-react'
 import './Checklists.css'
@@ -892,6 +892,67 @@ const fmtHHMM = (v) => v
 // ── Детали смены (раскрывается под строкой даты) ─────────────────────────────
 const API_BASE = import.meta.env.VITE_API_URL || 'https://opu.ic-group.kz'
 
+function ItemPhotoModal({ item, onClose }) {
+  const [tab, setTab] = useState('before')
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+
+  const beforeUrls = (item.photos_before || []).map(p => API_BASE + p)
+  const afterUrls  = (item.photos_after  || []).map(p => API_BASE + p)
+  const legacyUrls = (!beforeUrls.length && !afterUrls.length && item.photos?.length)
+    ? item.photos.map(p => API_BASE + p) : []
+
+  const hasBeforeAfter = beforeUrls.length > 0 || afterUrls.length > 0
+  const tabPhotos = hasBeforeAfter
+    ? (tab === 'before' ? beforeUrls : afterUrls)
+    : legacyUrls
+
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title" style={{ fontSize: 14 }}>{item.title}</div>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        {hasBeforeAfter && (
+          <div className="modal-tabs">
+            <button className={`modal-tab ${tab === 'before' ? 'active' : ''}`} onClick={() => setTab('before')}>
+              До уборки ({beforeUrls.length})
+            </button>
+            <button className={`modal-tab ${tab === 'after' ? 'active' : ''}`} onClick={() => setTab('after')}>
+              После уборки ({afterUrls.length})
+            </button>
+          </div>
+        )}
+
+        <div className="modal-photos">
+          {tabPhotos.length === 0
+            ? <div className="modal-empty">Нет фотографий</div>
+            : tabPhotos.map((u, i) => (
+              <button key={i} type="button" className="photo-thumb" onClick={() => setLightboxIdx(i)}>
+                <img src={u} alt={`фото ${i + 1}`} />
+              </button>
+            ))
+          }
+        </div>
+      </div>
+      {lightboxIdx !== null && (
+        <PhotoLightbox
+          photos={tabPhotos}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
+    </div>
+  )
+}
+
 function PhotoLightbox({ photos, index, onClose }) {
   const [i, setI] = useState(index || 0)
   const prev = (e) => { e?.stopPropagation(); setI(v => (v - 1 + photos.length) % photos.length) }
@@ -924,7 +985,8 @@ function ShiftDetail({ checklistId }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [openZones, setOpenZones] = useState({})
-  const [lightbox, setLightbox] = useState(null)   // { list: [url...], i }
+  const [lightbox, setLightbox] = useState(null)
+  const [photoItem, setPhotoItem] = useState(null)
 
   useEffect(() => {
     api.get(`/checklists/active/${checklistId}`)
@@ -979,6 +1041,7 @@ function ShiftDetail({ checklistId }) {
   return (
     <div className="sd-wrap">
       {lightbox && <PhotoLightbox photos={lightbox.list} index={lightbox.i} onClose={() => setLightbox(null)} />}
+      {photoItem && <ItemPhotoModal item={photoItem} onClose={() => setPhotoItem(null)} />}
       <div className="sd-summary">
         <span className="sd-done">{done} выполнено</span>
         <span className="sd-total">из {items.length}</span>
@@ -1016,49 +1079,16 @@ function ShiftDetail({ checklistId }) {
                 )}
                 {!item.completed && <span className="sd-miss-label">Не выполнено</span>}
                 {(() => {
-                  const beforeUrls = (item.photos_before || []).map(p => API_BASE + p)
-                  const afterUrls  = (item.photos_after  || []).map(p => API_BASE + p)
-                  const legacyUrls = (!beforeUrls.length && !afterUrls.length && item.photos?.length)
-                    ? item.photos.map(p => API_BASE + p) : []
-                  if (!beforeUrls.length && !afterUrls.length && !legacyUrls.length) return null
-                  const allUrls = [...beforeUrls, ...afterUrls, ...legacyUrls]
+                  const hasBefore = item.photos_before?.length > 0
+                  const hasAfter  = item.photos_after?.length > 0
+                  const hasLegacy = !hasBefore && !hasAfter && item.photos?.length > 0
+                  if (!hasBefore && !hasAfter && !hasLegacy) return null
+                  const total = (item.photos_before?.length || 0) + (item.photos_after?.length || 0) + (hasLegacy ? item.photos.length : 0)
                   return (
-                    <div className="sd-photos-wrap">
-                      {beforeUrls.length > 0 && (
-                        <div className="sd-photos-group">
-                          <span className="sd-photos-label">ДО</span>
-                          <div className="sd-photos">
-                            {beforeUrls.map((u, i) => (
-                              <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: allUrls, i })}>
-                                <img src={u} className="sd-photo-thumb" alt="" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {afterUrls.length > 0 && (
-                        <div className="sd-photos-group">
-                          <span className="sd-photos-label">ПОСЛЕ</span>
-                          <div className="sd-photos">
-                            {afterUrls.map((u, i) => (
-                              <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: allUrls, i: beforeUrls.length + i })}>
-                                <img src={u} className="sd-photo-thumb" alt="" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {legacyUrls.length > 0 && (
-                        <div className="sd-photos">
-                          {legacyUrls.slice(0, 4).map((u, i) => (
-                            <button key={i} className="sd-photo-btn" onClick={() => setLightbox({ list: legacyUrls, i })}>
-                              <img src={u} className="sd-photo-thumb" alt="" />
-                              {i === 0 && legacyUrls.length > 1 && <span className="sd-photo-badge">{legacyUrls.length}</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <button className="sd-eye-btn" onClick={() => setPhotoItem(item)} title="Смотреть фото">
+                      <Eye size={13} />
+                      <span>{total}</span>
+                    </button>
                   )
                 })()}
               </div>
