@@ -17,12 +17,16 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+let sessionExpiredPending = false
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !sessionExpiredPending) {
+      sessionExpiredPending = true
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      // Small delay so all in-flight requests settle before redirect
+      setTimeout(() => { window.location.href = '/login' }, 300)
     }
     return Promise.reject(error)
   }
