@@ -30,6 +30,7 @@ const COLUMNS = [
   { key: 'distance_meters',label: 'Дист.',       width: 65,  sortable: false },
   { key: 'before_count',   label: 'До',          width: 50,  sortable: false },
   { key: 'after_count',    label: 'После',       width: 55,  sortable: false },
+  { key: 'drive_count',    label: 'Архив',       width: 55,  sortable: false },
   { key: 'work_type',      label: 'Тип работы',  width: 130, sortable: false },
 ]
 
@@ -223,8 +224,9 @@ function ZoomableLightbox({ photos, index, label, onClose }) {
 }
 
 function PhotoModal({ report, onClose }) {
-  const [tab, setTab] = useState('before')
-  const photos = tab === 'before' ? (report.before_photos ?? []) : (report.after_photos ?? [])
+  const hasDrive = (report.drive_photos ?? []).length > 0
+  const [tab, setTab] = useState(hasDrive && !(report.before_photos ?? []).length && !(report.after_photos ?? []).length ? 'drive' : 'before')
+  const photos = tab === 'before' ? (report.before_photos ?? []) : tab === 'after' ? (report.after_photos ?? []) : (report.drive_photos ?? [])
   const [lightbox, setLightbox] = useState(null) // { i }
 
   useEffect(() => {
@@ -276,6 +278,14 @@ function PhotoModal({ report, onClose }) {
           >
             После уборки ({report.after_photos?.length ?? 0})
           </button>
+          {hasDrive && (
+            <button
+              className={`modal-tab ${tab === 'drive' ? 'active' : ''}`}
+              onClick={() => setTab('drive')}
+            >
+              Архив Drive ({report.drive_photos?.length ?? 0})
+            </button>
+          )}
         </div>
 
         <div className="modal-photos">
@@ -490,7 +500,7 @@ export default function PstReports() {
       const res = await api.get(`/pst/${row.id}`)
       setActiveReport(res.data)
     } catch {
-      setActiveReport({ ...row, before_photos: [], after_photos: [] })
+      setActiveReport({ ...row, before_photos: [], after_photos: [], drive_photos: [] })
     } finally {
       setLoadingDetail(false)
     }
@@ -769,6 +779,9 @@ export default function PstReports() {
                 </td>
                 <td className="cell-photo">
                   <span className={`photo-badge ${row.after_count > 0 ? 'has-photos' : ''}`}>{row.after_count}</span>
+                </td>
+                <td className="cell-photo">
+                  <span className={`photo-badge ${row.drive_count > 0 ? 'has-photos drive-badge' : ''}`}>{row.drive_count > 0 ? row.drive_count : '—'}</span>
                 </td>
                 <td>
                   {isAdmin ? (

@@ -161,6 +161,7 @@
   background: rgba(26,29,30,0.05); color: rgba(26,29,30,0.35);
 }
 .photo-badge.has-photos { background: rgba(143,198,64,0.12); color: #5a7d20; }
+.photo-badge.has-photos.drive-badge { background: rgba(99,102,241,0.1); color: #4f46e5; }
 
 .btn-view {
   display: inline-flex; align-items: center; justify-content: center;
