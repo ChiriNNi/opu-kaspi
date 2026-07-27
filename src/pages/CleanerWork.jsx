@@ -378,6 +378,12 @@ export default function CleanerWork() {
       const beforePhotos = taskPhotos[beforeKey] || []
       const afterPhotos  = taskPhotos[afterKey]  || []
       const hasPhotos    = beforePhotos.length > 0 || afterPhotos.length > 0
+      const requiresPhotos = !!zonePhotoRequired[currentStep.zone]
+
+      if (requiresPhotos && (!beforePhotos.length || !afterPhotos.length)) {
+        setSubmitError('Для этой зоны обязательно добавьте фото До и После.')
+        return
+      }
 
       let fetchOpts
       if (hasPhotos) {
