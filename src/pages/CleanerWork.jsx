@@ -424,8 +424,6 @@ export default function CleanerWork() {
   if (screen === 'start') {
     const startBlocked = !checklist || totalAll === 0
       ? 'На сегодня нет назначенной смены'
-      : gpsLoading ? 'Определяем геопозицию...'
-      : gpsError ? gpsError
       : ''
 
     return (
