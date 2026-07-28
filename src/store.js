@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import api from './api'
+import api, { clearStoredAuth } from './api'
 
 export const useStore = create(
   persist(
@@ -48,21 +48,41 @@ export const useStore = create(
           localStorage.removeItem('push_subscribed')
         } catch {}
         set({ token: null, user: null, users: [] })
-        localStorage.removeItem('token')
+        clearStoredAuth()
       },
 
       checkAuth: async () => {
         const token = localStorage.getItem('token')
-        if (!token) return
+        if (!token) {
+          clearStoredAuth()
+          set({ token: null, user: null, users: [] })
+          return
+        }
+
+        let payload
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]))
-          // Set from token immediately so UI renders fast
-          set({ token, user: { id: payload.id, phone: payload.phone, role: payload.role, full_name: payload.full_name } })
+          payload = JSON.parse(atob(token.split('.')[1]))
+          if (payload.exp && payload.exp * 1000 <= Date.now()) {
+            throw new Error('Token expired')
+          }
+        } catch {
+          clearStoredAuth()
+          set({ token: null, user: null, users: [] })
+          return
+        }
+
+        // Set from token immediately so UI renders fast
+        set({ token, user: { id: payload.id, phone: payload.phone, role: payload.role, full_name: payload.full_name } })
+
+        try {
           // Then fetch fresh role from DB (in case admin changed it)
           const res = await api.get('/auth/me')
           set({ user: { ...res.data.user, password_reset_required: res.data.user.password_reset_required || false } })
-        } catch {
-          set({ token })
+        } catch (err) {
+          if (err.response?.status === 401) {
+            clearStoredAuth()
+            set({ token: null, user: null, users: [] })
+          }
         }
       },
 

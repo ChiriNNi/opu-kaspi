@@ -1,6 +1,12 @@
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://opu.ic-group.kz'
+const AUTH_STORE_KEY = 'auth-store'
+
+export function clearStoredAuth() {
+  localStorage.removeItem('token')
+  localStorage.removeItem(AUTH_STORE_KEY)
+}
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -24,9 +30,13 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !sessionExpiredPending) {
       sessionExpiredPending = true
-      localStorage.removeItem('token')
+      clearStoredAuth()
       // Small delay so all in-flight requests settle before redirect
-      setTimeout(() => { window.location.href = '/login' }, 300)
+      setTimeout(() => {
+        if (window.location.pathname !== '/login') {
+          window.location.replace('/login')
+        }
+      }, 300)
     }
     return Promise.reject(error)
   }
