@@ -189,6 +189,7 @@ export default function App() {
       <Layout>
         <Routes>
           <Route path="/checklists"  element={<Checklists />} />
+          <Route path="/objects"     element={<Objects />} />
           <Route path="/training"    element={<Training />} />
           <Route path="/users"       element={<Users />} />
           <Route path="/pst"         element={<PstPage />} />

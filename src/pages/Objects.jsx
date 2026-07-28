@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '../api'
+import { useStore } from '../store'
 import { Search, X, RefreshCw, Building2, Users, ChevronDown, UserCheck } from 'lucide-react'
 import './Objects.css'
 
 export default function Objects() {
+  const { user } = useStore()
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0, limit: 100 })
@@ -16,6 +18,7 @@ export default function Objects() {
   const [editingPartner, setEditingPartner] = useState(null)
   const [savingId, setSavingId]   = useState(null)
   const searchTimer = useRef(null)
+  const canEditPartners = user?.role !== 'auditor'
 
   const load = useCallback(async (overrides = {}) => {
     setLoading(true)
@@ -140,7 +143,7 @@ export default function Objects() {
                   <td className="obj-city">{r.city || '—'}</td>
                   <td className="obj-name">{r.name || '—'}</td>
                   <td className="obj-partner-cell">
-                    {isEditing ? (
+                    {isEditing && canEditPartners ? (
                       <div className="obj-partner-edit">
                         <select
                           defaultValue={r.partner_id || ''}
@@ -155,7 +158,7 @@ export default function Objects() {
                           ))}
                         </select>
                       </div>
-                    ) : (
+                    ) : canEditPartners ? (
                       <button
                         className={`obj-partner-btn ${r.partner_name ? 'assigned' : 'empty'}`}
                         onClick={() => setEditingPartner(r.id)}
@@ -167,6 +170,10 @@ export default function Objects() {
                         }
                         <ChevronDown size={10} className="obj-partner-chevron" />
                       </button>
+                    ) : (
+                      <span className={`obj-partner-btn ${r.partner_name ? 'assigned' : 'empty'}`}>
+                        {r.partner_name || '—'}
+                      </span>
                     )}
                   </td>
                   <td className="obj-num">{r.area ? `${parseFloat(r.area).toLocaleString('ru-RU')}` : '—'}</td>

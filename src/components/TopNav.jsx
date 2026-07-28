@@ -14,7 +14,7 @@ const ALL_SECTIONS = [
 const SUB_PAGES = {
   checklists: [
     { label: 'Чек-Листы', path: '/checklists', roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
-    { label: 'Объекты',   path: '/objects',    roles: ['admin', 'partner', 'curator'] },
+    { label: 'Объекты',   path: '/objects',    roles: ['admin', 'partner', 'curator', 'auditor'] },
   ],
   washing: [
     { label: 'Отчёты',    path: '/pst-reports', roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
