@@ -5,6 +5,7 @@ import { Eye, EyeOff, HelpCircle, ChevronDown } from 'lucide-react'
 import './Login.css'
 
 const API = import.meta.env.VITE_API_URL || 'https://opu.ic-group.kz'
+const TEMP_PASSWORDLESS_LOGIN = true
 
 const LOGIN_HELP = {
   ru: [
@@ -69,8 +70,23 @@ export default function Login() {
       if (!d.found) return setError('Пользователь не найден. Обратитесь к куратору.')
       setUserId(d.user_id)
       setFullName(d.full_name || '')
-      if (d.has_password) setStep('password')
-      else setStep('setpwd')
+      if (TEMP_PASSWORDLESS_LOGIN) {
+        if (!d.token || !d.user) throw new Error('Login error')
+        setAuth(d.token, d.user)
+        const role = d.user?.role
+        if (role === 'cleaner') navigate('/work', { replace: true })
+        else navigate('/', { replace: true })
+        return
+      }
+
+      /*
+       * Temporary disabled password flow. To restore password login, set
+       * TEMP_PASSWORDLESS_LOGIN to false and make /api/self/check return only
+       * found/user_id/full_name/role/has_password again.
+       *
+       * if (d.has_password) setStep('password')
+       * else setStep('setpwd')
+       */
     } catch (err) {
       setError(err.message)
     } finally { setLoading(false) }
