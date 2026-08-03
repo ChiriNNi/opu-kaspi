@@ -7,6 +7,7 @@ const ALL_SECTIONS = [
   { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
   { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations', '/incidents'], roles: ['admin', 'partner', 'auditor', 'kaspi'] },
+  { key: 'clockster',  label: 'Clockster',    paths: ['/clockster'],                      roles: ['admin'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
   { key: 'realization', label: 'Реализация',   paths: ['/realization', '/realization/rates'], roles: ['admin'] },
 ]

@@ -244,6 +244,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/realization" element={<Realization />} />
           <Route path="/realization/rates" element={<Realization />} />
+          <Route path="/clockster"   element={<Placeholder title="Clockster" />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
