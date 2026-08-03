@@ -13,9 +13,9 @@ import Objects from './pages/Objects'
 import ChecklistUser from './pages/ChecklistUser'
 import CleanerWork from './pages/CleanerWork'
 import Training from './pages/Training'
-import Placeholder from './pages/Placeholder'
 import Realization from './pages/Realization'
 import PstIncidents from './pages/PstIncidents'
+import Clockster from './pages/Clockster'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -168,6 +168,7 @@ export default function App() {
       <Routes>
         <Route path="/work"     element={<CleanerWork />} />
         <Route path="/training" element={<Training />} />
+        <Route path="/clockster" element={<Clockster />} />
         <Route path="/pst"      element={<PstPage />} />
         <Route path="*"         element={<Navigate to="/work" replace />} />
       </Routes>
@@ -179,6 +180,7 @@ export default function App() {
           <Route path="/checklists"  element={<Checklists />} />
           <Route path="/objects"     element={<Objects />} />
           <Route path="/training"    element={<Training />} />
+          <Route path="/clockster"   element={<Clockster />} />
           <Route path="/pst"         element={<PstPage />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
         </Routes>
@@ -192,6 +194,7 @@ export default function App() {
           <Route path="/objects"     element={<Objects />} />
           <Route path="/training"    element={<Training />} />
           <Route path="/users"       element={<Users />} />
+          <Route path="/clockster"   element={<Clockster />} />
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
@@ -224,6 +227,7 @@ export default function App() {
           <Route path="/objects"     element={<Objects />} />
           <Route path="/users"       element={<Users />} />
           <Route path="/training"    element={<Training />} />
+          <Route path="/clockster"   element={<Clockster />} />
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
@@ -244,7 +248,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/realization" element={<Realization />} />
           <Route path="/realization/rates" element={<Realization />} />
-          <Route path="/clockster"   element={<Placeholder title="Clockster" />} />
+          <Route path="/clockster"   element={<Clockster />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
