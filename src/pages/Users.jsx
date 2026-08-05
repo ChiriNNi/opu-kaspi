@@ -516,6 +516,49 @@ function TempPasswordModal({ user, onClose }) {
   )
 }
 
+function CleanerLocationsModal({ user, locationsById, onClose }) {
+  const ids = user?.cleaning_location_ids || []
+  const locations = ids.map(id => locationsById.get(Number(id)) || { id })
+
+  return (
+    <div className="u-backdrop" onClick={onClose}>
+      <div className="u-modal" onClick={e => e.stopPropagation()}>
+        <div className="u-modal-header">
+          <span>Закреплённые объекты</span>
+          <button className="u-close" onClick={onClose}><X size={18}/></button>
+        </div>
+        <div className="u-form">
+          <div className="u-tmp-user">
+            <div className="u-tmp-avatar">{(user.full_name || user.phone || '?')[0].toUpperCase()}</div>
+            <div>
+              <div className="u-tmp-name">{user.full_name || '—'}</div>
+              <div className="u-tmp-phone">{fmtPhone(user.phone)}</div>
+            </div>
+          </div>
+
+          {locations.length === 0 ? (
+            <div className="u-empty compact">Объекты не назначены</div>
+          ) : (
+            <div className="u-assigned-locs-list">
+              {locations.map(l => (
+                <div key={l.id} className="u-assigned-loc-item">
+                  <MapPin size={15} />
+                  <div>
+                    <strong>{l.name || `Объект ID ${l.id}`}</strong>
+                    <span>{l.city ? `${l.city} · ` : ''}{l.kaspi_id ? `Kaspi ID ${l.kaspi_id}` : `ID ${l.id}`}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="u-btn-cancel" onClick={onClose} style={{ alignSelf: 'center' }}>Закрыть</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const ROLE_LABELS = { admin: 'Админ', partner: 'Партнёр', curator: 'Куратор', cleaner: 'Клинер', auditor: 'Аудитор', kaspi: 'Kaspi-сотрудник' }
 
 const ROLE_PILLS = [
@@ -532,6 +575,8 @@ export default function Users() {
   const { users, fetchUsers, deleteUser, loading, error, clearError, user: me } = useStore()
   const [modal, setModal]       = useState(null)
   const [tmpModal, setTmpModal] = useState(null) // user object for temp password
+  const [locModal, setLocModal] = useState(null)
+  const [locations, setLocations] = useState([])
   const [mainTab, setMainTab]   = useState('staff') // staff | pending
   const [roleTab, setRoleTab]   = useState('cleaner')
   const [showImport, setShowImport] = useState(false)
@@ -543,6 +588,12 @@ export default function Users() {
   const isAuditor = me?.role === 'auditor'
 
   useEffect(() => { clearError(); fetchUsers() }, [])
+
+  useEffect(() => {
+    api.get('/locations/cleaning?limit=1000')
+      .then(r => setLocations(r.data.locations || []))
+      .catch(() => setLocations([]))
+  }, [])
 
   const handleDelete = async (u) => {
     if (!window.confirm(`Удалить пользователя ${u.phone}?`)) return
@@ -572,6 +623,9 @@ export default function Users() {
   const resetFilters = () => { setSearch(''); setFilterStatus(''); setFilterOnline('') }
   const roleCount = (role) => users.filter(u => u.role === role).length
   const isCleaner = roleTab === 'cleaner'
+  const locationsById = useMemo(() => {
+    return new Map(locations.map(l => [Number(l.id), l]))
+  }, [locations])
 
   return (
     <div className="u-page">
@@ -727,7 +781,11 @@ export default function Users() {
                     {isCleaner && (
                       <td>
                         {locCount > 0
-                          ? <span className="u-loc-badge"><MapPin size={11} /> {locCount} объект{locCount === 1 ? '' : locCount < 5 ? 'а' : 'ов'}</span>
+                          ? (
+                            <button className="u-loc-badge u-loc-badge-btn" onClick={() => setLocModal(u)} title="Показать закреплённые объекты">
+                              <MapPin size={11} /> {locCount} объект{locCount === 1 ? '' : locCount < 5 ? 'а' : 'ов'}
+                            </button>
+                          )
                           : <span className="u-loc-badge empty">Не назначены</span>}
                       </td>
                     )}
@@ -777,6 +835,9 @@ export default function Users() {
       )}
       {tmpModal && (
         <TempPasswordModal user={tmpModal} onClose={() => setTmpModal(null)} />
+      )}
+      {locModal && (
+        <CleanerLocationsModal user={locModal} locationsById={locationsById} onClose={() => setLocModal(null)} />
       )}
     </div>
   )
