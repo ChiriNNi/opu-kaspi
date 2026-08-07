@@ -15,7 +15,7 @@ import CleanerWork from './pages/CleanerWork'
 import Training from './pages/Training'
 import Realization from './pages/Realization'
 import PstIncidents from './pages/PstIncidents'
-import Placeholder from './pages/Placeholder'
+import PstReview from './pages/PstReview'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -196,7 +196,7 @@ export default function App() {
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
           <Route path="/incidents"   element={<PstIncidents />} />
-          <Route path="/pst-review"  element={<Placeholder title="PST на проверку" />} />
+          <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
         </Routes>
       </Layout>
@@ -210,7 +210,7 @@ export default function App() {
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
           <Route path="/incidents"   element={<PstIncidents />} />
-          <Route path="/pst-review"  element={<Placeholder title="PST на проверку" />} />
+          <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
         </Routes>
       </Layout>
@@ -228,7 +228,7 @@ export default function App() {
           <Route path="/training"    element={<Training />} />
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/incidents"   element={<PstIncidents />} />
-          <Route path="/pst-review"  element={<Placeholder title="PST на проверку" />} />
+          <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
@@ -248,7 +248,7 @@ export default function App() {
           <Route path="/realization" element={<Realization />} />
           <Route path="/realization/rates" element={<Realization />} />
           <Route path="/incidents"   element={<PstIncidents />} />
-          <Route path="/pst-review"  element={<Placeholder title="PST на проверку" />} />
+          <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
