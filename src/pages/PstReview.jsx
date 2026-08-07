@@ -220,22 +220,29 @@ export default function PstReview() {
     setError('')
     try {
       const loaded = []
-      let page = 1
-      let pages = 1
-      do {
-        const q = new URLSearchParams({
-          page,
-          limit: 200,
-          sortBy: 'submitted_at',
-          sortDir: 'desc',
-          work_type: sheet.workType,
-        })
-        const res = await api.get(`/pst?${q}`)
-        loaded.push(...(res.data.reports || []))
-        pages = res.data.pagination?.pages || 1
-        page += 1
-      } while (page <= pages)
-      setReports(loaded)
+      const workTypes = sheet.key === 'exterior'
+        ? [sheet.workType, 'НАРУЖНЯЯ УБОРКА']
+        : [sheet.workType]
+
+      for (const workType of workTypes) {
+        let page = 1
+        let pages = 1
+        do {
+          const q = new URLSearchParams({
+            page,
+            limit: 200,
+            sortBy: 'submitted_at',
+            sortDir: 'desc',
+            work_type: workType,
+          })
+          const res = await api.get(`/pst?${q}`)
+          loaded.push(...(res.data.reports || []))
+          pages = res.data.pagination?.pages || 1
+          page += 1
+        } while (page <= pages)
+      }
+
+      setReports(Array.from(new Map(loaded.map(report => [report.id, report])).values()))
     } catch {
       setError('Не удалось загрузить отчеты для сопоставления фото')
       setReports([])
