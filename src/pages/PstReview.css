@@ -58,6 +58,7 @@
 }
 
 .pr-status.ok { background: rgba(143,198,64,0.14); color: #5a7d20; }
+.pr-status.fallback { background: rgba(245,158,11,0.12); color: #b45309; }
 .pr-status.miss { background: rgba(239,68,68,0.08); color: #dc2626; }
 
 .pr-eye.complete {

@@ -197,14 +197,6 @@ export default function PstReview() {
     Array.from(new Set(sourceRows.map(r => r.city).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ru'))
   ), [sourceRows])
 
-  const dateBounds = useMemo(() => {
-    const dates = visibleSourceRows.map(r => r.last_cleaned_date).filter(Boolean).sort()
-    return {
-      from: dateFrom || dates[0] || '',
-      to: dateTo || dates[dates.length - 1] || '',
-    }
-  }, [visibleSourceRows, dateFrom, dateTo])
-
   const fetchBook = useCallback(async () => {
     setLoadingBook(true)
     try {
@@ -237,8 +229,6 @@ export default function PstReview() {
           sortBy: 'submitted_at',
           sortDir: 'desc',
           work_type: sheet.workType,
-          ...(dateBounds.from ? { dateFrom: dateBounds.from } : {}),
-          ...(dateBounds.to ? { dateTo: `${dateBounds.to}T23:59:59` } : {}),
         })
         const res = await api.get(`/pst?${q}`)
         loaded.push(...(res.data.reports || []))
@@ -252,7 +242,7 @@ export default function PstReview() {
     } finally {
       setLoadingReports(false)
     }
-  }, [sheet, dateBounds.from, dateBounds.to])
+  }, [sheet])
 
   useEffect(() => { fetchReports() }, [fetchReports])
 
@@ -274,8 +264,8 @@ export default function PstReview() {
     const latest = reportIndexes.latestById.get(String(row.postomat_id))
     return {
       source: row,
-      report: exact || null,
-      otherDateReport: exact ? null : latest || null,
+      report: exact || latest || null,
+      matchMode: exact ? 'exact' : latest ? 'latest' : 'missing',
     }
   }), [visibleSourceRows, reportIndexes])
 
@@ -333,7 +323,7 @@ export default function PstReview() {
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.total}</div><div className="pst-stat-label">ID из Excel</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.matched}</div><div className="pst-stat-label">Сопоставлено</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.withPhotos}</div><div className="pst-stat-label">Есть фото</div></div>
-        <div className="pst-stat-card"><div className="pst-stat-val">{stats.missing}</div><div className="pst-stat-label">Нет отчета за дату</div></div>
+        <div className="pst-stat-card"><div className="pst-stat-val">{stats.missing}</div><div className="pst-stat-label">Нет отчета</div></div>
       </div>
 
       <div className="pst-toolbar">
@@ -366,7 +356,7 @@ export default function PstReview() {
 
       <div className="pr-note">
         <CalendarClock size={15} />
-        <span>Строки берутся строго из Excel. Фото открываются только при совпадении POSTOMAT_ID, типа мойки и даты последней уборки.</span>
+        <span>Строки берутся строго из Excel. Сначала ищем точную дату из Excel, если ее нет — берем последнюю уборку по POSTOMAT_ID и типу мойки.</span>
       </div>
 
       <div className="pst-table-wrap">
@@ -401,10 +391,11 @@ export default function PstReview() {
               const hasPhotos = before + after + drive > 0
               const loadingKey = `${row.postomat_id}-${report?.id}`
               const statusText = report
-                ? `ID ${report.id}`
-                : entry.otherDateReport
-                  ? `Есть ${formatDate(entry.otherDateReport.submitted_at)}`
-                  : 'Не найден'
+                ? entry.matchMode === 'latest'
+                  ? `Последний: ${formatDate(report.submitted_at)}`
+                  : `ID ${report.id}`
+                : 'Не найден'
+              const statusClass = entry.matchMode === 'exact' ? 'ok' : entry.matchMode === 'latest' ? 'fallback' : 'miss'
               return (
                 <tr key={`${activeTab}-${row.postomat_id}-${index}`} className={index % 2 === 0 ? 'even' : 'odd'}>
                   <td className="cell-id"><span className="chip-id">{row.postomat_id}</span></td>
@@ -414,7 +405,7 @@ export default function PstReview() {
                   <td>{row.install_place ? <span className={`chip-type ${row.install_place === 'Уличный' ? 'outdoor' : 'indoor'}`}>{row.install_place}</span> : '—'}</td>
                   <td className="pr-muted">{row.location_type || '—'}</td>
                   <td className="cell-date">{formatDate(row.last_cleaned_date)}</td>
-                  <td><span className={`pr-status ${report ? 'ok' : 'miss'}`}>{statusText}</span></td>
+                  <td><span className={`pr-status ${statusClass}`}>{statusText}</span></td>
                   <td className="cell-photo"><span className={`photo-badge ${before > 0 ? 'has-photos' : ''}`}>{before}</span></td>
                   <td className="cell-photo"><span className={`photo-badge ${after > 0 ? 'has-photos' : ''}`}>{after}</span></td>
                   <td>
@@ -423,7 +414,7 @@ export default function PstReview() {
                       className={`btn-view pr-eye ${hasPhotos ? 'complete' : ''}`}
                       onClick={() => openPhotos(entry)}
                       disabled={!report || !hasPhotos || detailLoadingKey === loadingKey}
-                      title={report ? (hasPhotos ? 'Посмотреть фото' : 'В отчете нет фото') : 'Нет точного отчета за дату из Excel'}
+                      title={report ? (hasPhotos ? 'Посмотреть фото' : 'В отчете нет фото') : 'Нет отчета по POSTOMAT_ID и типу мойки'}
                     >
                       {detailLoadingKey === loadingKey ? <RefreshCw size={14} className="spin" /> : hasPhotos ? <Eye size={14} /> : <Image size={14} />}
                     </button>
