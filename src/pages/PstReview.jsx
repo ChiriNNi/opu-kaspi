@@ -64,8 +64,8 @@ function PhotoLightbox({ photos, index, label, onClose }) {
   if (!photos.length) return null
 
   return (
-    <div className="pr-lightbox" onClick={onClose}>
-      <button type="button" className="pr-lightbox-close" onClick={onClose}><X size={20} /></button>
+    <div className="pr-lightbox" onClick={(e) => { e.stopPropagation(); onClose() }}>
+      <button type="button" className="pr-lightbox-close" onClick={(e) => { e.stopPropagation(); onClose() }}><X size={20} /></button>
       {photos.length > 1 && (
         <>
           <button type="button" className="pr-lightbox-nav prev" onClick={e => { e.stopPropagation(); setCurrent(v => (v - 1 + photos.length) % photos.length) }}>‹</button>
