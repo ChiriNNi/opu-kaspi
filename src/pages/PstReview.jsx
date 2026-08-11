@@ -37,9 +37,8 @@ const formatDate = (value) => {
 
 const photoUrl = (photo, mode = 'thumb') => {
   if (photo?.driveId) {
-    return mode === 'thumb'
-      ? `https://drive.google.com/thumbnail?id=${photo.driveId}&sz=w600`
-      : `https://drive.google.com/uc?export=view&id=${photo.driveId}`
+    const size = mode === 'thumb' ? 'w600' : 'w2400'
+    return `https://drive.google.com/thumbnail?id=${photo.driveId}&sz=${size}`
   }
   if (photo?.path) {
     const rel = photo.path.replace('/home/icgroup/uploads/', '')

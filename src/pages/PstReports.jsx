@@ -89,6 +89,18 @@ function SortIcon({ col, sortBy, sortDir }) {
     : <ChevronDown size={13} className="sort-icon active" />
 }
 
+const pstPhotoUrl = (photo, mode = 'full') => {
+  if (photo?.driveId) {
+    const size = mode === 'thumb' ? 'w400' : 'w2400'
+    return `https://drive.google.com/thumbnail?id=${photo.driveId}&sz=${size}`
+  }
+  if (photo?.path) {
+    const rel = photo.path.replace('/home/icgroup/uploads/', '')
+    return `/api/pst/img?p=${encodeURIComponent(rel)}`
+  }
+  return photo?.dataUrl || null
+}
+
 // Полноэкранный просмотрщик с пинч-зумом (touch), зумом колесом мыши и двойным тапом/кликом.
 // Слушатели wheel/touchmove навешаны вручную через addEventListener(passive:false) —
 // синтетические onWheel/onTouchMove в React пассивны, и preventDefault() в них не срабатывает,
@@ -293,20 +305,7 @@ function PhotoModal({ report, onClose }) {
             <div className="modal-empty">Нет фотографий</div>
           ) : (
             photos.map((p, i) => {
-              const toUrl = (photo) => {
-                if (photo?.driveId) return `https://drive.google.com/uc?export=download&id=${photo.driveId}`
-                if (photo?.path) {
-                  const rel = photo.path.replace('/home/icgroup/uploads/', '')
-                  return `/api/pst/img?p=${encodeURIComponent(rel)}`
-                }
-                return photo?.dataUrl || null
-              }
-              const src = p?.driveId
-                ? `https://drive.google.com/thumbnail?id=${p.driveId}&sz=w400`
-                : toUrl(p)
-              const full = p?.driveId
-                ? `https://drive.google.com/uc?export=view&id=${p.driveId}`
-                : toUrl(p)
+              const src = pstPhotoUrl(p, 'thumb')
               return (
                 <button key={i} type="button" className="photo-thumb" onClick={() => setLightbox({ i })}>
                   <img src={src} alt={`фото ${i + 1}`} />
@@ -320,16 +319,8 @@ function PhotoModal({ report, onClose }) {
       {lightbox && (
         <ZoomableLightbox
           photos={photos.map(p => {
-            const toUrl = (photo) => {
-              if (photo?.driveId) return `https://drive.google.com/uc?export=view&id=${photo.driveId}`
-              if (photo?.path) {
-                const rel = photo.path.replace('/home/icgroup/uploads/', '')
-                return `/api/pst/img?p=${encodeURIComponent(rel)}`
-              }
-              return photo?.dataUrl || null
-            }
             return {
-              src: toUrl(p),
+              src: pstPhotoUrl(p, 'full'),
               caption: `${formatDate(report.submitted_at)} · ${report.location_data?.address || report.location_data?.title || ''}`,
             }
           })}
