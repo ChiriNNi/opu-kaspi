@@ -1392,6 +1392,7 @@ function HistoryList() {
 export default function Checklists() {
   const { user } = useStore()
   const isAdmin = ['admin', 'partner'].includes(user?.role)
+  const canLoadAssignmentData = ['admin', 'partner', 'auditor'].includes(user?.role)
 
   const [templates, setTemplates] = useState([])
   const [active, setActive]       = useState([])
@@ -1432,10 +1433,10 @@ export default function Checklists() {
   useEffect(() => { loadAll() }, [])
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canLoadAssignmentData) return
     api.get('/users').then(r => setUsers(r.data.users || [])).catch(() => {})
     api.get('/locations/cleaning?limit=200').then(r => setLocations(r.data.locations || [])).catch(() => {})
-  }, [isAdmin])
+  }, [canLoadAssignmentData])
 
   const filteredTemplates = useMemo(() => {
     if (!search.trim()) return templates
