@@ -88,6 +88,7 @@
 }
 
 .pr-lightbox-close,
+.pr-lightbox-download,
 .pr-lightbox-nav {
   position: absolute;
   display: flex;
@@ -107,6 +108,13 @@
   height: 40px;
 }
 
+.pr-lightbox-download {
+  top: 16px;
+  right: 64px;
+  width: 40px;
+  height: 40px;
+}
+
 .pr-lightbox-nav {
   top: 50%;
   transform: translateY(-50%);
@@ -119,6 +127,7 @@
 .pr-lightbox-nav.prev { left: 18px; }
 .pr-lightbox-nav.next { right: 18px; }
 .pr-lightbox-close:hover,
+.pr-lightbox-download:hover,
 .pr-lightbox-nav:hover { background: rgba(255,255,255,0.24); }
 
 .pr-lightbox-count {

@@ -197,8 +197,22 @@ function ZoomableLightbox({ photos, index, label, onClose }) {
   }
   const onMouseUp = () => { dragRef.current = null }
 
+  const downloadCurrent = (e) => {
+    e.stopPropagation()
+    const photo = photos[i]
+    if (!photo?.src) return
+    const a = document.createElement('a')
+    a.href = photo.src
+    a.download = photo.name || `pst-photo-${i + 1}.jpg`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
   return (
     <div className="pg-lightbox" onClick={e => { e.stopPropagation(); onClose() }}>
+      <button className="pg-lightbox-download" onClick={downloadCurrent} title="Скачать фото"><Download size={20} /></button>
       <button className="pg-lightbox-close" onClick={e => { e.stopPropagation(); onClose() }}><X size={20} /></button>
       <div
         ref={stageRef}
@@ -361,6 +375,7 @@ function PhotoModal({ report, isAdmin, onReportUpdate, onClose }) {
           photos={photos.map(p => {
             return {
               src: pstPhotoUrl(p, 'full'),
+              name: p?.name || p?.fileName,
               caption: `${formatDate(report.submitted_at)} · ${report.location_data?.address || report.location_data?.title || ''}`,
             }
           })}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertCircle, Building2, CalendarClock, Eye, Image,
+  AlertCircle, Building2, CalendarClock, Download, Eye, Image,
   MapPin, RefreshCw, Search, X
 } from 'lucide-react'
 import api from '../api'
@@ -63,8 +63,22 @@ function PhotoLightbox({ photos, index, label, onClose }) {
 
   if (!photos.length) return null
 
+  const downloadCurrent = (e) => {
+    e.stopPropagation()
+    const photo = photos[current]
+    if (!photo?.src) return
+    const a = document.createElement('a')
+    a.href = photo.src
+    a.download = photo.name || `pst-photo-${current + 1}.jpg`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
   return (
     <div className="pr-lightbox" onClick={(e) => { e.stopPropagation(); onClose() }}>
+      <button type="button" className="pr-lightbox-download" onClick={downloadCurrent} title="Скачать фото"><Download size={20} /></button>
       <button type="button" className="pr-lightbox-close" onClick={(e) => { e.stopPropagation(); onClose() }}><X size={20} /></button>
       {photos.length > 1 && (
         <>
@@ -120,7 +134,7 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const lightboxPhotos = photos.map(p => ({ src: photoUrl(p, 'full') })).filter(p => p.src)
+  const lightboxPhotos = photos.map((p, index) => ({ src: photoUrl(p, 'full'), name: p?.name || p?.fileName || `pst-photo-${index + 1}.jpg` })).filter(p => p.src)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
