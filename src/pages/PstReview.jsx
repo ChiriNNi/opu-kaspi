@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import DatePicker from '../components/DatePicker'
+import { useStore } from '../store'
 import './PstReports.css'
 import './PstReview.css'
 
@@ -79,14 +80,31 @@ function PhotoLightbox({ photos, index, label, onClose }) {
   )
 }
 
-function PhotoModal({ report, sourceRow, onClose }) {
+function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
   const [tab, setTab] = useState('before')
   const [lightbox, setLightbox] = useState(null)
+  const [savingPhoto, setSavingPhoto] = useState('')
   const before = report.before_photos || []
   const after = report.after_photos || []
-  const drive = report.drive_photos || []
+  const driveAll = report.drive_photos || []
+  const drive = isAdmin ? driveAll : driveAll.filter(p => !p?.hidden)
+  const hiddenDriveCount = driveAll.filter(p => p?.hidden).length
   const photos = tab === 'before' ? before : tab === 'after' ? after : drive
   const loc = report.location_data || {}
+
+  const toggleDrivePhoto = async (photo, e) => {
+    e.stopPropagation()
+    if (!photo?.driveId || savingPhoto) return
+    const hidden = !photo.hidden
+    setSavingPhoto(photo.driveId)
+    try {
+      const res = await api.patch(`/pst/${report.id}/drive-photo-visibility`, { driveId: photo.driveId, hidden })
+      const updated = { ...report, drive_photos: res.data.drive_photos || [] }
+      onReportUpdate?.(updated)
+    } finally {
+      setSavingPhoto('')
+    }
+  }
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -134,6 +152,7 @@ function PhotoModal({ report, sourceRow, onClose }) {
           {drive.length > 0 && (
             <button type="button" className={`modal-tab ${tab === 'drive' ? 'active' : ''}`} onClick={() => setTab('drive')}>
               Архив Drive ({drive.length})
+              {isAdmin && hiddenDriveCount > 0 ? ` · скрыто ${hiddenDriveCount}` : ''}
             </button>
           )}
         </div>
@@ -145,6 +164,19 @@ function PhotoModal({ report, sourceRow, onClose }) {
             <button key={index} type="button" className="photo-thumb" onClick={() => setLightbox(index)}>
               <img src={photoUrl(photo, 'thumb')} alt={`фото ${index + 1}`} />
               <div className="photo-size">{photo?.driveId ? 'Drive' : photo?.sizeBytes ? `${Math.round(photo.sizeBytes / 1024)} КБ` : ''}</div>
+              {isAdmin && photo?.driveId && (
+                <span
+                  className={`photo-hide-toggle ${photo.hidden ? 'hidden' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => toggleDrivePhoto(photo, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') toggleDrivePhoto(photo, e)
+                  }}
+                >
+                  {savingPhoto === photo.driveId ? '...' : photo.hidden ? 'Показать' : 'Скрыть'}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -162,6 +194,8 @@ function PhotoModal({ report, sourceRow, onClose }) {
 }
 
 export default function PstReview() {
+  const { user } = useStore()
+  const isAdmin = user?.role === 'admin'
   const [book, setBook] = useState(null)
   const [activeTab, setActiveTab] = useState('full')
   const [reports, setReports] = useState([])
@@ -433,7 +467,13 @@ export default function PstReview() {
       </div>
 
       {activePhoto && (
-        <PhotoModal report={activePhoto.report} sourceRow={activePhoto.sourceRow} onClose={() => setActivePhoto(null)} />
+        <PhotoModal
+          report={activePhoto.report}
+          sourceRow={activePhoto.sourceRow}
+          isAdmin={isAdmin}
+          onReportUpdate={(report) => setActivePhoto(prev => prev ? { ...prev, report } : prev)}
+          onClose={() => setActivePhoto(null)}
+        />
       )}
     </div>
   )

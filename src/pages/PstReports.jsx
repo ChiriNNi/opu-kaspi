@@ -235,11 +235,28 @@ function ZoomableLightbox({ photos, index, label, onClose }) {
   )
 }
 
-function PhotoModal({ report, onClose }) {
-  const hasDrive = (report.drive_photos ?? []).length > 0
+function PhotoModal({ report, isAdmin, onReportUpdate, onClose }) {
+  const [savingPhoto, setSavingPhoto] = useState('')
+  const drivePhotos = isAdmin ? (report.drive_photos ?? []) : (report.drive_photos ?? []).filter(p => !p?.hidden)
+  const hiddenDriveCount = (report.drive_photos ?? []).filter(p => p?.hidden).length
+  const hasDrive = drivePhotos.length > 0
   const [tab, setTab] = useState(hasDrive && !(report.before_photos ?? []).length && !(report.after_photos ?? []).length ? 'drive' : 'before')
-  const photos = tab === 'before' ? (report.before_photos ?? []) : tab === 'after' ? (report.after_photos ?? []) : (report.drive_photos ?? [])
+  const photos = tab === 'before' ? (report.before_photos ?? []) : tab === 'after' ? (report.after_photos ?? []) : drivePhotos
   const [lightbox, setLightbox] = useState(null) // { i }
+
+  const toggleDrivePhoto = async (photo, e) => {
+    e.stopPropagation()
+    if (!photo?.driveId || savingPhoto) return
+    const hidden = !photo.hidden
+    setSavingPhoto(photo.driveId)
+    try {
+      const res = await api.patch(`/pst/${report.id}/drive-photo-visibility`, { driveId: photo.driveId, hidden })
+      const updated = { ...report, drive_photos: res.data.drive_photos || [] }
+      onReportUpdate?.(updated)
+    } finally {
+      setSavingPhoto('')
+    }
+  }
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -296,6 +313,7 @@ function PhotoModal({ report, onClose }) {
               onClick={() => setTab('drive')}
             >
               Архив Drive ({report.drive_photos?.length ?? 0})
+              {isAdmin && hiddenDriveCount > 0 ? ` · скрыто ${hiddenDriveCount}` : ''}
             </button>
           )}
         </div>
@@ -310,6 +328,19 @@ function PhotoModal({ report, onClose }) {
                 <button key={i} type="button" className="photo-thumb" onClick={() => setLightbox({ i })}>
                   <img src={src} alt={`фото ${i + 1}`} />
                   <div className="photo-size">{p.sizeBytes ? `${Math.round(p.sizeBytes / 1024)} КБ` : p.driveId ? 'Drive' : ''}</div>
+                  {isAdmin && p.driveId && (
+                    <span
+                      className={`photo-hide-toggle ${p.hidden ? 'hidden' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => toggleDrivePhoto(p, e)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') toggleDrivePhoto(p, e)
+                      }}
+                    >
+                      {savingPhoto === p.driveId ? '...' : p.hidden ? 'Показать' : 'Скрыть'}
+                    </span>
+                  )}
                 </button>
               )
             })
@@ -325,7 +356,7 @@ function PhotoModal({ report, onClose }) {
             }
           })}
           index={lightbox.i}
-          label={tab === 'before' ? 'До уборки' : 'После уборки'}
+          label={tab === 'before' ? 'До уборки' : tab === 'after' ? 'После уборки' : 'Drive'}
           onClose={() => setLightbox(null)}
         />
       )}
@@ -856,7 +887,12 @@ export default function PstReports() {
       )}
 
       {activeReport && (
-        <PhotoModal report={activeReport} onClose={() => setActiveReport(null)} />
+        <PhotoModal
+          report={activeReport}
+          isAdmin={isAdmin}
+          onReportUpdate={setActiveReport}
+          onClose={() => setActiveReport(null)}
+        />
       )}
     </div>
   )
