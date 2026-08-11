@@ -174,7 +174,7 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
               <div className="photo-size">{photo?.driveId ? 'Drive' : photo?.sizeBytes ? `${Math.round(photo.sizeBytes / 1024)} КБ` : ''}</div>
               {isAdmin && photo?.driveId && (
                 <span
-                  className={`photo-hide-toggle ${photo.hidden ? 'hidden' : ''}`}
+                  className={`photo-hide-toggle ${photo.hidden ? 'is-hidden' : ''}`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => toggleDrivePhoto(photo, e)}
