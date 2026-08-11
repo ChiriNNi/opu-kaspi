@@ -237,11 +237,20 @@ function ZoomableLightbox({ photos, index, label, onClose }) {
 
 function PhotoModal({ report, isAdmin, onReportUpdate, onClose }) {
   const [savingPhoto, setSavingPhoto] = useState('')
-  const drivePhotos = isAdmin ? (report.drive_photos ?? []) : (report.drive_photos ?? []).filter(p => !p?.hidden)
+  const reportLocationId = String(report.location_id || report.location_data?.id || '')
+  const isReportDrivePhoto = (photo) => !photo?.postomatId || String(photo.postomatId) === reportLocationId
+  const drivePhotos = (isAdmin ? (report.drive_photos ?? []) : (report.drive_photos ?? []).filter(p => !p?.hidden))
+    .filter(isReportDrivePhoto)
+  const driveBefore = drivePhotos.filter(p => p.section === 'before')
+  const driveAfter = drivePhotos.filter(p => p.section === 'after')
   const hiddenDriveCount = (report.drive_photos ?? []).filter(p => p?.hidden).length
   const hasDrive = drivePhotos.length > 0
   const [tab, setTab] = useState(hasDrive && !(report.before_photos ?? []).length && !(report.after_photos ?? []).length ? 'drive' : 'before')
-  const photos = tab === 'before' ? (report.before_photos ?? []) : tab === 'after' ? (report.after_photos ?? []) : drivePhotos
+  const photos = tab === 'before'
+    ? [...(report.before_photos ?? []), ...driveBefore]
+    : tab === 'after'
+      ? [...(report.after_photos ?? []), ...driveAfter]
+      : drivePhotos
   const [lightbox, setLightbox] = useState(null) // { i }
 
   const toggleDrivePhoto = async (photo, e) => {
@@ -299,13 +308,13 @@ function PhotoModal({ report, isAdmin, onReportUpdate, onClose }) {
             className={`modal-tab ${tab === 'before' ? 'active' : ''}`}
             onClick={() => setTab('before')}
           >
-            До уборки ({report.before_photos?.length ?? 0})
+            До уборки ({(report.before_photos?.length ?? 0) + driveBefore.length})
           </button>
           <button
             className={`modal-tab ${tab === 'after' ? 'active' : ''}`}
             onClick={() => setTab('after')}
           >
-            После уборки ({report.after_photos?.length ?? 0})
+            После уборки ({(report.after_photos?.length ?? 0) + driveAfter.length})
           </button>
           {hasDrive && (
             <button

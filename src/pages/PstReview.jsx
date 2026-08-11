@@ -87,9 +87,17 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
   const before = report.before_photos || []
   const after = report.after_photos || []
   const driveAll = report.drive_photos || []
-  const drive = isAdmin ? driveAll : driveAll.filter(p => !p?.hidden)
+  const reportPostomatId = String(sourceRow.postomat_id || report.location_id || report.location_data?.id || '')
+  const isReportDrivePhoto = (photo) => !photo?.postomatId || String(photo.postomatId) === reportPostomatId
+  const drive = (isAdmin ? driveAll : driveAll.filter(p => !p?.hidden)).filter(isReportDrivePhoto)
+  const driveBefore = drive.filter(p => p.section === 'before')
+  const driveAfter = drive.filter(p => p.section === 'after')
   const hiddenDriveCount = driveAll.filter(p => p?.hidden).length
-  const photos = tab === 'before' ? before : tab === 'after' ? after : drive
+  const photos = tab === 'before'
+    ? [...before, ...driveBefore]
+    : tab === 'after'
+      ? [...after, ...driveAfter]
+      : drive
   const loc = report.location_data || {}
 
   const toggleDrivePhoto = async (photo, e) => {
@@ -144,10 +152,10 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
 
         <div className="modal-tabs">
           <button type="button" className={`modal-tab ${tab === 'before' ? 'active' : ''}`} onClick={() => setTab('before')}>
-            До уборки ({before.length})
+            До уборки ({before.length + driveBefore.length})
           </button>
           <button type="button" className={`modal-tab ${tab === 'after' ? 'active' : ''}`} onClick={() => setTab('after')}>
-            После уборки ({after.length})
+            После уборки ({after.length + driveAfter.length})
           </button>
           {drive.length > 0 && (
             <button type="button" className={`modal-tab ${tab === 'drive' ? 'active' : ''}`} onClick={() => setTab('drive')}>
