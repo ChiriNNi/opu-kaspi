@@ -157,7 +157,7 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
           <button type="button" className={`modal-tab ${tab === 'after' ? 'active' : ''}`} onClick={() => setTab('after')}>
             После уборки ({after.length + driveAfter.length})
           </button>
-          {drive.length > 0 && (
+          {isAdmin && drive.length > 0 && (
             <button type="button" className={`modal-tab ${tab === 'drive' ? 'active' : ''}`} onClick={() => setTab('drive')}>
               Архив Drive ({drive.length})
               {isAdmin && hiddenDriveCount > 0 ? ` · скрыто ${hiddenDriveCount}` : ''}

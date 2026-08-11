@@ -244,7 +244,7 @@ function PhotoModal({ report, isAdmin, onReportUpdate, onClose }) {
   const driveBefore = drivePhotos.filter(p => p.section === 'before')
   const driveAfter = drivePhotos.filter(p => p.section === 'after')
   const hiddenDriveCount = (report.drive_photos ?? []).filter(p => p?.hidden).length
-  const hasDrive = drivePhotos.length > 0
+  const hasDrive = isAdmin && drivePhotos.length > 0
   const [tab, setTab] = useState(hasDrive && !(report.before_photos ?? []).length && !(report.after_photos ?? []).length ? 'drive' : 'before')
   const photos = tab === 'before'
     ? [...(report.before_photos ?? []), ...driveBefore]
