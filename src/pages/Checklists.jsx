@@ -4,7 +4,7 @@ import api from '../api'
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronUp, X,
   Clock, GripVertical, RefreshCw, Search, Camera, Eye,
-  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe, Copy
+  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe
 } from 'lucide-react'
 import './Checklists.css'
 
@@ -741,125 +741,72 @@ function AssignModal({ template, users, locations, active, onClose, onSave }) {
 }
 
 
-// ── Default template group (for "Остальные адреса") ──────────────────────────
-function DefaultTemplateGroup({ templates, onEdit, onAssign, onDelete, onClone, open, onToggle }) {
-  return (
-    <div className="tmpl-group tmpl-group-default">
-      <button className="tmpl-group-header" onClick={onToggle}>
-        <Globe size={13} className="tmpl-group-pin" style={{ color: '#8fc640' }} />
-        <div className="tmpl-group-loc">
-          <span className="tmpl-group-addr" style={{ color: '#8fc640', fontWeight: 700 }}>Остальные адреса</span>
-          <span style={{ fontSize: 11, color: 'rgba(26,29,30,0.45)', fontWeight: 400, marginLeft: 6 }}>применяется ко всем незакреплённым объектам</span>
-        </div>
-        <span className="tmpl-group-count">{templates.length} шаблон{templates.length === 1 ? '' : templates.length < 5 ? 'а' : 'ов'}</span>
-        <ChevronDown size={14} className={`tmpl-group-chevron ${open ? 'open' : ''}`} />
-      </button>
-      {open && (
-        <div className="tmpl-group-body">
-          {templates.map(t => (
-            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} onClone={onClone} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
+// Объединяет списки адресов нескольких шаблонов-дублей в один (суммируя смены,
+// если один и тот же объект почему-то встретился у нескольких экземпляров).
+function mergeAddressLists(lists) {
+  const map = {}
+  lists.flat().forEach(loc => {
+    const key = String(loc.location_id ?? loc.name)
+    if (!map[key]) map[key] = { ...loc }
+    else map[key] = { ...map[key], count: map[key].count + loc.count }
+  })
+  return Object.values(map).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ru'))
 }
 
-// ── Clone modal ───────────────────────────────────────────────────────────────
-function CloneModal({ template, onClose, onSave }) {
-  const [name, setName] = useState('Копия — ' + template.name)
-  const [desc, setDesc] = useState(template.description || '')
-  const [saving, setSaving] = useState(false)
-
-  const canSubmit = name.trim() && desc.trim()
-
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!canSubmit) return
-    setSaving(true)
-    try {
-      await onSave(template.id, { name: name.trim(), description: desc.trim() })
-      onClose()
-    } finally { setSaving(false) }
-  }
-
-  return (
-    <div className="cl-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="cl-modal" style={{ maxWidth: 420 }}>
-        <div className="cl-modal-header">
-          <div><h2>Клонировать шаблон</h2></div>
-          <button className="cl-modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-        <form onSubmit={submit} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,29,30,0.5)', display: 'block', marginBottom: 6 }}>Название нового шаблона</label>
-            <input
-              autoFocus
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Название шаблона"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid rgba(26,29,30,0.12)', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', background: '#f8f9f5' }}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,29,30,0.5)', display: 'block', marginBottom: 6 }}>Объект / адрес <span style={{ color: '#ef4444' }}>*</span></label>
-            <LocationCombobox value={desc} onChange={setDesc} />
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button type="button" onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid rgba(26,29,30,0.12)', background: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>Отмена</button>
-            <button type="submit" disabled={!canSubmit || saving} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#1A1D1E', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!canSubmit || saving) ? 0.5 : 1 }}>
-              {saving ? 'Создание...' : 'Создать копию'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ── Template card (grid) ───────────────────────────────────────────────────────
-// Single template row inside a group
-function TemplateRow({ t, onEdit, onAssign, onDelete, onClone }) {
+// ── Template card (flat list; expands to show real addresses it's assigned to) ─
+// Если это объединённая на фронте карточка дублей (mergedCount > 1), "Назначить"/
+// "Редактировать" ведут только в самый старый экземпляр (t) — остальные не трогаются
+// и не показываются здесь. В БД ничего не объединяется.
+function TemplateCard({ t, addresses, mergedCount = 1, zonesMismatch = false, tasksMismatch = false, open, onToggle, onEdit, onAssign, onDelete }) {
   const zones = t.zones || []
   const totalTasks = (t.items || []).length
+  const addrCount = addresses.length
   return (
-    <div className="tmpl-inner-row">
-      <div className="tmpl-inner-name">
-        <ClipboardList size={12} className="tmpl-inner-icon" />
-        <span>{t.name}</span>
-      </div>
-      <div className="tmpl-inner-stat">
-        {zones.length > 0 && <span className="tmpl-stat-chip zones">{zones.length} зон</span>}
-        <span className="tmpl-stat-chip tasks">{totalTasks} задач</span>
-      </div>
-      <div className="tmpl-inner-btns">
-        <button className="tc-btn del" onClick={() => onDelete(t.id)} title="Удалить"><Trash2 size={13} /></button>
-        <button className="tc-btn edit" onClick={() => onEdit(t)} title="Редактировать"><Edit2 size={13} /></button>
-        <button className="tc-btn clone" onClick={() => onClone(t)} title="Клонировать шаблон"><Copy size={13} /></button>
-        <button className="tc-btn assign" onClick={() => onAssign(t)}><Plus size={13} /> Назначить</button>
-      </div>
-    </div>
-  )
-}
-
-// Group of templates by address (controlled)
-function TemplateGroup({ city, address, templates, onEdit, onAssign, onDelete, onClone, open, onToggle }) {
-  const label = address || 'Без объекта'
-  return (
-    <div className="tmpl-group">
-      <button className="tmpl-group-header" onClick={onToggle}>
-        <MapPin size={13} className="tmpl-group-pin" />
-        <div className="tmpl-group-loc">
-          {city && <span className="tmpl-group-city">{city}</span>}
-          <span className="tmpl-group-addr">{label}</span>
+    <div className={`tmpl-group ${t.is_default ? 'tmpl-group-default' : ''}`}>
+      <div className="tmpl-group-header">
+        <button className="tmpl-group-toggle" onClick={onToggle}>
+          {t.is_default
+            ? <Globe size={13} className="tmpl-group-pin" style={{ color: '#8fc640' }} />
+            : <ClipboardList size={13} className="tmpl-group-pin" style={{ color: 'rgba(26,29,30,0.35)' }} />
+          }
+          <div className="tmpl-group-loc">
+            <span className="tmpl-group-addr" style={t.is_default ? { color: '#8fc640', fontWeight: 700 } : undefined}>{t.name}</span>
+            {t.is_default && <span className="tmpl-default-tag">для всех остальных адресов</span>}
+          </div>
+          <div className="tmpl-inner-stat">
+            {zones.length > 0 && (
+              <span className="tmpl-stat-chip zones" title={zonesMismatch ? 'У похожих версий этого шаблона разное число зон' : undefined}>
+                {zones.length} зон{zonesMismatch ? '*' : ''}
+              </span>
+            )}
+            <span className="tmpl-stat-chip tasks" title={tasksMismatch ? 'У похожих версий этого шаблона разное число задач' : undefined}>
+              {totalTasks} задач{tasksMismatch ? '*' : ''}
+            </span>
+          </div>
+          <span className="tmpl-group-count">{addrCount} объект{addrCount === 1 ? '' : addrCount < 5 ? 'а' : 'ов'}</span>
+          <ChevronDown size={14} className={`tmpl-group-chevron ${open ? 'open' : ''}`} />
+        </button>
+        <div className="tmpl-inner-btns">
+          <button className="tc-btn del" onClick={() => onDelete(t.id, mergedCount)} title="Удалить"><Trash2 size={13} /></button>
+          <button className="tc-btn edit" onClick={() => onEdit(t)} title="Редактировать"><Edit2 size={13} /></button>
+          <button className="tc-btn assign" onClick={() => onAssign(t)}><Plus size={13} /> Назначить</button>
         </div>
-        <span className="tmpl-group-count">{templates.length} шаблон{templates.length === 1 ? '' : templates.length < 5 ? 'а' : 'ов'}</span>
-        <ChevronDown size={14} className={`tmpl-group-chevron ${open ? 'open' : ''}`} />
-      </button>
+      </div>
       {open && (
         <div className="tmpl-group-body">
-          {templates.map(t => (
-            <TemplateRow key={t.id} t={t} onEdit={onEdit} onAssign={onAssign} onDelete={onDelete} onClone={onClone} />
+          {addrCount === 0 ? (
+            <div className="tmpl-empty-addr">Ещё не назначен ни на один объект</div>
+          ) : addresses.map(loc => (
+            <div key={loc.location_id ?? loc.name} className="tmpl-inner-row">
+              <div className="tmpl-inner-name">
+                <MapPin size={12} className="tmpl-inner-icon" />
+                {loc.city && <span className="tmpl-addr-city">{loc.city}</span>}
+                <span>{loc.name}</span>
+              </div>
+              <div className="tmpl-inner-stat">
+                <span className="tmpl-stat-chip zones">{loc.count} смен{loc.count === 1 ? 'а' : loc.count < 5 ? 'ы' : ''}</span>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -1406,7 +1353,6 @@ export default function Checklists() {
   const [editTmpl, setEditTmpl]   = useState(null)
   const [showNew, setShowNew]     = useState(false)
   const [assignTmpl, setAssignTmpl] = useState(null)
-  const [cloneTmpl, setCloneTmpl] = useState(null)
 
   // Active filters
   const [fStatus, setFStatus]   = useState('')        // '' | 'pending' | 'in_progress' | 'completed'
@@ -1447,23 +1393,56 @@ export default function Checklists() {
     )
   }, [templates, search])
 
-  const groupedTemplates = useMemo(() => {
-    const map = {}
-    const defaultTmpls = []
-    filteredTemplates.forEach(t => {
-      if (t.is_default) { defaultTmpls.push(t); return }
-      const key = t.description || ''
-      if (!map[key]) map[key] = []
-      map[key].push(t)
+  // Схлопываем на фронте шаблоны с одинаковым названием (исторические дубли,
+  // созданные под разные адреса) в одну карточку — без единого изменения в БД.
+  // "Основной" экземпляр группы — самый старый (наименьший id); он получает
+  // клики "Назначить"/"Редактировать"/"Удалить", остальные экземпляры дублей
+  // в списке не отображаются, но их адреса всё равно учтены в общем счётчике.
+  const templateGroups = useMemo(() => {
+    const byName = {}
+    filteredTemplates.filter(t => !t.is_default).forEach(t => {
+      const key = t.name.trim()
+      if (!byName[key]) byName[key] = []
+      byName[key].push(t)
     })
-    const regular = Object.entries(map).sort(([a], [b]) => {
-      if (!a && b) return 1
-      if (a && !b) return -1
-      return a.localeCompare(b, 'ru')
-    })
-    if (defaultTmpls.length > 0) regular.push(['__default__', defaultTmpls])
-    return regular
+    const regular = Object.values(byName)
+      .map(list => {
+        const all = [...list].sort((a, b) => a.id - b.id)
+        return { primary: all[0], all }
+      })
+      .sort((a, b) => a.primary.name.localeCompare(b.primary.name, 'ru'))
+
+    const defaults = filteredTemplates.filter(t => t.is_default)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      .map(t => ({ primary: t, all: [t] }))
+
+    return [...regular, ...defaults]
   }, [filteredTemplates])
+
+  // Адреса, на которые реально назначен каждый шаблон — считаем из активных смен,
+  // а не из текстового поля description (оно не обязано быть точным/уникальным).
+  const templateAddresses = useMemo(() => {
+    const byTemplate = {}
+    active.forEach(ac => {
+      const tid = ac.template_id
+      if (!byTemplate[tid]) byTemplate[tid] = {}
+      const locKey = String(ac.location_id ?? '__none__')
+      if (!byTemplate[tid][locKey]) {
+        byTemplate[tid][locKey] = {
+          location_id: ac.location_id,
+          city: ac.location_city || '',
+          name: ac.location_name || 'Без объекта',
+          count: 0,
+        }
+      }
+      byTemplate[tid][locKey].count += 1
+    })
+    const result = {}
+    Object.entries(byTemplate).forEach(([tid, locs]) => {
+      result[tid] = Object.values(locs).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ru'))
+    })
+    return result
+  }, [active])
 
   const stats = useMemo(() => ({
     templates: templates.length,
@@ -1489,19 +1468,15 @@ export default function Checklists() {
     } catch (e) { alert('Ошибка: ' + (e.response?.data?.error || e.message)) }
   }
 
-  const deleteTemplate = async (id) => {
-    if (!confirm('Удалить шаблон?')) return
+  const deleteTemplate = async (id, mergedCount = 1) => {
+    const msg = mergedCount > 1
+      ? `Эта карточка объединяет ${mergedCount} похожих шаблона (только визуально, в базе они разные). Удалится только основная версия — вместе с её историей смен и фото. Остальные ${mergedCount - 1} останутся как отдельные записи. Продолжить?`
+      : 'Удалить шаблон?'
+    if (!confirm(msg)) return
     try {
       await api.delete(`/checklists/templates/${id}`)
       loadAll()
     } catch (e) { alert('Ошибка удаления: ' + (e.response?.data?.error || e.message)) }
-  }
-
-  const cloneTemplate = async (id, data) => {
-    try {
-      await api.post(`/checklists/templates/${id}/clone`, data)
-      loadAll()
-    } catch (e) { alert('Ошибка клонирования: ' + (e.response?.data?.error || e.message)) }
   }
 
   const assignTemplate = async (data) => {
@@ -1662,7 +1637,7 @@ export default function Checklists() {
             <div className="tmpl-groups-toolbar">
               <button className="tmpl-collapse-btn" onClick={() => {
                 const all = {}
-                groupedTemplates.forEach(([desc]) => { all[desc || '__none__'] = false })
+                templateGroups.forEach(g => { all[g.primary.id] = false })
                 setOpenGroups(all)
               }}>Свернуть все</button>
               <button className="tmpl-collapse-btn" onClick={() => setOpenGroups({})}>
@@ -1670,38 +1645,25 @@ export default function Checklists() {
               </button>
             </div>
             <div className="cl-templates-groups">
-              {groupedTemplates.map(([desc, tmpls]) => {
-                const key = desc || '__none__'
-                const isOpen = openGroups[key] !== undefined ? openGroups[key] : true
-                if (key === '__default__') {
-                  return (
-                    <DefaultTemplateGroup
-                      key="__default__"
-                      templates={tmpls}
-                      open={isOpen}
-                      onToggle={() => setOpenGroups(prev => ({ ...prev, '__default__': !isOpen }))}
-                      onEdit={tmpl => { setEditTmpl(tmpl); setShowNew(true) }}
-                      onAssign={tmpl => setAssignTmpl(tmpl)}
-                      onDelete={deleteTemplate}
-                      onClone={tmpl => setCloneTmpl(tmpl)}
-                    />
-                  )
-                }
-                const dotIdx = desc.indexOf(' · ')
-                const city    = dotIdx > -1 ? desc.slice(0, dotIdx) : ''
-                const address = dotIdx > -1 ? desc.slice(dotIdx + 3) : desc
+              {templateGroups.map(group => {
+                const t = group.primary
+                const isOpen = openGroups[t.id] !== undefined ? openGroups[t.id] : true
+                const mergedAddresses = mergeAddressLists(group.all.map(x => templateAddresses[x.id] || []))
+                const zoneCountsArr = group.all.map(x => (x.zones || []).length)
+                const taskCountsArr = group.all.map(x => (x.items || []).length)
                 return (
-                  <TemplateGroup
-                    key={key}
-                    city={city}
-                    address={address}
-                    templates={tmpls}
+                  <TemplateCard
+                    key={t.id}
+                    t={t}
+                    addresses={mergedAddresses}
+                    mergedCount={group.all.length}
+                    zonesMismatch={!zoneCountsArr.every(c => c === zoneCountsArr[0])}
+                    tasksMismatch={!taskCountsArr.every(c => c === taskCountsArr[0])}
                     open={isOpen}
-                    onToggle={() => setOpenGroups(prev => ({ ...prev, [key]: !isOpen }))}
+                    onToggle={() => setOpenGroups(prev => ({ ...prev, [t.id]: !isOpen }))}
                     onEdit={tmpl => { setEditTmpl(tmpl); setShowNew(true) }}
                     onAssign={tmpl => setAssignTmpl(tmpl)}
                     onDelete={deleteTemplate}
-                    onClone={tmpl => setCloneTmpl(tmpl)}
                   />
                 )
               })}
@@ -1804,13 +1766,6 @@ export default function Checklists() {
           active={active}
           onClose={() => setAssignTmpl(null)}
           onSave={assignTemplate}
-        />
-      )}
-      {cloneTmpl && (
-        <CloneModal
-          template={cloneTmpl}
-          onClose={() => setCloneTmpl(null)}
-          onSave={cloneTemplate}
         />
       )}
     </div>
