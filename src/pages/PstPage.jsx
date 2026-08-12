@@ -224,6 +224,13 @@ const compressPhoto = async (file, stamp) => {
   return bestPhoto;
 };
 
+const makePhotoStamp = (photo, baseStamp) => ({
+  ...baseStamp,
+  submittedAt: photo?.addedAt || baseStamp.submittedAt,
+});
+
+const getPhotoCapturedAt = (photo, fallback) => photo?.addedAt || fallback;
+
 const formatFileDateTime = (value) => {
   const date = new Date(value);
   const part = (s) => String(s).padStart(2, '0');
@@ -506,16 +513,19 @@ const AddMorePhotosModal = ({ item, onClose, onDone }) => {
     if (!beforePhotos.length && !afterPhotos.length) return;
     setSubmitting(true); setError('');
     try {
-      const stamp = { submittedAt: new Date().toISOString(), address: item.address, city: item.city };
+      const submittedAt = new Date().toISOString();
+      const baseStamp = { submittedAt, address: item.address, city: item.city };
       const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
       const formData = new FormData();
       for (const photo of beforePhotos) {
-        const compressed = await compressPhoto(photo.file, stamp);
+        const compressed = await compressPhoto(photo.file, makePhotoStamp(photo, baseStamp));
         formData.append('before', await dataUrlToBlob(compressed.dataUrl), compressed.fileName);
+        formData.append('before_captured_at', getPhotoCapturedAt(photo, submittedAt));
       }
       for (const photo of afterPhotos) {
-        const compressed = await compressPhoto(photo.file, stamp);
+        const compressed = await compressPhoto(photo.file, makePhotoStamp(photo, baseStamp));
         formData.append('after', await dataUrlToBlob(compressed.dataUrl), compressed.fileName);
+        formData.append('after_captured_at', getPhotoCapturedAt(photo, submittedAt));
       }
       const token = localStorage.getItem('token');
       const reportPart = item.reportId ? String(item.reportId) : '0';
@@ -891,9 +901,9 @@ const PstPage = () => {
 
     try {
       const submittedAt = new Date().toISOString();
-      const stamp = { submittedAt, address: selectedLocation.address, city: selectedLocation.city };
-      const compressedBeforePhotos = await Promise.all(beforePhotos.map((photo) => compressPhoto(photo.file, stamp)));
-      const compressedAfterPhotos = await Promise.all(afterPhotos.map((photo) => compressPhoto(photo.file, stamp)));
+      const baseStamp = { submittedAt, address: selectedLocation.address, city: selectedLocation.city };
+      const compressedBeforePhotos = await Promise.all(beforePhotos.map((photo) => compressPhoto(photo.file, makePhotoStamp(photo, baseStamp))));
+      const compressedAfterPhotos = await Promise.all(afterPhotos.map((photo) => compressPhoto(photo.file, makePhotoStamp(photo, baseStamp))));
       const reportMeta = {
         payloadVersion: PST_PAYLOAD_VERSION,
         clientBuildId: String(import.meta.env.VITE_APP_BUILD_ID || '').trim() || 'dev-build',
@@ -924,10 +934,16 @@ const PstPage = () => {
         const blob = await dataUrlToBlob(photo.dataUrl);
         formData.append('before', blob, photo.fileName);
       }
+      beforePhotos.forEach((photo) => {
+        formData.append('before_captured_at', getPhotoCapturedAt(photo, submittedAt));
+      });
       for (const photo of compressedAfterPhotos) {
         const blob = await dataUrlToBlob(photo.dataUrl);
         formData.append('after', blob, photo.fileName);
       }
+      afterPhotos.forEach((photo) => {
+        formData.append('after_captured_at', getPhotoCapturedAt(photo, submittedAt));
+      });
 
       const token = localStorage.getItem('token');
       const response = await fetch('https://opu.ic-group.kz/api/pst', {
