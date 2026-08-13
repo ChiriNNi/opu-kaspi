@@ -375,13 +375,12 @@ export default function CleanerWork() {
       // Mark item done — send photos via FormData if any
       const beforeKey    = photoKey(currentStep.id, 'before')
       const afterKey     = photoKey(currentStep.id, 'after')
-      const beforePhotos = taskPhotos[beforeKey] || []
       const afterPhotos  = taskPhotos[afterKey]  || []
-      const hasPhotos    = beforePhotos.length > 0 || afterPhotos.length > 0
+      const hasPhotos    = afterPhotos.length > 0
       const requiresPhotos = !!zonePhotoRequired[currentStep.zone]
 
-      if (requiresPhotos && (!beforePhotos.length || !afterPhotos.length)) {
-        setSubmitError('Для этой зоны обязательно добавьте фото До и После.')
+      if (requiresPhotos && !afterPhotos.length) {
+        setSubmitError('Для этой зоны обязательно добавьте фото После.')
         return
       }
 
@@ -391,7 +390,6 @@ export default function CleanerWork() {
         fd.append('completed', 'true')
         fd.append('note', currentStep.title)
         fd.append('zone', currentStep.zone || 'general')
-        beforePhotos.forEach(p => fd.append('photos_before', p.file))
         afterPhotos.forEach(p  => fd.append('photos_after',  p.file))
         fetchOpts = { method: 'POST', headers: { Authorization: headers.Authorization }, body: fd }
       } else {
@@ -657,12 +655,6 @@ export default function CleanerWork() {
 
               {zonePhotoRequired[currentStep.zone] && (
                 <div className="cw-task-photos">
-                  <PhotoSection
-                    title="ДО"
-                    photos={getPhotos(currentStep.id, 'before')}
-                    onAdd={files => addPhotos(currentStep.id, 'before', files)}
-                    onRemove={idx => removePhoto(currentStep.id, 'before', idx)}
-                  />
                   <PhotoSection
                     title="ПОСЛЕ"
                     photos={getPhotos(currentStep.id, 'after')}

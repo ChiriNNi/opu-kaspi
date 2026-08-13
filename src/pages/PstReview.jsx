@@ -452,11 +452,7 @@ export default function PstReview() {
               const drive = report?.drive_count || 0
               const hasPhotos = before + after + drive > 0
               const loadingKey = `${row.postomat_id}-${report?.id}`
-              const statusText = report
-                ? entry.matchMode === 'latest'
-                  ? `Последний: ${formatDate(report.submitted_at)}`
-                  : `ID ${report.id}`
-                : 'Не найден'
+              const statusText = report ? `ID ${report.id}` : 'Не найден'
               const statusClass = entry.matchMode === 'exact' ? 'ok' : entry.matchMode === 'latest' ? 'fallback' : 'miss'
               return (
                 <tr key={`${activeTab}-${row.postomat_id}-${index}`} className={index % 2 === 0 ? 'even' : 'odd'}>
