@@ -27,7 +27,7 @@ function ClockBar() {
   )
 }
 const ALMATY = { lat: 43.2364, lng: 76.9099 }
-const GEOFENCE_RADIUS = 200
+const DEFAULT_GEOFENCE_RADIUS = 50
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,22 @@ function distMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000, dL = (lat2 - lat1) * Math.PI / 180, dG = (lng2 - lng1) * Math.PI / 180
   const a = Math.sin(dL / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dG / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function numOrNull(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function getChecklistPin(checklist) {
+  const lat = numOrNull(checklist?.location_lat ?? checklist?.lat)
+  const lng = numOrNull(checklist?.location_lng ?? checklist?.lng)
+  return lat !== null && lng !== null ? { lat, lng } : null
+}
+
+function getChecklistRadius(checklist) {
+  const radius = numOrNull(checklist?.clockster_radius_meters ?? checklist?.location_radius_meters)
+  return radius && radius > 0 ? radius : DEFAULT_GEOFENCE_RADIUS
 }
 
 function fmtDate() {
@@ -219,6 +235,9 @@ export default function CleanerWork() {
   const mapRef = useRef(null)
   const leafletMap = useRef(null)
   const markerRef = useRef(null)
+  const radiusRef = useRef(null)
+  const userMarkerRef = useRef(null)
+  const accuracyRef = useRef(null)
   const pendingPhotoOpsRef = useRef([])   // промисы сжатия фото ещё не попавшие в state — submitStep обязан их дождаться
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -261,10 +280,19 @@ export default function CleanerWork() {
       const todayDate = new Date().toISOString().slice(0, 10)
       const cl = list.find(c => (c.shift_date || '').slice(0, 10) === todayDate)
       setChecklist(cl || null)
-      if (!cl) return
+      setObjectPin(getChecklistPin(cl))
+      if (!cl) {
+        setItems([])
+        setTemplateZones([])
+        setCheckedMap({})
+        return
+      }
 
       const detail = await fetch(`${API}/api/checklists/active/${cl.id}`, { headers: { Authorization: `Bearer ${token}` } })
       const dData = await detail.json()
+      const detailedChecklist = dData.checklist || cl
+      setChecklist(prev => ({ ...(prev || {}), ...detailedChecklist }))
+      setObjectPin(getChecklistPin(detailedChecklist) || getChecklistPin(cl))
       const clItems = dData.checklist?.items || []
       setItems(clItems)
       setTemplateZones(dData.checklist?.template_zones || [])
@@ -276,6 +304,17 @@ export default function CleanerWork() {
   }, [token])
 
   useEffect(() => { loadData() }, [loadData])
+
+  const syncShiftByGps = useCallback(async (coords) => {
+    try {
+      await fetch(`${API}/api/checklists/active/geofence`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ lat: coords.lat, lng: coords.lng, accuracy: coords.acc }),
+      })
+      await loadData()
+    } catch {}
+  }, [headers, loadData])
 
   // Polling каждые 30 сек на start-screen + refresh при возврате на вкладку
   useEffect(() => {
@@ -291,7 +330,12 @@ export default function CleanerWork() {
     if (!navigator.geolocation) { setGpsLoading(false); return }
     setGpsLoading(true); setGpsError('')
     navigator.geolocation.getCurrentPosition(
-      p => { setGps({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }); setGpsLoading(false) },
+      p => {
+        const coords = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }
+        setGps(coords)
+        setGpsLoading(false)
+        syncShiftByGps(coords)
+      },
       () => { setGpsError('Разрешите доступ к геолокации'); setGpsLoading(false) },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     )
@@ -299,22 +343,63 @@ export default function CleanerWork() {
   useEffect(() => { requestGps() }, [])
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
 
+  const hasObjectPin = !!objectPin
+  const pin = objectPin || ALMATY
+  const objectRadius = getChecklistRadius(checklist)
+
   // ── Map ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !window.L || leafletMap.current) return
     const L = window.L
-    const center = objectPin || ALMATY
     const map = L.map(mapRef.current, {
-      center: [center.lat, center.lng], zoom: 15,
+      center: [pin.lat, pin.lng], zoom: 16,
       zoomControl: false, attributionControl: false,
       dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false,
     })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
-    const icon = L.divIcon({ html: '<div class="cw-map-pin"></div>', iconSize: [14, 14], iconAnchor: [7, 7], className: '' })
-    markerRef.current = L.marker([center.lat, center.lng], { icon }).addTo(map)
     leafletMap.current = map
     return () => { map.remove(); leafletMap.current = null }
   }, [screen]) // re-init when going back to start screen
+
+  useEffect(() => {
+    const map = leafletMap.current
+    if (!map || !window.L) return
+    const L = window.L
+
+    markerRef.current?.remove()
+    radiusRef.current?.remove()
+    userMarkerRef.current?.remove()
+    accuracyRef.current?.remove()
+
+    const objectIcon = L.divIcon({ html: '<div class="cw-map-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9], className: '' })
+    markerRef.current = L.marker([pin.lat, pin.lng], { icon: objectIcon }).addTo(map)
+    radiusRef.current = L.circle([pin.lat, pin.lng], {
+      radius: objectRadius,
+      color: '#7EC850',
+      weight: 2,
+      opacity: 0.9,
+      fillColor: '#7EC850',
+      fillOpacity: 0.18,
+    }).addTo(map)
+
+    const bounds = [[pin.lat, pin.lng]]
+    if (gps) {
+      const userIcon = L.divIcon({ html: '<div class="cw-map-user-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8], className: '' })
+      userMarkerRef.current = L.marker([gps.lat, gps.lng], { icon: userIcon }).addTo(map)
+      accuracyRef.current = L.circle([gps.lat, gps.lng], {
+        radius: Math.min(gps.acc || 0, 75),
+        color: '#4C6FFF',
+        weight: 1,
+        opacity: 0.65,
+        fillColor: '#4C6FFF',
+        fillOpacity: 0.12,
+      }).addTo(map)
+      bounds.push([gps.lat, gps.lng])
+    }
+
+    map.fitBounds(L.latLngBounds(bounds), { padding: [28, 28], maxZoom: 17 })
+    setTimeout(() => map.invalidateSize(), 80)
+  }, [gps, objectRadius, pin.lat, pin.lng])
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const zones = [...new Set(items.map(it => it.zone || 'Общая'))].filter(Boolean)
@@ -322,9 +407,8 @@ export default function CleanerWork() {
   const totalDone = items.filter(it => checkedMap[it.id]).length
   const pct = totalAll ? Math.round((totalDone / totalAll) * 100) : 0
 
-  const pin = objectPin || ALMATY
-  const rawDist = gps ? distMeters(gps.lat, gps.lng, pin.lat, pin.lng) : null
-  const effectiveR = GEOFENCE_RADIUS + Math.min(gps?.acc ?? 0, 75)
+  const rawDist = gps && hasObjectPin ? distMeters(gps.lat, gps.lng, pin.lat, pin.lng) : null
+  const effectiveR = objectRadius + Math.min(gps?.acc ?? 0, 75)
   const inZone = rawDist !== null && rawDist <= effectiveR
 
   // Flat steps: items not yet done
@@ -422,7 +506,15 @@ export default function CleanerWork() {
   if (screen === 'start') {
     const startBlocked = !checklist || totalAll === 0
       ? 'На сегодня нет назначенной смены'
-      : ''
+      : !hasObjectPin
+        ? 'У объекта не указаны координаты'
+        : gpsLoading
+          ? 'Определяем геолокацию...'
+          : !gps
+            ? 'Разрешите геолокацию'
+            : !inZone
+              ? 'Вы вне зоны объекта'
+              : ''
 
     return (
       <>
@@ -462,11 +554,25 @@ export default function CleanerWork() {
             <div className="cw-object-header">
               <div>
                 <div className="cw-object-name">{checklist?.location_name || 'Объект сегодня'}</div>
-                <div className="cw-object-sub">радиус {GEOFENCE_RADIUS} м</div>
+                <div className="cw-object-sub">радиус {objectRadius} м</div>
               </div>
-              {inZone && <span className="cw-in-zone">· В зоне</span>}
+              {hasObjectPin && gps && (
+                <span className={`cw-in-zone ${inZone ? '' : 'out'}`}>
+                  {inZone ? 'В зоне' : 'Вне зоны'}{rawDist !== null ? ` · ${Math.round(rawDist)} м` : ''}
+                </span>
+              )}
+              {hasObjectPin && !gps && <span className="cw-in-zone pending">Ждем GPS</span>}
             </div>
             <div ref={mapRef} className="cw-map" />
+            <div className={`cw-zone-status ${inZone ? 'ok' : gps ? 'bad' : 'pending'}`}>
+              {!hasObjectPin
+                ? 'Нет активного объекта для проверки зоны'
+                : gps
+                ? inZone
+                  ? `Можно начать смену · ${Math.round(rawDist)} м от объекта`
+                  : `Подойдите ближе к объекту · ${Math.round(rawDist)} м от объекта`
+                : 'Разрешите геолокацию, чтобы проверить зону'}
+            </div>
           </div>
 
           {/* Training link — показываем только если есть незавершённые обучения */}

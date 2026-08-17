@@ -118,8 +118,14 @@
 .cw-object-name { font-size: 1rem; font-weight: 800; color: #1A1D1E; }
 .cw-object-sub { font-size: 11px; color: rgba(26,29,30,0.45); margin-top: 2px; font-weight: 500; }
 .cw-in-zone { font-size: 11px; font-weight: 800; color: #16a34a; white-space: nowrap; padding: 3px 8px; background: rgba(34,197,94,0.1); border-radius: 8px; }
+.cw-in-zone.out { color: #dc2626; background: rgba(239,68,68,0.1); }
+.cw-in-zone.pending { color: rgba(26,29,30,0.45); background: rgba(26,29,30,0.06); }
 .cw-map { height: 160px; width: 100%; display: block; }
-.cw-map-pin { width: 14px; height: 14px; border-radius: 50%; background: #ef4444; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.cw-map-pin { width: 18px; height: 18px; border-radius: 50%; background: #ef4444; border: 3px solid #fff; box-shadow: 0 0 0 5px rgba(239,68,68,0.16), 0 2px 8px rgba(0,0,0,0.3); }
+.cw-map-user-pin { width: 16px; height: 16px; border-radius: 50%; background: #4C6FFF; border: 3px solid #fff; box-shadow: 0 0 0 5px rgba(76,111,255,0.18), 0 2px 8px rgba(0,0,0,0.28); }
+.cw-zone-status { padding: 9px 16px 13px; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(26,29,30,0.42); border-top: 1px solid rgba(0,0,0,0.05); }
+.cw-zone-status.ok { color: #5a7d20; }
+.cw-zone-status.bad { color: #dc2626; }
 
 /* ─── Start actions ──────────────────────────────────────────────────────── */
 .cw-start-actions { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
