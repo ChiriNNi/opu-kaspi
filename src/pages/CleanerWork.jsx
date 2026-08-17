@@ -371,18 +371,21 @@ export default function CleanerWork() {
     userMarkerRef.current?.remove()
     accuracyRef.current?.remove()
 
-    const objectIcon = L.divIcon({ html: '<div class="cw-map-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9], className: '' })
-    markerRef.current = L.marker([pin.lat, pin.lng], { icon: objectIcon }).addTo(map)
-    radiusRef.current = L.circle([pin.lat, pin.lng], {
-      radius: objectRadius,
-      color: '#7EC850',
-      weight: 2,
-      opacity: 0.9,
-      fillColor: '#7EC850',
-      fillOpacity: 0.18,
-    }).addTo(map)
+    const bounds = []
+    if (hasObjectPin) {
+      const objectIcon = L.divIcon({ html: '<div class="cw-map-pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9], className: '' })
+      markerRef.current = L.marker([pin.lat, pin.lng], { icon: objectIcon }).addTo(map)
+      radiusRef.current = L.circle([pin.lat, pin.lng], {
+        radius: objectRadius,
+        color: '#7EC850',
+        weight: 2,
+        opacity: 0.9,
+        fillColor: '#7EC850',
+        fillOpacity: 0.18,
+      }).addTo(map)
+      bounds.push([pin.lat, pin.lng])
+    }
 
-    const bounds = [[pin.lat, pin.lng]]
     if (gps) {
       const userIcon = L.divIcon({ html: '<div class="cw-map-user-pin"></div>', iconSize: [16, 16], iconAnchor: [8, 8], className: '' })
       userMarkerRef.current = L.marker([gps.lat, gps.lng], { icon: userIcon }).addTo(map)
@@ -397,9 +400,15 @@ export default function CleanerWork() {
       bounds.push([gps.lat, gps.lng])
     }
 
-    map.fitBounds(L.latLngBounds(bounds), { padding: [28, 28], maxZoom: 17 })
+    if (bounds.length > 1) {
+      map.fitBounds(L.latLngBounds(bounds), { padding: [28, 28], maxZoom: 17 })
+    } else if (bounds.length === 1) {
+      map.setView(bounds[0], 16)
+    } else {
+      map.setView([pin.lat, pin.lng], 16)
+    }
     setTimeout(() => map.invalidateSize(), 80)
-  }, [gps, objectRadius, pin.lat, pin.lng])
+  }, [gps, hasObjectPin, objectRadius, pin.lat, pin.lng])
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const zones = [...new Set(items.map(it => it.zone || 'Общая'))].filter(Boolean)
