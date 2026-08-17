@@ -1338,7 +1338,7 @@ function HistoryList() {
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function Checklists() {
   const { user } = useStore()
-  const isAdmin = ['admin', 'partner'].includes(user?.role)
+  const canManageTemplates = ['admin', 'partner', 'auditor'].includes(user?.role)
   const canLoadAssignmentData = ['admin', 'partner', 'auditor'].includes(user?.role)
 
   const [templates, setTemplates] = useState([])
@@ -1554,7 +1554,7 @@ export default function Checklists() {
           <button className="cl-refresh-btn" onClick={loadAll} title="Обновить">
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
-          {isAdmin && (
+          {canManageTemplates && (
             <button className="cl-new-btn" onClick={() => { setEditTmpl(null); setShowNew(true) }}>
               <Plus size={15} /> Новый шаблон
             </button>
@@ -1629,7 +1629,7 @@ export default function Checklists() {
           <div className="cl-empty">
             {search
               ? <><p>Ничего не найдено по запросу «{search}»</p><button className="cl-btn-link" onClick={() => setSearch('')}>Сбросить поиск</button></>
-              : <><p>Шаблонов пока нет</p>{isAdmin && <button className="cl-new-btn" onClick={() => setShowNew(true)}><Plus size={15} /> Создать первый</button>}</>
+              : <><p>Шаблонов пока нет</p>{canManageTemplates && <button className="cl-new-btn" onClick={() => setShowNew(true)}><Plus size={15} /> Создать первый</button>}</>
             }
           </div>
         ) : (
