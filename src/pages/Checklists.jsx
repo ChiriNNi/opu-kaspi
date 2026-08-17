@@ -1055,9 +1055,7 @@ function deriveStatus(shifts) {
 }
 
 function ActiveMonitor({ active, onComplete, onDelete, onDeleteWorker }) {
-  const [openLoc,  setOpenLoc]  = useState({})  // locationKey → bool
-  const [openTmpl, setOpenTmpl] = useState({})  // templateKey → bool
-  const [openWrkr, setOpenWrkr] = useState({})  // workerKey   → bool
+  const [selectedLoc, setSelectedLoc] = useState(null)
 
   // Build 3-level tree: location → template → worker → shifts[]
   const tree = useMemo(() => {
@@ -1095,159 +1093,256 @@ function ActiveMonitor({ active, onComplete, onDelete, onDeleteWorker }) {
     )
   }, [active])
 
-  const toggle = (setter, key) => setter(p => ({ ...p, [key]: !p[key] }))
+  const selected = selectedLoc ? tree.find(loc => loc.key === selectedLoc.key) || selectedLoc : null
+
+  if (tree.length === 0) {
+    return (
+      <div className="am3-empty">
+        <ClipboardList size={18} />
+        <span>Нет смен по выбранным фильтрам</span>
+      </div>
+    )
+  }
 
   return (
-    <div className="am3-wrap">
-      {tree.map(loc => {
-        const allShifts   = Object.values(loc.templates).flatMap(t => Object.values(t.workers).flatMap(w => w.shifts))
-        const totalPlan   = allShifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
-        const totalDone   = allShifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
-        const locStatus   = deriveStatus(allShifts)
-        const locCfg      = AM_STATUS[locStatus]
-        const isLocOpen   = openLoc[loc.key] !== false
-        const uniqueWorkers = new Set(allShifts.map(s => s.assigned_to)).size
+    <>
+      <div className="am3-wrap am3-cards">
+        {tree.map(loc => {
+          const allShifts = Object.values(loc.templates).flatMap(t => Object.values(t.workers).flatMap(w => w.shifts))
+          const totalPlan = allShifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
+          const totalDone = allShifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
+          const locStatus = deriveStatus(allShifts)
+          const locCfg = AM_STATUS[locStatus]
+          const uniqueWorkers = new Set(allShifts.map(s => s.assigned_to)).size
+          const templateCount = Object.keys(loc.templates).length
+          const pct = totalPlan > 0 ? Math.round(totalDone / totalPlan * 100) : 0
 
-        return (
-          <div key={loc.key} className="am3-loc">
-            {/* ── Уровень 1: Объект ── */}
-            <button className={`am3-loc-row ${locStatus}`} onClick={() => toggle(setOpenLoc, loc.key)}>
-              <div className="am3-loc-left">
+          return (
+            <button key={loc.key} className={`am3-loc-card ${locStatus}`} onClick={() => setSelectedLoc(loc)}>
+              <div className="am3-card-main">
                 <span className={locCfg.dot} />
                 <div className="am3-loc-info">
                   {loc.city && <span className="am3-city">{loc.city}</span>}
                   <span className="am3-locname">{loc.name || 'Без объекта'}</span>
+                  <span className="am3-loc-meta">{uniqueWorkers} клин. · {templateCount} шабл. · {allShifts.length} смен</span>
                 </div>
-                <span className="am3-loc-meta">{uniqueWorkers} клин. · {totalPlan} задач</span>
               </div>
-              <div className="am3-loc-right">
+              <div className="am3-card-progress">
+                <span className={`am3-progress-txt ${locStatus}`}>{totalDone}/{totalPlan}</span>
+                <div className="am3-mini-bar">
+                  <div className={`am3-mini-fill ${locStatus}`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="am3-card-status">
                 <span className={locCfg.badge}>{locCfg.label}</span>
-                {totalPlan > 0 && (
-                  <div className="am3-mini-bar">
-                    <div className={`am3-mini-fill ${locStatus}`} style={{ width: `${Math.round(totalDone/totalPlan*100)}%` }} />
-                  </div>
-                )}
-                <ChevronDown size={14} className={`am-chevron ${isLocOpen ? 'open' : ''}`} />
+                <Eye size={15} />
               </div>
             </button>
+          )
+        })}
+      </div>
 
-            {isLocOpen && Object.values(loc.templates).map(tmpl => {
-              const tmplShifts  = Object.values(tmpl.workers).flatMap(w => w.shifts)
-              const tmplStatus  = deriveStatus(tmplShifts)
-              const tmplCfg     = AM_STATUS[tmplStatus]
-              const tmplDone    = tmplShifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
-              const tmplPlan    = tmplShifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
-              const isTmplOpen  = openTmpl[tmpl.key] !== false
-              const workerCount = Object.keys(tmpl.workers).length
+      {selected && (
+        <ActiveLocationModal
+          loc={selected}
+          onClose={() => setSelectedLoc(null)}
+          onComplete={onComplete}
+          onDelete={onDelete}
+          onDeleteWorker={onDeleteWorker}
+        />
+      )}
+    </>
+  )
+}
 
-              return (
-                <div key={tmpl.key} className="am3-tmpl">
-                  {/* ── Уровень 2: Шаблон ── */}
-                  <button className={`am3-tmpl-row ${tmplStatus}`} onClick={() => toggle(setOpenTmpl, tmpl.key)}>
-                    <div className="am3-tmpl-left">
-                      <span className={tmplCfg.dot} style={{ width: 7, height: 7 }} />
-                      <span className="am3-tmpl-name">{tmpl.name}</span>
-                      <span className="am3-tmpl-meta">{workerCount} чел. · {tmplPlan} задач</span>
-                    </div>
-                    <div className="am3-tmpl-right">
-                      <span className={`am3-progress-txt ${tmplStatus}`}>{tmplDone}/{tmplPlan}</span>
-                      <span className={tmplCfg.badge}>{tmplCfg.label}</span>
-                      <ChevronDown size={12} className={`am-chevron ${isTmplOpen ? 'open' : ''}`} />
-                    </div>
-                  </button>
+function ActiveLocationModal({ loc, onClose, onComplete, onDelete, onDeleteWorker }) {
+  const [openTmpl, setOpenTmpl] = useState({})
+  const [openWrkr, setOpenWrkr] = useState({})
+  const [query, setQuery] = useState('')
 
-                  {isTmplOpen && (
-                    <div className="am3-workers-wrap">
-                      {Object.values(tmpl.workers).map(wrk => {
-                        const wStatus = deriveStatus(wrk.shifts)
-                        const wCfg    = AM_STATUS[wStatus]
-                        const wDone   = wrk.shifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
-                        const wPlan   = wrk.shifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
-                        const wPct    = wPlan > 0 ? Math.round(wDone / wPlan * 100) : 0
-                        const isWOpen = openWrkr[wrk.key]
-                        const sorted  = [...wrk.shifts].sort((a, b) => (a.shift_date || '').localeCompare(b.shift_date || ''))
+  const toggle = (setter, key) => setter(p => ({ ...p, [key]: !p[key] }))
+  const templates = Object.values(loc.templates)
+  const allShifts = templates.flatMap(t => Object.values(t.workers).flatMap(w => w.shifts))
+  const totalPlan = allShifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
+  const totalDone = allShifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
+  const locStatus = deriveStatus(allShifts)
+  const locCfg = AM_STATUS[locStatus]
+  const uniqueWorkers = new Set(allShifts.map(s => s.assigned_to)).size
+  const q = query.trim().toLowerCase()
+  const pct = totalPlan > 0 ? Math.round(totalDone / totalPlan * 100) : 0
 
-                        return (
-                          <div key={wrk.key} className="am3-worker">
-                            {/* ── Уровень 3: Клинер ── */}
-                            <div className={`am3-worker-row ${wStatus}`} onClick={() => toggle(setOpenWrkr, wrk.key)}>
-                              <div className="am3-worker-left">
-                                <div className={`am-avatar ${wStatus}`}>{workerInitials(wrk.name)}</div>
-                                <span className="am3-worker-name">{wrk.name}</span>
-                                <span className="am3-worker-meta">{wrk.shifts.length} смен</span>
-                              </div>
-                              <div className="am3-worker-right">
-                                <div className="am3-micro-bar">
-                                  <div className={`am3-micro-fill ${wStatus}`} style={{ width: `${wPct}%` }} />
-                                </div>
-                                <span className={`am3-progress-txt ${wStatus}`}>{wDone}/{wPlan}</span>
-                                <span className={wCfg.badge}>{wCfg.label}</span>
-                                <ChevronDown size={11} className={`am-chevron ${isWOpen ? 'open' : ''}`} />
-                                <button
-                                  className="am3-del-worker-btn"
-                                  title={`Удалить все смены (${wrk.shifts.length})`}
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    if (window.confirm(`Удалить все ${wrk.shifts.length} смен у ${wrk.name}?`)) {
-                                      onDeleteWorker(wrk.shifts.map(s => s.id))
-                                    }
-                                  }}
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Список смен по датам */}
-                            {isWOpen && (
-                              <div className="am3-shifts">
-                                {sorted.map(ac => {
-                                  const ss   = ac.status === 'completed' ? 'completed' : ac.status === 'in_progress' ? 'in_progress' : 'pending'
-                                  const sCfg = AM_STATUS[ss]
-                                  const done = ac.completed_items || ac.done_items || 0
-                                  const plan = ac.total_items || 0
-                                  const isShiftOpen = openWrkr[`shift_${ac.id}`]
-                        return (
-                                    <div key={ac.id} className="am3-shift-wrap">
-                                      <div
-                                        className={`am3-shift-row ${ss} ${isShiftOpen ? 'open' : ''}`}
-                                        onClick={() => toggle(setOpenWrkr, `shift_${ac.id}`)}
-                                      >
-                                        <span className="am3-shift-date">{fmtShiftDate(ac.shift_date)}</span>
-                                        <div className="am3-micro-bar sm">
-                                          <div className={`am3-micro-fill ${ss}`} style={{ width: `${plan ? Math.round(done/plan*100) : 0}%` }} />
-                                        </div>
-                                        <span className={`am3-progress-txt ${ss}`}>{done}/{plan}</span>
-                                        <span className={sCfg.badge}>{sCfg.label}</span>
-                                        <ChevronDown size={11} className={`am-chevron ${isShiftOpen ? 'open' : ''}`} style={{ marginLeft: 'auto' }} />
-                                        <div className="am-worker-actions" onClick={e => e.stopPropagation()}>
-                                          {ac.status !== 'completed' && (
-                                            <button className="am-complete-btn" onClick={() => onComplete(ac.id)} title="Завершить">
-                                              <CheckCircle2 size={12} />
-                                            </button>
-                                          )}
-                                          <button className="am-del-btn" onClick={() => onDelete(ac.id)} title="Удалить">
-                                            <Trash2 size={11} />
-                                          </button>
-                                        </div>
-                                      </div>
-                                      {isShiftOpen && <ShiftDetail checklistId={ac.id} />}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+  return (
+    <div className="modal-backdrop am3-modal-backdrop" onClick={onClose}>
+      <div className="modal-card am3-modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header am3-modal-header">
+          <div>
+            <div className="am3-modal-kicker">{loc.city || 'Объект'}</div>
+            <div className="modal-title am3-modal-title">{loc.name || 'Без объекта'}</div>
+            <div className="cl-modal-meta">{uniqueWorkers} клинеров · {templates.length} шаблонов · {allShifts.length} смен · {totalDone}/{totalPlan} задач</div>
           </div>
-        )
-      })}
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className="am3-modal-summary">
+          <div className="am3-modal-progress">
+            <div className="am3-modal-progress-top">
+              <span className={locCfg.badge}>{locCfg.label}</span>
+              <strong>{pct}%</strong>
+            </div>
+            <div className="am3-modal-bar">
+              <div className={`am3-mini-fill ${locStatus}`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          <div className="af-search-wrap am3-modal-search">
+            <Search size={12} className="af-search-icon" />
+            <input
+              className="af-search-input"
+              placeholder="Клинер или дата..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            {query && <button className="af-search-clear" onClick={() => setQuery('')}><X size={11} /></button>}
+          </div>
+        </div>
+
+        <div className="am3-modal-body">
+          {templates.map(tmpl => {
+            const rawWorkers = Object.values(tmpl.workers)
+            const visibleWorkers = rawWorkers.map(wrk => {
+              const shifts = [...wrk.shifts].sort((a, b) => (a.shift_date || '').localeCompare(b.shift_date || ''))
+              if (!q) return { ...wrk, shifts }
+              const filtered = shifts.filter(ac =>
+                (wrk.name || '').toLowerCase().includes(q) ||
+                fmtShiftDate(ac.shift_date).toLowerCase().includes(q) ||
+                (ac.status || '').toLowerCase().includes(q)
+              )
+              return (wrk.name || '').toLowerCase().includes(q) ? { ...wrk, shifts } : { ...wrk, shifts: filtered }
+            }).filter(wrk => wrk.shifts.length > 0)
+            if (q && visibleWorkers.length === 0) return null
+
+            const tmplShifts = rawWorkers.flatMap(w => w.shifts)
+            const tmplStatus = deriveStatus(tmplShifts)
+            const tmplCfg = AM_STATUS[tmplStatus]
+            const tmplDone = tmplShifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
+            const tmplPlan = tmplShifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
+            const isTmplOpen = openTmpl[tmpl.key] !== false
+            const workerCount = rawWorkers.length
+
+            return (
+              <div key={tmpl.key} className="am3-tmpl am3-modal-section">
+                <button className={`am3-tmpl-row ${tmplStatus}`} onClick={() => toggle(setOpenTmpl, tmpl.key)}>
+                  <div className="am3-tmpl-left">
+                    <span className={tmplCfg.dot} style={{ width: 7, height: 7 }} />
+                    <span className="am3-tmpl-name">{tmpl.name}</span>
+                    <span className="am3-tmpl-meta">{workerCount} чел. · {tmplPlan} задач</span>
+                  </div>
+                  <div className="am3-tmpl-right">
+                    <span className={`am3-progress-txt ${tmplStatus}`}>{tmplDone}/{tmplPlan}</span>
+                    <span className={tmplCfg.badge}>{tmplCfg.label}</span>
+                    <ChevronDown size={12} className={`am-chevron ${isTmplOpen ? 'open' : ''}`} />
+                  </div>
+                </button>
+
+                {isTmplOpen && (
+                  <div className="am3-workers-wrap">
+                    {visibleWorkers.map(wrk => {
+                      const wStatus = deriveStatus(wrk.shifts)
+                      const wCfg = AM_STATUS[wStatus]
+                      const wDone = wrk.shifts.reduce((s, ac) => s + (ac.completed_items || ac.done_items || 0), 0)
+                      const wPlan = wrk.shifts.reduce((s, ac) => s + (ac.total_items || 0), 0)
+                      const wPct = wPlan > 0 ? Math.round(wDone / wPlan * 100) : 0
+                      const isWOpen = openWrkr[wrk.key]
+
+                      return (
+                        <div key={wrk.key} className="am3-worker">
+                          <div className={`am3-worker-row ${wStatus}`} onClick={() => toggle(setOpenWrkr, wrk.key)}>
+                            <div className="am3-worker-left">
+                              <div className={`am-avatar ${wStatus}`}>{workerInitials(wrk.name)}</div>
+                              <span className="am3-worker-name">{wrk.name}</span>
+                              <span className="am3-worker-meta">{wrk.shifts.length} смен</span>
+                            </div>
+                            <div className="am3-worker-right">
+                              <div className="am3-micro-bar">
+                                <div className={`am3-micro-fill ${wStatus}`} style={{ width: `${wPct}%` }} />
+                              </div>
+                              <span className={`am3-progress-txt ${wStatus}`}>{wDone}/{wPlan}</span>
+                              <span className={wCfg.badge}>{wCfg.label}</span>
+                              <ChevronDown size={11} className={`am-chevron ${isWOpen ? 'open' : ''}`} />
+                              <button
+                                className="am3-del-worker-btn"
+                                title={`Удалить все смены (${wrk.shifts.length})`}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  if (window.confirm(`Удалить все ${wrk.shifts.length} смен у ${wrk.name}?`)) {
+                                    onDeleteWorker(wrk.shifts.map(s => s.id))
+                                  }
+                                }}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {isWOpen && (
+                            <div className="am3-shifts">
+                              {wrk.shifts.map(ac => {
+                                const ss = ac.status === 'completed' ? 'completed' : ac.status === 'in_progress' ? 'in_progress' : 'pending'
+                                const sCfg = AM_STATUS[ss]
+                                const done = ac.completed_items || ac.done_items || 0
+                                const plan = ac.total_items || 0
+                                const isShiftOpen = openWrkr[`shift_${ac.id}`]
+                                return (
+                                  <div key={ac.id} className="am3-shift-wrap">
+                                    <div
+                                      className={`am3-shift-row ${ss} ${isShiftOpen ? 'open' : ''}`}
+                                      onClick={() => toggle(setOpenWrkr, `shift_${ac.id}`)}
+                                    >
+                                      <span className="am3-shift-date">{fmtShiftDate(ac.shift_date)}</span>
+                                      <div className="am3-micro-bar sm">
+                                        <div className={`am3-micro-fill ${ss}`} style={{ width: `${plan ? Math.round(done/plan*100) : 0}%` }} />
+                                      </div>
+                                      <span className={`am3-progress-txt ${ss}`}>{done}/{plan}</span>
+                                      <span className={sCfg.badge}>{sCfg.label}</span>
+                                      <ChevronDown size={11} className={`am-chevron ${isShiftOpen ? 'open' : ''}`} style={{ marginLeft: 'auto' }} />
+                                      <div className="am-worker-actions" onClick={e => e.stopPropagation()}>
+                                        {ac.status !== 'completed' && (
+                                          <button className="am-complete-btn" onClick={() => onComplete(ac.id)} title="Завершить">
+                                            <CheckCircle2 size={12} />
+                                          </button>
+                                        )}
+                                        <button className="am-del-btn" onClick={() => onDelete(ac.id)} title="Удалить">
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {isShiftOpen && <ShiftDetail checklistId={ac.id} />}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {q && templates.every(tmpl => Object.values(tmpl.workers).every(wrk => {
+            const shifts = wrk.shifts || []
+            return !(wrk.name || '').toLowerCase().includes(q) && shifts.every(ac =>
+              !fmtShiftDate(ac.shift_date).toLowerCase().includes(q) &&
+              !(ac.status || '').toLowerCase().includes(q)
+            )
+          })) && (
+            <div className="am3-empty am3-modal-empty">
+              <Search size={16} />
+              <span>Ничего не найдено</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
