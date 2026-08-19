@@ -6,6 +6,8 @@ import { usePushNotifications } from '../usePushNotifications'
 import './CleanerWork.css'
 
 const API = import.meta.env.VITE_API_URL || 'https://opu.ic-group.kz'
+const GOOD_GPS_ACCURACY = 75
+const ROUGH_GPS_ACCURACY = 200
 
 const DAYS_RU = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота']
 const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']
@@ -238,6 +240,8 @@ export default function CleanerWork() {
   const radiusRef = useRef(null)
   const userMarkerRef = useRef(null)
   const accuracyRef = useRef(null)
+  const gpsWatchRef = useRef(null)
+  const gpsTimeoutRef = useRef(null)
   const pendingPhotoOpsRef = useRef([])   // промисы сжатия фото ещё не попавшие в state — submitStep обязан их дождаться
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -327,20 +331,60 @@ export default function CleanerWork() {
 
   // ── GPS ──────────────────────────────────────────────────────────────────────
   const requestGps = () => {
-    if (!navigator.geolocation) { setGpsLoading(false); return }
+    if (!navigator.geolocation) {
+      setGpsError('Геолокация не поддерживается этим браузером')
+      setGpsLoading(false)
+      return
+    }
+    if (gpsWatchRef.current !== null) navigator.geolocation.clearWatch(gpsWatchRef.current)
+    if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current)
     setGpsLoading(true); setGpsError('')
-    navigator.geolocation.getCurrentPosition(
+
+    let bestCoords = null
+    let finished = false
+
+    const finish = (coords) => {
+      if (finished) return
+      finished = true
+      if (gpsWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchRef.current)
+        gpsWatchRef.current = null
+      }
+      if (gpsTimeoutRef.current) {
+        clearTimeout(gpsTimeoutRef.current)
+        gpsTimeoutRef.current = null
+      }
+      if (coords) {
+        setGps(coords)
+        syncShiftByGps(coords)
+      } else {
+        setGpsError('Разрешите доступ к геолокации')
+      }
+      setGpsLoading(false)
+    }
+
+    gpsWatchRef.current = navigator.geolocation.watchPosition(
       p => {
         const coords = { lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }
-        setGps(coords)
-        setGpsLoading(false)
-        syncShiftByGps(coords)
+        if (!bestCoords || coords.acc < bestCoords.acc) {
+          bestCoords = coords
+          setGps(coords)
+        }
+        if (coords.acc <= GOOD_GPS_ACCURACY) finish(coords)
       },
-      () => { setGpsError('Разрешите доступ к геолокации'); setGpsLoading(false) },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      () => finish(bestCoords),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     )
+
+    gpsTimeoutRef.current = setTimeout(() => finish(bestCoords), 15000)
   }
-  useEffect(() => { requestGps() }, [])
+  useEffect(() => {
+    requestGps()
+    return () => {
+      if (gpsWatchRef.current !== null) navigator.geolocation.clearWatch(gpsWatchRef.current)
+      if (gpsTimeoutRef.current) clearTimeout(gpsTimeoutRef.current)
+    }
+  }, [])
   useEffect(() => { window.scrollTo(0, 0) }, [screen])
 
   const hasObjectPin = !!objectPin
@@ -419,6 +463,7 @@ export default function CleanerWork() {
   const rawDist = gps && hasObjectPin ? distMeters(gps.lat, gps.lng, pin.lat, pin.lng) : null
   const effectiveR = objectRadius + Math.min(gps?.acc ?? 0, 75)
   const inZone = rawDist !== null && rawDist <= effectiveR
+  const gpsAccuracyRough = !!gps && gps.acc >= ROUGH_GPS_ACCURACY
 
   // Flat steps: items not yet done
   const flatSteps = items.map((it, idx) => ({ ...it, stepIdx: idx, style: getZoneStyle(it.zone) }))
@@ -539,14 +584,14 @@ export default function CleanerWork() {
               </div>
               <h1 className="cw-hero-title">Уборка</h1>
             </div>
-            <div className={`cw-geo-pill ${gps ? 'ok' : gpsLoading ? 'loading' : 'err'}`}>
+            <div className={`cw-geo-pill ${gps ? (gpsAccuracyRough ? 'warn' : 'ok') : gpsLoading ? 'loading' : 'err'}`}>
               <span className={`cw-geo-dot ${gpsLoading ? 'pulse' : ''}`} />
-              <span>{gpsLoading ? 'Определение координат...' : gps ? 'Геолокация определена' : (gpsError || 'Геолокация недоступна')}</span>
+              <span>{gpsLoading ? 'Уточняем координаты...' : gps ? (gpsAccuracyRough ? 'Геолокация неточная' : 'Геолокация определена') : (gpsError || 'Геолокация недоступна')}</span>
               {gps && <span className="cw-geo-coords">{gps.lat.toFixed(5)}, {gps.lng.toFixed(5)} · ±{gps.acc} м</span>}
             </div>
-            {!gps && !gpsLoading && (
-              <button className="cw-geo-retry" onClick={requestGps}>Разрешить геолокацию</button>
-            )}
+            <button className="cw-geo-retry" onClick={requestGps} disabled={gpsLoading}>
+              {gpsLoading ? 'Ищем точнее...' : gps ? 'Обновить геолокацию' : 'Разрешить геолокацию'}
+            </button>
           </div>
 
           {/* Stats */}
@@ -574,7 +619,9 @@ export default function CleanerWork() {
             </div>
             <div ref={mapRef} className="cw-map" />
             <div className={`cw-zone-status ${inZone ? 'ok' : gps ? 'bad' : 'pending'}`}>
-              {!hasObjectPin
+              {gpsAccuracyRough
+                ? `Геолокация неточная: ±${gps.acc} м. Выйдите к окну или на улицу и обновите геолокацию`
+                : !hasObjectPin
                 ? 'Нет активного объекта для проверки зоны'
                 : gps
                 ? inZone
