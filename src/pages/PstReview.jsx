@@ -231,7 +231,8 @@ export default function PstReview() {
   const [activePhoto, setActivePhoto] = useState(null)
   const [detailLoadingKey, setDetailLoadingKey] = useState('')
 
-  const sheet = useMemo(() => book?.sheets?.find(s => s.key === activeTab) || book?.sheets?.[0], [book, activeTab])
+  const visibleSheets = useMemo(() => (book?.sheets || []).filter(s => s.key !== 'full'), [book])
+  const sheet = useMemo(() => visibleSheets.find(s => s.key === activeTab) || visibleSheets[0], [visibleSheets, activeTab])
   const sourceRows = sheet?.rows || []
 
   const visibleSourceRows = useMemo(() => {
@@ -259,7 +260,8 @@ export default function PstReview() {
       if (!res.ok) throw new Error('review list not found')
       const data = await res.json()
       setBook(data)
-      setActiveTab(data.sheets?.[0]?.key || 'full')
+      const firstSheet = (data.sheets || []).find(s => s.key !== 'full') || data.sheets?.[0]
+      setActiveTab(firstSheet?.key || 'exterior')
     } catch {
       setError('Не удалось загрузить Excel-реестр PST на проверку')
     } finally {
@@ -289,6 +291,8 @@ export default function PstReview() {
             sortBy: 'submitted_at',
             sortDir: 'desc',
             work_type: workType,
+            ...(sheet.reportDateFrom ? { dateFrom: sheet.reportDateFrom } : {}),
+            ...(sheet.reportDateTo ? { dateTo: sheet.reportDateTo } : {}),
           })
           const res = await api.get(`/pst?${q}`)
           loaded.push(...(res.data.reports || []))
@@ -329,7 +333,7 @@ export default function PstReview() {
       report: exact || latest || null,
       matchMode: exact ? 'exact' : latest ? 'latest' : 'missing',
     }
-  }), [visibleSourceRows, reportIndexes])
+  }).filter(entry => entry.source.show_static !== false || entry.report), [visibleSourceRows, reportIndexes])
 
   const stats = useMemo(() => {
     const matched = reviewRows.filter(r => r.report).length
@@ -369,7 +373,7 @@ export default function PstReview() {
   return (
     <div className="pst-page pr-page">
       <div className="pr-tabs" role="tablist" aria-label="Листы PST на проверку">
-        {(book?.sheets || []).map(tab => (
+        {visibleSheets.map(tab => (
           <button
             key={tab.key}
             type="button"
@@ -418,7 +422,7 @@ export default function PstReview() {
 
       <div className="pr-note">
         <CalendarClock size={15} />
-        <span>Строки берутся строго из Excel. Сначала ищем точную дату из Excel, если ее нет — берем последнюю уборку по POSTOMAT_ID и типу мойки.</span>
+        <span>Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ появляются только если найдена наружная уборка по POSTOMAT_ID и типу мойки.</span>
       </div>
 
       <div className="pst-table-wrap">
