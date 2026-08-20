@@ -560,15 +560,7 @@ export default function CleanerWork() {
   if (screen === 'start') {
     const startBlocked = !checklist || totalAll === 0
       ? 'На сегодня нет назначенной смены'
-      : !hasObjectPin
-        ? 'У объекта не указаны координаты'
-        : gpsLoading
-          ? 'Определяем геолокацию...'
-          : !gps
-            ? 'Разрешите геолокацию'
-            : !inZone
-              ? 'Вы вне зоны объекта'
-              : ''
+      : ''
 
     return (
       <>
@@ -620,14 +612,14 @@ export default function CleanerWork() {
             <div ref={mapRef} className="cw-map" />
             <div className={`cw-zone-status ${inZone ? 'ok' : gps ? 'bad' : 'pending'}`}>
               {gpsAccuracyRough
-                ? `Геолокация неточная: ±${gps.acc} м. Выйдите к окну или на улицу и обновите геолокацию`
+                ? `Назначенная смена доступна. Геолокация неточная: ±${gps.acc} м`
                 : !hasObjectPin
-                ? 'Нет активного объекта для проверки зоны'
+                ? 'Назначенная смена доступна. У объекта не указаны координаты'
                 : gps
                 ? inZone
                   ? `Можно начать смену · ${Math.round(rawDist)} м от объекта`
-                  : `Подойдите ближе к объекту · ${Math.round(rawDist)} м от объекта`
-                : 'Разрешите геолокацию, чтобы проверить зону'}
+                  : `Назначенная смена доступна · вне зоны ${Math.round(rawDist)} м`
+                : 'Назначенная смена доступна. Геолокация не обязательна'}
             </div>
           </div>
 
