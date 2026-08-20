@@ -333,7 +333,7 @@ export default function PstReview() {
       report: exact || latest || null,
       matchMode: exact ? 'exact' : latest ? 'latest' : 'missing',
     }
-  }).filter(entry => entry.source.show_static !== false || entry.report), [visibleSourceRows, reportIndexes])
+  }).filter(entry => entry.source.show_static !== false), [visibleSourceRows, reportIndexes])
 
   const stats = useMemo(() => {
     const matched = reviewRows.filter(r => r.report).length
@@ -422,7 +422,7 @@ export default function PstReview() {
 
       <div className="pr-note">
         <CalendarClock size={15} />
-        <span>Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ появляются только если найдена наружная уборка по POSTOMAT_ID и типу мойки.</span>
+        <span>Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ скрыты и не показываются в проверке.</span>
       </div>
 
       <div className="pst-table-wrap">
