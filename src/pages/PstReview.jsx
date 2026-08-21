@@ -10,8 +10,8 @@ import './PstReports.css'
 import './PstReview.css'
 
 const REVIEW_PERIODS = [
-  { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json' },
-  { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json' },
+  { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json', dateFrom: '2026-08-01', dateTo: '2026-08-31' },
+  { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json', dateFrom: '2026-07-01', dateTo: '2026-07-31' },
 ]
 
 const isoDateAlmaty = (value) => {
@@ -39,6 +39,27 @@ const formatDate = (value) => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+}
+
+const reportToSourceRow = (report) => {
+  const loc = report.location_data || {}
+  return {
+    report_id: report.id,
+    postomat_id: String(report.location_id || loc.id || ''),
+    city: loc.city || report.city || '',
+    branch: loc.branch || report.branch || '',
+    address: loc.address || report.address || '',
+    install_place: loc.installPlace || report.install_place || '',
+    point_type: loc.category || report.category || '',
+    lat: loc.lat ?? null,
+    lng: loc.lng ?? null,
+    last_cleaned_date: isoDateAlmaty(report.submitted_at),
+    submitted_at: report.submitted_at,
+    curator: report.cleaner_name || '',
+    location_type: '',
+    excel_washed: true,
+    show_static: true,
+  }
 }
 
 const photoUrl = (photo, mode = 'thumb') => {
@@ -243,7 +264,12 @@ export default function PstReview() {
     (book?.sheets || []).filter(s => !(hideFullWash && s.key === 'full'))
   ), [book, hideFullWash])
   const sheet = useMemo(() => visibleSheets.find(s => s.key === activeTab) || visibleSheets[0], [visibleSheets, activeTab])
-  const sourceRows = sheet?.rows || []
+  const isDynamicIncidentSheet = period === 'august-2026' && sheet?.key === 'incident'
+  const sourceRows = useMemo(() => (
+    isDynamicIncidentSheet
+      ? reports.map(reportToSourceRow).sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))
+      : (sheet?.rows || [])
+  ), [isDynamicIncidentSheet, reports, sheet])
 
   const visibleSourceRows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -308,9 +334,11 @@ export default function PstReview() {
             sortBy: 'submitted_at',
             sortDir: 'desc',
             work_type: workType,
-            ...(sheet.reportDateFrom ? { dateFrom: sheet.reportDateFrom } : {}),
-            ...(sheet.reportDateTo ? { dateTo: sheet.reportDateTo } : {}),
+            dateFrom: periodConfig.dateFrom || sheet.reportDateFrom || '',
+            dateTo: periodConfig.dateTo || sheet.reportDateTo || '',
           })
+          if (!q.get('dateFrom')) q.delete('dateFrom')
+          if (!q.get('dateTo')) q.delete('dateTo')
           const res = await api.get(`/pst?${q}`)
           loaded.push(...(res.data.reports || []))
           pages = res.data.pagination?.pages || 1
@@ -325,7 +353,7 @@ export default function PstReview() {
     } finally {
       setLoadingReports(false)
     }
-  }, [sheet])
+  }, [periodConfig.dateFrom, periodConfig.dateTo, sheet])
 
   useEffect(() => { fetchReports() }, [fetchReports])
 
@@ -360,7 +388,7 @@ export default function PstReview() {
       report: byReportId || exact || latest || null,
       matchMode: byReportId || exact ? 'exact' : latest ? 'latest' : 'missing',
     }
-  }).filter(entry => entry.source.show_static !== false), [visibleSourceRows, reportIndexes])
+  }).filter(entry => entry.source.show_static !== false || Boolean(entry.report)), [visibleSourceRows, reportIndexes])
 
   const stats = useMemo(() => {
     const matched = reviewRows.filter(r => r.report).length
@@ -397,8 +425,8 @@ export default function PstReview() {
   const hasFilters = search || city || dateFrom || dateTo
   const loading = loadingBook || loadingReports
   const noteText = sheet?.key === 'incident' && period === 'august-2026'
-    ? 'Инциденты берутся из отчетов нашей системы за август. Каждая строка привязана к своему отчету.'
-    : 'Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ скрыты и не показываются в проверке.'
+    ? 'Инциденты берутся из отчетов нашей системы за выбранный месяц. Данные обновляются при загрузке страницы.'
+    : 'Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ появляются автоматически, если по ним уже есть отчет в системе.'
 
   return (
     <div className="pst-page pr-page">
