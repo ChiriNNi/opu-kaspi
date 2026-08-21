@@ -1,10 +1,29 @@
 .pr-page { gap: 14px; }
 
+.pr-tabs-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pr-period-filter {
+  min-width: 180px;
+  background: #fff;
+  border-radius: 14px;
+}
+
+.pr-period-filter select {
+  font-weight: 900;
+  color: #1A1D1E;
+}
+
 .pr-tabs {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1;
   background: #fff;
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: 14px;
@@ -144,6 +163,8 @@
 }
 
 @media (max-width: 700px) {
+  .pr-tabs-row { flex-direction: column; }
+  .pr-period-filter { width: 100%; }
   .pr-tab { flex: 1; min-width: 150px; padding: 0 10px; }
   .pr-note { align-items: flex-start; }
 }

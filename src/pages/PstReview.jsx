@@ -9,6 +9,11 @@ import { useStore } from '../store'
 import './PstReports.css'
 import './PstReview.css'
 
+const REVIEW_PERIODS = [
+  { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json' },
+  { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json' },
+]
+
 const isoDateAlmaty = (value) => {
   if (!value) return ''
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -218,6 +223,7 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
 export default function PstReview() {
   const { user } = useStore()
   const isAdmin = user?.role === 'admin'
+  const [period, setPeriod] = useState(REVIEW_PERIODS[0].key)
   const [book, setBook] = useState(null)
   const [activeTab, setActiveTab] = useState('full')
   const [reports, setReports] = useState([])
@@ -231,7 +237,11 @@ export default function PstReview() {
   const [activePhoto, setActivePhoto] = useState(null)
   const [detailLoadingKey, setDetailLoadingKey] = useState('')
 
-  const visibleSheets = useMemo(() => (book?.sheets || []).filter(s => s.key !== 'full'), [book])
+  const periodConfig = REVIEW_PERIODS.find(p => p.key === period) || REVIEW_PERIODS[0]
+  const hideFullWash = book?.displayRules?.hideFullWash === true
+  const visibleSheets = useMemo(() => (
+    (book?.sheets || []).filter(s => !(hideFullWash && s.key === 'full'))
+  ), [book, hideFullWash])
   const sheet = useMemo(() => visibleSheets.find(s => s.key === activeTab) || visibleSheets[0], [visibleSheets, activeTab])
   const sourceRows = sheet?.rows || []
 
@@ -255,19 +265,25 @@ export default function PstReview() {
 
   const fetchBook = useCallback(async () => {
     setLoadingBook(true)
+    setError('')
+    setBook(null)
+    setReports([])
     try {
-      const res = await fetch('/pst-review-list.json', { cache: 'no-store' })
+      const res = await fetch(periodConfig.file, { cache: 'no-store' })
       if (!res.ok) throw new Error('review list not found')
       const data = await res.json()
       setBook(data)
-      const firstSheet = (data.sheets || []).find(s => s.key !== 'full') || data.sheets?.[0]
+      const shouldHideFull = data?.displayRules?.hideFullWash === true
+      const firstSheet = (data.sheets || []).find(s => !(shouldHideFull && s.key === 'full')) || data.sheets?.[0]
       setActiveTab(firstSheet?.key || 'exterior')
+      resetFilters()
     } catch {
       setError('Не удалось загрузить Excel-реестр PST на проверку')
+      setBook(null)
     } finally {
       setLoadingBook(false)
     }
-  }, [])
+  }, [periodConfig.file])
 
   useEffect(() => { fetchBook() }, [fetchBook])
 
@@ -372,17 +388,26 @@ export default function PstReview() {
 
   return (
     <div className="pst-page pr-page">
-      <div className="pr-tabs" role="tablist" aria-label="Листы PST на проверку">
-        {visibleSheets.map(tab => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`pr-tab ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => { setActiveTab(tab.key); resetFilters() }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="pr-tabs-row">
+        <div className="filter-group pr-period-filter">
+          <CalendarClock size={14} />
+          <select value={period} onChange={e => setPeriod(e.target.value)}>
+            {REVIEW_PERIODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+        </div>
+
+        <div className="pr-tabs" role="tablist" aria-label="Листы PST на проверку">
+          {visibleSheets.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`pr-tab ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => { setActiveTab(tab.key); resetFilters() }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="pst-stats">
