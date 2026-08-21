@@ -6,9 +6,11 @@ import {
   CheckCircle2,
   LocateFixed,
   MapPin,
+  Navigation,
   Plus,
   QrCode,
   RefreshCw,
+  Search,
   Store,
   Trash2,
   X,
@@ -259,10 +261,24 @@ const getDistanceKm = (from, to) => {
 const buildSearchIndex = (location) =>
   normalizeSearch([
     location.id, location.city, location.branch, location.address,
-    location.category, location.installPlace, location.comment, location.hint,
+    location.category, location.installPlace, location.comment, location.hint, location.routeText,
   ].join(' '));
 
 const chipClass = 'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em]';
+
+const get2GisRouteUrl = (location, coords) => {
+  const lat = Number(location.lat);
+  const lng = Number(location.lng);
+  const providedUrl = location.twoGisUrl || location.two_gis_url || location.url2gis || location['2gis'];
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (providedUrl) return providedUrl;
+    return `https://2gis.kz/search/${encodeURIComponent([location.city, location.address, location.id].filter(Boolean).join(' '))}`;
+  }
+  if (coords?.lat && coords?.lng) {
+    return `https://2gis.kz/routeSearch/rsType/pedestrian/from/${coords.lng},${coords.lat}/to/${lng},${lat}`;
+  }
+  return providedUrl || `https://2gis.kz/search/${encodeURIComponent(`${lng},${lat}`)}?m=${lng},${lat}/17`;
+};
 
 const PHOTO_SECTION_LABELS = { before: 'До', after: 'После' };
 const PHOTO_SECTION_DESCRIPTIONS = {
@@ -348,6 +364,175 @@ const PstMiniMap = ({ coords, locations, selectedLocationId, onSelectLocation })
   return (
     <div style={{ marginTop: '1.25rem', overflow: 'hidden', borderRadius: 28, border: '1px solid rgba(0,0,0,0.06)', background: '#fff', boxShadow: '0 18px 50px rgba(15,23,42,0.08)' }}>
       <div ref={mapRef} style={{ height: 280, width: '100%', background: '#eef3e8' }} />
+    </div>
+  );
+};
+
+const PstFindPostomatTab = ({
+  locations,
+  coords,
+  query,
+  onQueryChange,
+  isLoading,
+  error,
+}) => {
+  const normalizedQuery = normalizeSearch(query);
+  const items = useMemo(() => {
+    const source = locations
+      .map((location) => ({
+        ...location,
+        distanceKm: coords ? getDistanceKm(coords, location) : Number.POSITIVE_INFINITY,
+      }))
+      .filter((location) => {
+        if (!normalizedQuery) return true;
+        return location.searchIndex.includes(normalizedQuery);
+      })
+      .sort((a, b) => {
+        if (Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm)) return a.distanceKm - b.distanceKm;
+        return Number(a.id) - Number(b.id);
+      });
+    return source.slice(0, 80);
+  }, [coords, locations, normalizedQuery]);
+
+  const totalMatches = useMemo(() => {
+    if (!normalizedQuery) return locations.length;
+    return locations.filter((location) => location.searchIndex.includes(normalizedQuery)).length;
+  }, [locations, normalizedQuery]);
+
+  return (
+    <div className="mx-auto mt-6 max-w-[690px]">
+      <div style={{ textAlign: 'center', marginBottom: 22 }}>
+        <h1 style={{ fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.05, letterSpacing: '0.03em', color: '#1A1D1E', fontSize: 'clamp(1.65rem,5vw,2.7rem)', margin: 0 }}>
+          Найти<br />
+          <span style={{ color: '#8fc640' }}>Kaspi Postomat</span>
+        </h1>
+      </div>
+
+      <div style={{ borderRadius: 30, background: '#fff', padding: 14, border: '1px solid rgba(26,29,30,0.06)', boxShadow: '0 18px 50px rgba(15,23,42,0.06)' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          borderRadius: 22, background: '#f5f7f0',
+          border: '1px solid rgba(26,29,30,0.07)', padding: '0 14px',
+        }}>
+          <Search size={19} style={{ color: 'rgba(26,29,30,0.34)', flexShrink: 0 }} />
+          <input
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="ID, адрес, город..."
+            inputMode="search"
+            style={{
+              width: '100%', height: 54, border: 'none', outline: 'none',
+              background: 'transparent', fontFamily: 'inherit',
+              fontSize: 16, fontWeight: 800, color: '#1A1D1E',
+            }}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => onQueryChange('')}
+              style={{ border: 'none', background: 'transparent', color: 'rgba(26,29,30,0.35)', padding: 6, cursor: 'pointer' }}
+              aria-label="Очистить поиск"
+            >
+              <X size={17} />
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 4px 8px' }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(26,29,30,0.4)' }}>
+            {isLoading ? 'Загрузка базы' : `Показано ${items.length} из ${totalMatches}`}
+          </div>
+          {coords && (
+            <div style={{ fontSize: 11, fontWeight: 900, color: '#8fc640', whiteSpace: 'nowrap' }}>
+              GPS включен
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div style={{ borderRadius: 20, background: '#fff5f5', border: '1px solid #fee2e2', color: '#dc2626', padding: '12px 14px', fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 285px)', overflowY: 'auto', paddingTop: 6 }}>
+          {items.map((location) => {
+            const routeUrl = get2GisRouteUrl(location, coords);
+            const title = capitalizeFirstLetter(location.hint || location.comment || location.address || `Postomat ${location.id}`);
+            return (
+              <div
+                key={`find-${location.id}`}
+                style={{
+                  borderRadius: 22,
+                  background: '#fbfcf8',
+                  border: '1px solid rgba(26,29,30,0.07)',
+                  padding: 14,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                      <span className={chipClass} style={{ background: '#1A1D1E', color: '#fff' }}>ID {location.id}</span>
+                      {location.installPlace && (
+                        <span className={chipClass} style={{
+                          background: location.installPlace === 'Уличный' ? '#e9f3ff' : '#eef6e3',
+                          color: location.installPlace === 'Уличный' ? '#2b6cb0' : '#5a7d20',
+                        }}>
+                          {location.installPlace}
+                        </span>
+                      )}
+                      {Number.isFinite(location.distanceKm) && location.distanceKm !== Number.POSITIVE_INFINITY && (
+                        <span className={chipClass} style={{ background: 'rgba(143,198,64,0.14)', color: '#5a7d20' }}>
+                          {formatDistance(location.distanceKm)}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: '#1A1D1E', lineHeight: 1.25 }}>
+                      {location.address || 'Адрес не указан'}
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: 'rgba(26,29,30,0.48)', lineHeight: 1.45 }}>
+                      {[location.city, location.branch].filter(Boolean).join(' · ') || 'Город не указан'}
+                    </div>
+                    {title && title !== location.address && (
+                      <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: 'rgba(26,29,30,0.52)', lineHeight: 1.45 }}>
+                        {title}
+                      </div>
+                    )}
+                  </div>
+
+                  <a
+                    href={routeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      flexShrink: 0,
+                      width: 48,
+                      height: 48,
+                      borderRadius: 16,
+                      background: 'linear-gradient(135deg, #8fc640 0%, #6fa832 100%)',
+                      color: '#1A1D1E',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 8px 20px rgba(143,198,64,0.32)',
+                    }}
+                    aria-label={`Построить маршрут к постомату ${location.id}`}
+                    title="Маршрут в 2GIS"
+                  >
+                    <Navigation size={20} strokeWidth={2.6} />
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+
+          {!isLoading && items.length === 0 && (
+            <div style={{ borderRadius: 24, border: '1px dashed rgba(26,29,30,0.14)', background: '#fff', padding: '1.5rem', fontSize: '0.9rem', fontWeight: 700, color: 'rgba(26,29,30,0.52)', lineHeight: 1.5 }}>
+              Ничего не найдено. Попробуйте ввести только ID постомата или часть адреса.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -603,6 +788,7 @@ const PstPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [tab, setTab] = useState('wash');
+  const [findSearchTerm, setFindSearchTerm] = useState('');
   const [washedList, setWashedList] = useState(() => {
     try {
       const today = new Date().toDateString()
@@ -1055,11 +1241,15 @@ const PstPage = () => {
       {/* Шапка-остров */}
       <div style={{ position: 'fixed', top: 12, left: 12, right: 12, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(26,29,30,0.88)', backdropFilter: 'blur(16px)', borderRadius: 50, padding: '8px 8px 8px 20px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
         <img src="/logo_IC_group.png" alt="IC Group" style={{ height: 26, width: 'auto', filter: 'brightness(0) invert(1)', opacity: 0.9, flexShrink: 0 }} />
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: 40, padding: 3, gap: 2 }}>
-          {[['wash', 'Мойка'], ['washed', `Помытые${washedList.length > 0 ? ` · ${washedList.length}` : ''}`]].map(([key, label]) => (
+        <div style={{ display: 'flex', minWidth: 0, background: 'rgba(255,255,255,0.1)', borderRadius: 40, padding: 3, gap: 2 }}>
+          {[
+            ['wash', 'Мойка'],
+            ['washed', `Помытые${washedList.length > 0 ? ` · ${washedList.length}` : ''}`],
+            ['find', 'Найти PST'],
+          ].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{
-              padding: '8px 22px', borderRadius: 40, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 800, fontFamily: 'inherit', transition: 'all 0.18s', whiteSpace: 'nowrap',
+              padding: '8px 14px', borderRadius: 40, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 800, fontFamily: 'inherit', transition: 'all 0.18s', whiteSpace: 'nowrap',
               background: tab === key ? '#8fc640' : 'transparent',
               color: tab === key ? '#1A1D1E' : 'rgba(255,255,255,0.6)',
             }}>{label}</button>
@@ -1117,6 +1307,16 @@ const PstPage = () => {
                 </>
               )}
             </div>
+          )}
+          {tab === 'find' && (
+            <PstFindPostomatTab
+              locations={indexedLocations}
+              coords={coords}
+              query={findSearchTerm}
+              onQueryChange={setFindSearchTerm}
+              isLoading={isLoadingLocations}
+              error={locationsError}
+            />
           )}
           {addPhotosFor && (
             <AddMorePhotosModal
