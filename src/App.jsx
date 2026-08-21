@@ -16,6 +16,7 @@ import Training from './pages/Training'
 import Realization from './pages/Realization'
 import PstIncidents from './pages/PstIncidents'
 import PstReview from './pages/PstReview'
+import PstList from './pages/PstList'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -195,6 +196,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/pst-list"    element={<PstList />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
@@ -209,6 +211,7 @@ export default function App() {
           <Route path="/pst"         element={<PstPage />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/pst-list"    element={<PstList />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="/pst-review"  element={<PstReview />} />
           <Route path="*"            element={<Navigate to="/checklists" replace />} />
@@ -222,6 +225,7 @@ export default function App() {
           <Route path="/"            element={<Dashboard />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/pst-list"    element={<PstList />} />
           <Route path="/checklists"  element={<Checklists />} />
           <Route path="/objects"     element={<Objects />} />
           <Route path="/users"       element={<Users />} />
@@ -240,6 +244,7 @@ export default function App() {
           <Route path="/"            element={<Dashboard />} />
           <Route path="/pst-reports" element={<PstReports />} />
           <Route path="/locations"   element={<Locations />} />
+          <Route path="/pst-list"    element={<PstList />} />
           <Route path="/users"       element={<Users />} />
           <Route path="/checklists"  element={<Checklists />} />
           <Route path="/objects"     element={<Objects />} />
