@@ -5,7 +5,7 @@ import JSZip from 'jszip'
 import {
   Search, X, RefreshCw, Building2, ChevronUp, ChevronDown,
   ChevronsUpDown, ArrowLeft, ArrowRight, Pencil, CheckCircle2,
-  Circle, Filter, Plus, Trash2, MapPin, History, Download
+  Circle, Filter, Plus, Trash2, MapPin, History, Download, Settings2
 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { useStore } from '../store'
@@ -60,6 +60,94 @@ const ALMATY = [43.238949, 76.889709]
 
 let rowCounter = 1
 const newRow = () => ({ _key: rowCounter++, id: '', city: '', branch: '', address: '', install_place: '', cells_count: '', lat: null, lng: null })
+
+const LOCATION_COLUMNS_KEY = 'locations_visible_columns_v2'
+const DEFAULT_LOCATION_COLUMNS = [
+  'id', 'city', 'location_type', 'address', 'category', 'install_place',
+  'planned_wash_date', 'curator_name', 'cleanings_count', 'last_cleaned_at',
+  'plan_per_month', 'is_active', 'actions'
+]
+
+const formatDateOnly = (v) => v
+  ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(v))
+  : null
+
+const yesNo = (v) => v === true ? 'Да' : v === false ? 'Нет' : '—'
+
+function ColumnSettingsModal({ columns, visibleIds, onChange, onClose }) {
+  const [q, setQ] = useState('')
+  const visibleSet = new Set(visibleIds)
+  const filtered = columns.filter(c => {
+    const hay = `${c.label} ${c.group || ''}`.toLowerCase()
+    return hay.includes(q.trim().toLowerCase())
+  })
+  const grouped = filtered.reduce((acc, col) => {
+    const group = col.group || 'Основное'
+    if (!acc[group]) acc[group] = []
+    acc[group].push(col)
+    return acc
+  }, {})
+
+  const apply = (ids) => {
+    const next = ids.includes('id') ? ids : ['id', ...ids]
+    onChange(next)
+  }
+  const toggle = (id) => {
+    if (id === 'id') return
+    const next = visibleSet.has(id)
+      ? visibleIds.filter(x => x !== id)
+      : [...visibleIds, id]
+    apply(next)
+  }
+
+  return (
+    <div className="loc-backdrop lp-top" onClick={onClose}>
+      <div className="loc-cols-modal" onClick={e => e.stopPropagation()}>
+        <div className="loc-cols-head">
+          <div>
+            <div className="loc-cols-title">Настройка списка «Постоматы»</div>
+            <div className="loc-cols-sub">{visibleIds.length} из {columns.length} столбцов выбрано</div>
+          </div>
+          <button className="loc-close" onClick={onClose}><X size={15} /></button>
+        </div>
+
+        <div className="loc-cols-search">
+          <Search size={16} />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Поиск по полям" autoFocus />
+          {q && <button onClick={() => setQ('')}><X size={14} /></button>}
+        </div>
+
+        <div className="loc-cols-body">
+          {Object.entries(grouped).map(([group, items]) => (
+            <section key={group} className="loc-cols-group">
+              <h3>{group}</h3>
+              <div className="loc-cols-grid">
+                {items.map(col => (
+                  <label key={col.key} className={`loc-col-option ${visibleSet.has(col.key) ? 'checked' : ''} ${col.key === 'id' ? 'locked' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={visibleSet.has(col.key)}
+                      disabled={col.key === 'id'}
+                      onChange={() => toggle(col.key)}
+                    />
+                    <span>{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div className="loc-cols-footer">
+          <button className="loc-cols-link" onClick={() => apply(columns.map(c => c.key))}>Выбрать все</button>
+          <button className="loc-cols-link" onClick={() => apply(DEFAULT_LOCATION_COLUMNS)}>По умолчанию</button>
+          <button className="loc-btn-cancel" onClick={onClose}>Отмена</button>
+          <button className="loc-btn-save" onClick={onClose}>Применить</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Map picker popup ─────────────────────────────────────────────────────────
 function MapPickerPopup({ initial, onConfirm, onClose }) {
@@ -548,6 +636,15 @@ export default function Locations() {
   const [bulkPlanValue, setBulkPlanValue] = useState('')
   const [bulkPlanSaving, setBulkPlanSaving] = useState(false)
   const [viewMode, setViewMode] = useState('table') // 'table' | 'planning'
+  const [columnModalOpen, setColumnModalOpen] = useState(false)
+  const [visibleColumnIds, setVisibleColumnIds] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LOCATION_COLUMNS_KEY) || 'null')
+      return Array.isArray(saved) && saved.length ? saved : DEFAULT_LOCATION_COLUMNS
+    } catch {
+      return DEFAULT_LOCATION_COLUMNS
+    }
+  })
   const [cityPlans, setCityPlans] = useState([])
   const [cityPlansLoading, setCityPlansLoading] = useState(false)
   const [planSearch, setPlanSearch] = useState('')
@@ -676,24 +773,53 @@ export default function Locations() {
   const exportExcel = async () => {
     setExporting(true)
     try {
-      const q = new URLSearchParams({ page: 1, limit: 100000, sortBy, sortDir, search, city, install_place: installPlace, cleaned })
+      const params = {
+        page: 1,
+        limit: 100000,
+        sortBy,
+        sortDir,
+        search,
+        city,
+        install_place: installPlace,
+        cleaned,
+        date_from: dateFrom,
+        date_to: dateTo,
+        partner_id: partnerFilter,
+        active_filter: activeFilter,
+      }
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '')))
       const res = await api.get(`/locations?${q}`)
       const data = (res.data.locations || []).map(r => ({
         'ID': r.id,
         'Город': r.city || '',
-        'Магазин': r.branch || '',
+        'Филиал': r.branch || '',
+        'Г/П': r.location_type || '',
         'Адрес': r.address || '',
-        'Тип': r.install_place || '',
+        'Категория точки': r.category || '',
+        'Установка': r.install_place || '',
+        'Координаты': r.lat != null && r.lng != null ? `${r.lat}, ${r.lng}` : '',
+        'Активность': r.activity_status || '',
+        'Доступность': r.availability_status || '',
+        'На точке': r.on_point_status || '',
+        'Постомат удален': yesNo(r.postomat_removed),
+        'Плановая дата мойки': formatDateOnly(r.planned_wash_date) || '',
+        'Нужно удостоверение': yesNo(r.access_card_required),
+        'Куратор': r.curator_name || r.partner_name || '',
+        '2GIS': r.two_gis_url || '',
         'Ячеек': r.cells_count || '',
         'Всего уборок': r.cleanings_count || 0,
         'Последняя уборка': r.last_cleaned_at ? new Date(r.last_cleaned_at).toLocaleString('ru-RU') : '',
-        'Партнёр': r.last_cleaned_by || '',
+        'Партнер': r.last_cleaned_by || '',
         'Подсказка': r.hint || '',
+        'Источник': r.source_file || '',
+        'Обновлено из источника': r.source_updated_at ? new Date(r.source_updated_at).toLocaleString('ru-RU') : '',
+        'План/мес': r.plan_per_month ?? '',
+        'Активен': r.is_active !== false ? 'Да' : 'Нет',
       }))
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Постоматы')
-      const colWidths = [10, 18, 20, 32, 12, 8, 14, 22, 18, 30]
+      const colWidths = [10, 18, 20, 10, 34, 28, 14, 22, 16, 16, 14, 18, 20, 20, 22, 30, 8, 14, 22, 18, 30, 28, 22, 10, 10]
       ws['!cols'] = colWidths.map(w => ({ wch: w }))
       XLSX.writeFile(wb, `postomaty_${new Date().toISOString().slice(0, 10)}.xlsx`)
     } catch (e) {
@@ -714,6 +840,101 @@ export default function Locations() {
     </th>
   )
 
+  const saveVisibleColumns = (ids) => {
+    const next = ids.filter(Boolean)
+    setVisibleColumnIds(next)
+    localStorage.setItem(LOCATION_COLUMNS_KEY, JSON.stringify(next))
+  }
+
+  const boolBadge = (v) => (
+    <span className={`loc-yn ${v === true ? 'yes' : v === false ? 'no' : 'empty'}`}>{yesNo(v)}</span>
+  )
+
+  const allColumns = [
+    { key: 'id', label: 'ID', group: 'Основное', sort: 'id', render: r => <span className="loc-chip-id">{r.id}</span> },
+    { key: 'city', label: 'Город', group: 'Основное', sort: 'city', render: r => <span className="loc-city">{r.city || '—'}</span> },
+    { key: 'branch', label: 'Филиал', group: 'Основное', render: r => <span className="loc-branch-only">{r.branch || '—'}</span> },
+    { key: 'location_type', label: 'Г/П', group: 'Основное', render: r => r.location_type ? (
+      <span className={`loc-zone-badge ${r.location_type === 'пригород' ? 'suburb' : 'city'}`}>
+        {r.location_type === 'пригород' ? 'приг' : 'гор'}
+      </span>
+    ) : '—' },
+    { key: 'address', label: 'Адрес / Филиал', group: 'Основное', sort: 'address', render: r => (
+      <div className="loc-addr">
+        <div className="loc-branch">{r.branch || ''}</div>
+        <div className="loc-address">{r.address || '—'}</div>
+      </div>
+    ) },
+    { key: 'category', label: 'Точка', group: 'Excel', render: r => <span className="loc-text-clip">{r.category || '—'}</span> },
+    { key: 'install_place', label: 'На улице', group: 'Excel', sort: 'install_place', render: r => r.install_place ? (
+      <span className={`loc-type ${r.install_place === 'Уличный' ? 'outdoor' : 'indoor'}`}>{r.install_place}</span>
+    ) : '—' },
+    { key: 'lat_lng', label: 'Координаты', group: 'Excel', render: r => (r.lat != null && r.lng != null) ? <span className="loc-coords">{Number(r.lat).toFixed(5)}, {Number(r.lng).toFixed(5)}</span> : '—' },
+    { key: 'activity_status', label: 'Активность', group: 'Excel', render: r => <span className="loc-status-pill">{r.activity_status || '—'}</span> },
+    { key: 'availability_status', label: 'Доступность', group: 'Excel', render: r => <span className={`loc-status-pill ${r.availability_status === 'НЕТ' ? 'warn' : ''}`}>{r.availability_status || '—'}</span> },
+    { key: 'on_point_status', label: 'На точке', group: 'Excel', render: r => <span className="loc-status-pill">{r.on_point_status || '—'}</span> },
+    { key: 'postomat_removed', label: 'Постомат удален', group: 'Excel', render: r => boolBadge(r.postomat_removed) },
+    { key: 'planned_wash_date', label: 'Плановая дата мойки', group: 'Excel', render: r => formatDateOnly(r.planned_wash_date) || '—' },
+    { key: 'access_card_required', label: 'Нужно удостоверение', group: 'Excel', render: r => boolBadge(r.access_card_required) },
+    { key: 'curator_name', label: 'Куратор', group: 'Excel', render: r => r.curator_name || r.partner_name || '—' },
+    { key: 'two_gis_url', label: '2GIS', group: 'Excel', render: r => r.two_gis_url && /^https?:\/\//i.test(r.two_gis_url) ? <a href={r.two_gis_url} target="_blank" rel="noreferrer" className="loc-link">Открыть</a> : (r.two_gis_url || '—') },
+    { key: 'cells_count', label: 'Ячеек', group: 'Система', sort: 'cells_count', render: r => <span className="loc-num">{r.cells_count || '—'}</span> },
+    { key: 'cleanings_count', label: 'Уборок', group: 'Система', sort: 'cleanings_count', render: r => <span className={`loc-cnt ${r.cleanings_count > 0 ? 'has' : ''}`}>{r.cleanings_count}</span> },
+    { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Система', sort: 'last_cleaned_at', render: r => fmtDate(r.last_cleaned_at) ? <span className="loc-last-date">{fmtDate(r.last_cleaned_at)}</span> : <span className="loc-never">—</span> },
+    { key: 'last_cleaned_by', label: 'Партнёр', group: 'Система', render: r => <span className="loc-who">{r.last_cleaned_by || (r.cleanings_count > 0 ? '—' : '')}</span> },
+    { key: 'hint', label: 'Подсказка', group: 'Система', render: r => <span className="loc-hint-cell">{r.hint || '—'}</span> },
+    { key: 'source_file', label: 'Источник', group: 'Система', render: r => <span className="loc-text-clip">{r.source_file || '—'}</span> },
+    { key: 'source_updated_at', label: 'Обновлено из источника', group: 'Система', render: r => fmtDate(r.source_updated_at) || '—' },
+    { key: 'plan_per_month', label: 'План/мес', group: 'Управление', render: r => (
+      <div className="loc-plan-cell" onClick={() => !isAuditor && setEditingPlan({ id: r.id, value: r.plan_per_month ?? '' })}>
+        {editingPlan?.id === r.id ? (
+          <input
+            className="loc-plan-input"
+            autoFocus
+            type="number"
+            min="0"
+            value={editingPlan.value}
+            onChange={e => setEditingPlan(p => ({ ...p, value: e.target.value }))}
+            onBlur={e => savePlan(r.id, e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') savePlan(r.id, editingPlan.value)
+              if (e.key === 'Escape') setEditingPlan(null)
+            }}
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span className={`loc-plan-val ${r.plan_per_month ? 'set' : 'empty'}`}>{r.plan_per_month ?? '—'}</span>
+        )}
+      </div>
+    ) },
+    { key: 'is_active', label: 'Активен', group: 'Управление', render: r => (
+      <button
+        className={`loc-toggle ${r.is_active !== false ? 'on' : 'off'}`}
+        onClick={() => !isAuditor && toggleActive(r)}
+        title={r.is_active !== false ? 'Деактивировать' : 'Активировать'}
+        style={isAuditor ? { cursor: 'default', opacity: 0.6 } : {}}
+      >
+        <span className="loc-toggle-thumb" />
+      </button>
+    ) },
+    { key: 'actions', label: '', group: 'Управление', render: r => (
+      <div className="loc-row-actions">
+        {r.cleanings_count > 0 && (
+          <button className="loc-edit-btn hist" onClick={() => setHistoryLoc(r)} title="История уборок">
+            <History size={13} />
+          </button>
+        )}
+        {!isAuditor && (
+          <button className="loc-edit-btn" onClick={() => setEditLoc(r)} title="Редактировать">
+            <Pencil size={13} />
+          </button>
+        )}
+      </div>
+    ) },
+  ]
+  const visibleColumns = allColumns.filter(c => visibleColumnIds.includes(c.key))
+  const tableColSpan = Math.max(1, visibleColumns.length)
+
   return (
     <div className="loc-page">
       {/* Header */}
@@ -730,6 +951,9 @@ export default function Locations() {
           {viewMode === 'table' && <>
             <button className="loc-excel-btn" onClick={exportExcel} disabled={exporting}>
               <Download size={14} /> {exporting ? 'Выгрузка...' : 'Excel'}
+            </button>
+            <button className="loc-cols-btn" onClick={() => setColumnModalOpen(true)} title="Настроить столбцы">
+              <Settings2 size={14} /> Столбцы
             </button>
             {!isAuditor && <button className="loc-plan-btn" onClick={() => { setBulkPlanValue(''); setBulkPlanModal(true) }}>
               Установить план
@@ -911,111 +1135,29 @@ export default function Locations() {
         <table className="loc-table">
           <thead>
             <tr>
-              {th('ID', 'id')}
-              {th('Город', 'city')}
-              {th('Г/П', null)}
-              {th('Адрес / Магазин', 'address')}
-              {th('Тип', 'install_place')}
-              {th('Ячеек', 'cells_count')}
-              {th('Уборок', 'cleanings_count')}
-              {th('Последняя уборка', 'last_cleaned_at')}
-              <th>Партнёр</th>
-              <th>Подсказка</th>
-              <th>План/мес</th>
-              <th>Активен</th>
-              <th></th>
+              {visibleColumns.map(col => (
+                <th
+                  key={col.key}
+                  className={col.sort ? 'sortable' : ''}
+                  onClick={col.sort ? () => handleSort(col.sort) : undefined}
+                >
+                  {col.label}{col.sort && <SortBtn col={col.sort} sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {loading && rows.length === 0 ? (
-              <tr><td colSpan={13} className="loc-empty"><RefreshCw size={16} className="spin" /> Загрузка...</td></tr>
+              <tr><td colSpan={tableColSpan} className="loc-empty"><RefreshCw size={16} className="spin" /> Загрузка...</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={13} className="loc-empty">Ничего не найдено</td></tr>
-            ) : rows.map(r => {
-              const lastDate = fmtDate(r.last_cleaned_at)
-              const hasCleaned = r.cleanings_count > 0
-              return (
-                <tr key={r.id}>
-                  <td><span className="loc-chip-id">{r.id}</span></td>
-                  <td className="loc-city">{r.city || '—'}</td>
-                  <td>
-                    {r.location_type && (
-                      <span className={`loc-zone-badge ${r.location_type === 'пригород' ? 'suburb' : 'city'}`}>
-                        {r.location_type === 'пригород' ? 'приг' : 'гор'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="loc-addr">
-                    <div className="loc-branch">{r.branch || ''}</div>
-                    <div className="loc-address">{r.address || '—'}</div>
-                  </td>
-                  <td>
-                    {r.install_place && (
-                      <span className={`loc-type ${r.install_place === 'Уличный' ? 'outdoor' : 'indoor'}`}>
-                        {r.install_place}
-                      </span>
-                    )}
-                  </td>
-                  <td className="loc-num">{r.cells_count || '—'}</td>
-                  <td className="loc-num">
-                    <span className={`loc-cnt ${hasCleaned ? 'has' : ''}`}>{r.cleanings_count}</span>
-                  </td>
-                  <td className="loc-date">
-                    {lastDate
-                      ? <span className="loc-last-date">{lastDate}</span>
-                      : <span className="loc-never">—</span>}
-                  </td>
-                  <td className="loc-who">{r.last_cleaned_by || (hasCleaned ? '—' : '')}</td>
-                  <td className="loc-hint-cell">{r.hint || '—'}</td>
-                  <td className="loc-plan-cell" onClick={() => !isAuditor && setEditingPlan({ id: r.id, value: r.plan_per_month ?? '' })}>
-                    {editingPlan?.id === r.id ? (
-                      <input
-                        className="loc-plan-input"
-                        autoFocus
-                        type="number"
-                        min="0"
-                        value={editingPlan.value}
-                        onChange={e => setEditingPlan(p => ({ ...p, value: e.target.value }))}
-                        onBlur={e => savePlan(r.id, e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') savePlan(r.id, editingPlan.value)
-                          if (e.key === 'Escape') setEditingPlan(null)
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className={`loc-plan-val ${r.plan_per_month ? 'set' : 'empty'}`}>
-                        {r.plan_per_month ?? '—'}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      className={`loc-toggle ${r.is_active !== false ? 'on' : 'off'}`}
-                      onClick={() => !isAuditor && toggleActive(r)}
-                      title={r.is_active !== false ? 'Деактивировать' : 'Активировать'}
-                      style={isAuditor ? { cursor: 'default', opacity: 0.6 } : {}}
-                    >
-                      <span className="loc-toggle-thumb" />
-                    </button>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {r.cleanings_count > 0 && (
-                        <button className="loc-edit-btn hist" onClick={() => setHistoryLoc(r)} title="История уборок">
-                          <History size={13} />
-                        </button>
-                      )}
-                      {!isAuditor && (
-                        <button className="loc-edit-btn" onClick={() => setEditLoc(r)} title="Редактировать">
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+              <tr><td colSpan={tableColSpan} className="loc-empty">Ничего не найдено</td></tr>
+            ) : rows.map(r => (
+              <tr key={r.id}>
+                {visibleColumns.map(col => (
+                  <td key={col.key} className={col.tdClass || ''}>{col.render(r)}</td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>}
@@ -1046,6 +1188,14 @@ export default function Locations() {
         <AddModal
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); fetch() }}
+        />
+      )}
+      {columnModalOpen && (
+        <ColumnSettingsModal
+          columns={allColumns}
+          visibleIds={visibleColumnIds}
+          onChange={saveVisibleColumns}
+          onClose={() => setColumnModalOpen(false)}
         />
       )}
       {editLoc && (
