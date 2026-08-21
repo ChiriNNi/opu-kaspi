@@ -291,6 +291,7 @@ export default function PstReview() {
     if (!sheet) return
     setLoadingReports(true)
     setError('')
+    setReports([])
     try {
       const loaded = []
       const workTypes = sheet.key === 'exterior'
@@ -345,6 +346,13 @@ export default function PstReview() {
 
   const reviewRows = useMemo(() => visibleSourceRows.map(row => {
     const byReportId = row.report_id ? reportIndexes.byId.get(Number(row.report_id)) : null
+    if (row.report_id) {
+      return {
+        source: row,
+        report: byReportId || null,
+        matchMode: byReportId ? 'exact' : 'missing',
+      }
+    }
     const exact = reportIndexes.byExact.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`)
     const latest = reportIndexes.latestById.get(String(row.postomat_id))
     return {
@@ -388,6 +396,9 @@ export default function PstReview() {
 
   const hasFilters = search || city || dateFrom || dateTo
   const loading = loadingBook || loadingReports
+  const noteText = sheet?.key === 'incident' && period === 'august-2026'
+    ? 'Инциденты берутся из отчетов нашей системы за август. Каждая строка привязана к своему отчету.'
+    : 'Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ скрыты и не показываются в проверке.'
 
   return (
     <div className="pst-page pr-page">
@@ -450,7 +461,7 @@ export default function PstReview() {
 
       <div className="pr-note">
         <CalendarClock size={15} />
-        <span>Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ скрыты и не показываются в проверке.</span>
+        <span>{noteText}</span>
       </div>
 
       <div className="pst-table-wrap">
