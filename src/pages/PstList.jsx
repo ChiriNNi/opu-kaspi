@@ -25,6 +25,34 @@ const writeRowsCache = (rows) => {
   } catch {}
 }
 
+const fetchPagedLocations = async () => {
+  const paramsFor = (page) => new URLSearchParams({
+    page: String(page),
+    limit: String(PAGE_LIMIT),
+    sortBy: 'id',
+    sortDir: 'asc',
+    active_filter: 'active',
+  })
+
+  const first = await api.get(`/locations?${paramsFor(1)}`)
+  const firstRows = (first.data.locations || []).filter(row => row.is_active !== false)
+  const pages = Number(first.data.pagination?.pages || 1)
+
+  if (pages <= 1) return firstRows
+
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) => {
+      const page = index + 2
+      return api.get(`/locations?${paramsFor(page)}`)
+    })
+  )
+
+  return [
+    ...firstRows,
+    ...rest.flatMap(res => res.data.locations || []),
+  ].filter(row => row.is_active !== false)
+}
+
 const formatDate = (value) => {
   if (!value) return '—'
   return new Intl.DateTimeFormat('ru-RU', {
@@ -194,36 +222,15 @@ export default function PstList() {
     else setLoading(true)
     setError('')
     try {
-      const paramsFor = (page) => new URLSearchParams({
-        page: String(page),
-        limit: String(PAGE_LIMIT),
-        sortBy: 'id',
-        sortDir: 'asc',
-        active_filter: 'active',
-      })
-
-      const first = await api.get(`/locations?${paramsFor(1)}`)
-      const firstRows = (first.data.locations || []).filter(row => row.is_active !== false)
-      const pages = Number(first.data.pagination?.pages || 1)
-      if (!hadRows) setRows(firstRows)
-
-      if (pages > 1) {
-        setLoadingMore(true)
-        const rest = await Promise.all(
-          Array.from({ length: pages - 1 }, (_, index) => {
-            const page = index + 2
-            return api.get(`/locations?${paramsFor(page)}`)
-          })
-        )
-        const all = [
-          ...firstRows,
-          ...rest.flatMap(res => res.data.locations || []),
-        ].filter(row => row.is_active !== false)
-        setRows(all)
-        writeRowsCache(all)
-      } else {
-        writeRowsCache(firstRows)
+      let nextRows = []
+      try {
+        const res = await api.get('/locations/pst-list')
+        nextRows = (res.data.locations || []).filter(row => row.is_active !== false)
+      } catch (fastErr) {
+        nextRows = await fetchPagedLocations()
       }
+      setRows(nextRows)
+      writeRowsCache(nextRows)
     } catch (e) {
       setError(e.response?.data?.error || 'Не удалось загрузить список постоматов')
     } finally {
