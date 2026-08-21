@@ -1,9 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
 
 const STORAGE_KEY = 'pst_list_visible_columns_v1'
+const CACHE_KEY = 'pst_list_rows_cache_v1'
+const CACHE_TTL_MS = 5 * 60 * 1000
+const PAGE_LIMIT = 1000
+
+const readRowsCache = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null')
+    if (!cached?.rows || !Array.isArray(cached.rows)) return []
+    if (Date.now() - Number(cached.savedAt || 0) > CACHE_TTL_MS) return []
+    return cached.rows
+  } catch {
+    return []
+  }
+}
+
+const writeRowsCache = (rows) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), rows }))
+  } catch {}
+}
 
 const formatDate = (value) => {
   if (!value) return '—'
@@ -146,8 +166,11 @@ function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
 }
 
 export default function PstList() {
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(true)
+  const cachedRowsRef = useRef(readRowsCache())
+  const [rows, setRows] = useState(() => cachedRowsRef.current)
+  const rowsRef = useRef(cachedRowsRef.current)
+  const [loading, setLoading] = useState(() => cachedRowsRef.current.length === 0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
@@ -163,31 +186,49 @@ export default function PstList() {
     }
   })
 
+  useEffect(() => { rowsRef.current = rows }, [rows])
+
   const fetchRows = useCallback(async () => {
-    setLoading(true)
+    const hadRows = rowsRef.current.length > 0
+    if (hadRows) setLoadingMore(true)
+    else setLoading(true)
     setError('')
     try {
-      const all = []
-      let page = 1
-      let pages = 1
-      do {
-        const params = new URLSearchParams({
-          page: String(page),
-          limit: '1000',
-          sortBy: 'id',
-          sortDir: 'asc',
-          active_filter: 'active',
-        })
-        const res = await api.get(`/locations?${params}`)
-        all.push(...(res.data.locations || []))
-        pages = Number(res.data.pagination?.pages || 1)
-        page += 1
-      } while (page <= pages)
-      setRows(all.filter(row => row.is_active !== false))
+      const paramsFor = (page) => new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_LIMIT),
+        sortBy: 'id',
+        sortDir: 'asc',
+        active_filter: 'active',
+      })
+
+      const first = await api.get(`/locations?${paramsFor(1)}`)
+      const firstRows = (first.data.locations || []).filter(row => row.is_active !== false)
+      const pages = Number(first.data.pagination?.pages || 1)
+      if (!hadRows) setRows(firstRows)
+
+      if (pages > 1) {
+        setLoadingMore(true)
+        const rest = await Promise.all(
+          Array.from({ length: pages - 1 }, (_, index) => {
+            const page = index + 2
+            return api.get(`/locations?${paramsFor(page)}`)
+          })
+        )
+        const all = [
+          ...firstRows,
+          ...rest.flatMap(res => res.data.locations || []),
+        ].filter(row => row.is_active !== false)
+        setRows(all)
+        writeRowsCache(all)
+      } else {
+        writeRowsCache(firstRows)
+      }
     } catch (e) {
       setError(e.response?.data?.error || 'Не удалось загрузить список постоматов')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [])
 
@@ -292,7 +333,7 @@ export default function PstList() {
             <Settings2 size={16} /> Колонки
           </button>
           <button type="button" className="pst-list-icon-btn" onClick={fetchRows} disabled={loading} title="Обновить">
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
+            <RefreshCw size={16} className={loading || loadingMore ? 'spin' : ''} />
           </button>
         </div>
       </div>
@@ -333,6 +374,11 @@ export default function PstList() {
       </div>
 
       {error && <div className="pst-list-error">{error}</div>}
+      {loadingMore && rows.length > 0 && (
+        <div className="pst-list-sync">
+          <RefreshCw size={14} className="spin" /> Обновляю свежие данные, таблицей уже можно пользоваться
+        </div>
+      )}
 
       <div className="pst-list-sheet-wrap">
         <table className="pst-list-sheet">
@@ -353,7 +399,7 @@ export default function PstList() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {loading && rows.length === 0 ? (
               <tr><td colSpan={visibleColumns.length + 1} className="pst-list-state">Загружаю активные постоматы...</td></tr>
             ) : filteredRows.length === 0 ? (
               <tr><td colSpan={visibleColumns.length + 1} className="pst-list-state">Ничего не найдено</td></tr>
