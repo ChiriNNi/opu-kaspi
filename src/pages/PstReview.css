@@ -2,20 +2,32 @@
 
 .pr-tabs-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .pr-period-filter {
   min-width: 180px;
+  min-height: 56px;
+  padding: 10px 14px;
   background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
   border-radius: 14px;
 }
 
 .pr-period-filter select {
+  height: 36px;
+  min-width: 132px;
+  padding: 0 30px 0 12px;
+  border-radius: 10px;
   font-weight: 900;
   color: #1A1D1E;
+}
+
+.pr-period-filter svg {
+  flex-shrink: 0;
+  transform: translateY(1px);
 }
 
 .pr-tabs {

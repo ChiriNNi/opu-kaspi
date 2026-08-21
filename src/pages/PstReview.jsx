@@ -253,7 +253,7 @@ export default function PstReview() {
       if (dateTo && row.last_cleaned_date > dateTo) return false
       if (!q) return true
       return [
-        row.postomat_id, row.city, row.branch, row.address,
+        row.report_id, row.postomat_id, row.city, row.branch, row.address,
         row.install_place, row.curator, row.location_type,
       ].some(v => String(v || '').toLowerCase().includes(q))
     })
@@ -329,25 +329,28 @@ export default function PstReview() {
   useEffect(() => { fetchReports() }, [fetchReports])
 
   const reportIndexes = useMemo(() => {
+    const byId = new Map()
     const byExact = new Map()
     const latestById = new Map()
     reports.forEach(report => {
+      byId.set(Number(report.id), report)
       const date = isoDateAlmaty(report.submitted_at)
       const exactKey = `${String(report.location_id)}|${date}`
       if (!byExact.has(exactKey)) byExact.set(exactKey, report)
       const idKey = String(report.location_id)
       if (!latestById.has(idKey)) latestById.set(idKey, report)
     })
-    return { byExact, latestById }
+    return { byId, byExact, latestById }
   }, [reports])
 
   const reviewRows = useMemo(() => visibleSourceRows.map(row => {
+    const byReportId = row.report_id ? reportIndexes.byId.get(Number(row.report_id)) : null
     const exact = reportIndexes.byExact.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`)
     const latest = reportIndexes.latestById.get(String(row.postomat_id))
     return {
       source: row,
-      report: exact || latest || null,
-      matchMode: exact ? 'exact' : latest ? 'latest' : 'missing',
+      report: byReportId || exact || latest || null,
+      matchMode: byReportId || exact ? 'exact' : latest ? 'latest' : 'missing',
     }
   }).filter(entry => entry.source.show_static !== false), [visibleSourceRows, reportIndexes])
 
