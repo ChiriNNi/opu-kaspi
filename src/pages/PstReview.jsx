@@ -63,6 +63,25 @@ const reportToSourceRow = (report) => {
   }
 }
 
+const reportTimestamp = (report) => new Date(report?.submitted_at || 0).getTime()
+
+const combineReports = (reports) => {
+  const sorted = [...(reports || [])].filter(Boolean).sort((a, b) => reportTimestamp(b) - reportTimestamp(a))
+  const main = sorted[0] || null
+  if (!main) return null
+  const attachReportId = (report, photos) => (photos || []).map(photo => ({ ...photo, _reportId: report.id }))
+  return {
+    ...main,
+    report_ids: sorted.map(report => report.id),
+    before_count: sorted.reduce((sum, report) => sum + (report.before_count || 0), 0),
+    after_count: sorted.reduce((sum, report) => sum + (report.after_count || 0), 0),
+    drive_count: sorted.reduce((sum, report) => sum + (report.drive_count || 0), 0),
+    before_photos: sorted.flatMap(report => attachReportId(report, report.before_photos)),
+    after_photos: sorted.flatMap(report => attachReportId(report, report.after_photos)),
+    drive_photos: sorted.flatMap(report => attachReportId(report, report.drive_photos)),
+  }
+}
+
 const photoUrl = (photo, mode = 'thumb') => {
   if (photo?.driveId) {
     const size = mode === 'thumb' ? 'w600' : 'w2400'
@@ -145,10 +164,16 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
     e.stopPropagation()
     if (!photo?.driveId || savingPhoto) return
     const hidden = !photo.hidden
+    const targetReportId = photo._reportId || report.id
     setSavingPhoto(photo.driveId)
     try {
-      const res = await api.patch(`/pst/${report.id}/drive-photo-visibility`, { driveId: photo.driveId, hidden })
-      const updated = { ...report, drive_photos: res.data.drive_photos || [] }
+      await api.patch(`/pst/${targetReportId}/drive-photo-visibility`, { driveId: photo.driveId, hidden })
+      const updated = {
+        ...report,
+        drive_photos: (report.drive_photos || []).map(item => (
+          item.driveId === photo.driveId ? { ...item, hidden } : item
+        )),
+      }
       onReportUpdate?.(updated)
     } finally {
       setSavingPhoto('')
@@ -181,7 +206,7 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
             ['POSTOMAT_ID', sourceRow.postomat_id],
             ['Тип мойки', report.work_type],
             ['Дата отчета', formatDate(report.submitted_at)],
-            ['Отчет ID', report.id],
+            ['Отчет ID', report.report_ids?.length > 1 ? `${report.id} +${report.report_ids.length - 1}` : report.id],
             ['Филиал', sourceRow.branch || loc.branch],
           ].filter(([, value]) => value).map(([label, value]) => (
             <div key={label} className="modal-info-chip">
@@ -361,16 +386,20 @@ export default function PstReview() {
   const reportIndexes = useMemo(() => {
     const byId = new Map()
     const byExact = new Map()
+    const byExactAll = new Map()
     const latestById = new Map()
     reports.forEach(report => {
       byId.set(Number(report.id), report)
       const date = isoDateAlmaty(report.submitted_at)
       const exactKey = `${String(report.location_id)}|${date}`
       if (!byExact.has(exactKey)) byExact.set(exactKey, report)
+      const exactReports = byExactAll.get(exactKey) || []
+      exactReports.push(report)
+      byExactAll.set(exactKey, exactReports)
       const idKey = String(report.location_id)
       if (!latestById.has(idKey)) latestById.set(idKey, report)
     })
-    return { byId, byExact, latestById }
+    return { byId, byExact, byExactAll, latestById }
   }, [reports])
 
   const matchSourceRow = useCallback((row) => {
@@ -379,29 +408,78 @@ export default function PstReview() {
       return {
         source: row,
         report: byReportId || null,
+        reports: byReportId ? [byReportId] : [],
         matchMode: byReportId ? 'exact' : 'missing',
       }
     }
     const exact = reportIndexes.byExact.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`)
+    const exactReports = reportIndexes.byExactAll.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`) || []
     const latest = reportIndexes.latestById.get(String(row.postomat_id))
     return {
       source: row,
       report: byReportId || exact || latest || null,
+      reports: exactReports.length ? exactReports : latest ? [latest] : [],
       matchMode: byReportId || exact ? 'exact' : latest ? 'latest' : 'missing',
     }
   }, [reportIndexes])
 
+  const dedupeReviewEntries = useCallback((entries) => {
+    const grouped = new Map()
+    entries.forEach(entry => {
+      const row = entry.source
+      const key = [
+        row.postomat_id || '',
+        row.last_cleaned_date || '',
+        row.install_place || '',
+        row.location_type || '',
+        sheet?.key || '',
+      ].join('|')
+      const current = grouped.get(key)
+      if (!current) {
+        grouped.set(key, {
+          ...entry,
+          reports: [...(entry.reports || [])],
+        })
+        return
+      }
+      const reports = new Map((current.reports || []).map(report => [report.id, report]))
+      ;(entry.reports || []).forEach(report => reports.set(report.id, report))
+      const mergedReports = Array.from(reports.values()).sort((a, b) => reportTimestamp(b) - reportTimestamp(a))
+      grouped.set(key, {
+        ...current,
+        report: combineReports(mergedReports),
+        reports: mergedReports,
+        matchMode: current.matchMode === 'exact' || entry.matchMode === 'exact'
+          ? 'exact'
+          : current.matchMode === 'latest' || entry.matchMode === 'latest'
+            ? 'latest'
+            : 'missing',
+      })
+    })
+    return Array.from(grouped.values()).map(entry => {
+      if ((entry.reports || []).length <= 1) return entry
+      return {
+        ...entry,
+        report: combineReports(entry.reports),
+      }
+    })
+  }, [sheet?.key])
+
   const reviewRows = useMemo(() => (
-    visibleSourceRows
-      .map(matchSourceRow)
-      .filter(entry => entry.source.show_static !== false || Boolean(entry.report))
-  ), [visibleSourceRows, matchSourceRow])
+    dedupeReviewEntries(
+      visibleSourceRows
+        .map(matchSourceRow)
+        .filter(entry => entry.source.show_static !== false || Boolean(entry.report))
+    )
+  ), [visibleSourceRows, matchSourceRow, dedupeReviewEntries])
 
   const truthExportRows = useMemo(() => (
-    visibleSourceRows
-      .filter(row => row.show_static !== false)
-      .map(matchSourceRow)
-  ), [visibleSourceRows, matchSourceRow])
+    dedupeReviewEntries(
+      visibleSourceRows
+        .filter(row => row.show_static !== false)
+        .map(matchSourceRow)
+    )
+  ), [visibleSourceRows, matchSourceRow, dedupeReviewEntries])
 
   const stats = useMemo(() => {
     const matched = reviewRows.filter(r => r.report).length
@@ -416,11 +494,19 @@ export default function PstReview() {
 
   const openPhotos = async (entry) => {
     if (!entry.report) return
-    const key = `${entry.source.postomat_id}-${entry.report.id}`
+    const reportList = entry.reports?.length ? entry.reports : [entry.report]
+    const key = `${entry.source.postomat_id}-${reportList.map(report => report.id).join('-')}`
     setDetailLoadingKey(key)
     try {
-      const res = await api.get(`/pst/${entry.report.id}`)
-      setActivePhoto({ report: res.data.report || res.data, sourceRow: entry.source })
+      const details = await Promise.all(reportList.map(async (report) => {
+        try {
+          const res = await api.get(`/pst/${report.id}`)
+          return res.data.report || res.data
+        } catch {
+          return { ...report, before_photos: [], after_photos: [], drive_photos: [] }
+        }
+      }))
+      setActivePhoto({ report: combineReports(details), sourceRow: entry.source })
     } catch {
       setActivePhoto({ report: { ...entry.report, before_photos: [], after_photos: [], drive_photos: [] }, sourceRow: entry.source })
     } finally {
@@ -436,10 +522,12 @@ export default function PstReview() {
   }
 
   const exportTruthRows = () => {
-    const rows = truthExportRows.map(({ source: row, report, matchMode }) => {
-      const before = report?.before_count || 0
-      const after = report?.after_count || 0
-      const drive = report?.drive_count || 0
+    const rows = truthExportRows.map((entry) => {
+      const { source: row, report, matchMode } = entry
+      const combinedReport = combineReports(entry.reports?.length ? entry.reports : [report]) || report
+      const before = combinedReport?.before_count || 0
+      const after = combinedReport?.after_count || 0
+      const drive = combinedReport?.drive_count || 0
       return {
         'POSTOMAT_ID': row.postomat_id || '',
         'Город': row.city || '',
@@ -448,9 +536,9 @@ export default function PstReview() {
         'Установка': row.install_place || '',
         'Г/П': row.location_type || '',
         'Дата из Excel': row.last_cleaned_date ? formatDate(row.last_cleaned_date) : '',
-        'Отчет ID': report?.id || '',
+        'Отчет ID': combinedReport?.report_ids?.join(', ') || combinedReport?.id || '',
         'Статус сопоставления': report ? (matchMode === 'latest' ? 'Последний отчет' : 'Точная дата') : 'Не найден',
-        'Дата отчета': report?.submitted_at ? formatDate(report.submitted_at) : '',
+        'Дата отчета': combinedReport?.submitted_at ? formatDate(combinedReport.submitted_at) : '',
         'До': before,
         'После': after,
         'Архив Drive': drive,
@@ -586,8 +674,11 @@ export default function PstReview() {
               const after = report?.after_count || 0
               const drive = report?.drive_count || 0
               const hasPhotos = before + after + drive > 0
-              const loadingKey = `${row.postomat_id}-${report?.id}`
-              const statusText = report ? `ID ${report.id}` : 'Не найден'
+              const reportCount = report?.report_ids?.length || 1
+              const loadingKey = `${row.postomat_id}-${report?.report_ids?.join('-') || report?.id}`
+              const statusText = report
+                ? reportCount > 1 ? `ID ${report.id} +${reportCount - 1}` : `ID ${report.id}`
+                : 'Не найден'
               const statusClass = entry.matchMode === 'exact' ? 'ok' : entry.matchMode === 'latest' ? 'fallback' : 'miss'
               return (
                 <tr key={`${activeTab}-${row.postomat_id}-${index}`} className={index % 2 === 0 ? 'even' : 'odd'}>
