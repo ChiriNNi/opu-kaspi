@@ -3,6 +3,7 @@ import {
   AlertCircle, Building2, CalendarClock, Download, Eye, Image,
   MapPin, RefreshCw, Search, X
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import api from '../api'
 import DatePicker from '../components/DatePicker'
 import { useStore } from '../store'
@@ -372,7 +373,7 @@ export default function PstReview() {
     return { byId, byExact, latestById }
   }, [reports])
 
-  const reviewRows = useMemo(() => visibleSourceRows.map(row => {
+  const matchSourceRow = useCallback((row) => {
     const byReportId = row.report_id ? reportIndexes.byId.get(Number(row.report_id)) : null
     if (row.report_id) {
       return {
@@ -388,7 +389,19 @@ export default function PstReview() {
       report: byReportId || exact || latest || null,
       matchMode: byReportId || exact ? 'exact' : latest ? 'latest' : 'missing',
     }
-  }).filter(entry => entry.source.show_static !== false || Boolean(entry.report)), [visibleSourceRows, reportIndexes])
+  }, [reportIndexes])
+
+  const reviewRows = useMemo(() => (
+    visibleSourceRows
+      .map(matchSourceRow)
+      .filter(entry => entry.source.show_static !== false || Boolean(entry.report))
+  ), [visibleSourceRows, matchSourceRow])
+
+  const truthExportRows = useMemo(() => (
+    visibleSourceRows
+      .filter(row => row.show_static !== false)
+      .map(matchSourceRow)
+  ), [visibleSourceRows, matchSourceRow])
 
   const stats = useMemo(() => {
     const matched = reviewRows.filter(r => r.report).length
@@ -420,6 +433,47 @@ export default function PstReview() {
     setCity('')
     setDateFrom('')
     setDateTo('')
+  }
+
+  const exportTruthRows = () => {
+    const rows = truthExportRows.map(({ source: row, report, matchMode }) => {
+      const before = report?.before_count || 0
+      const after = report?.after_count || 0
+      const drive = report?.drive_count || 0
+      return {
+        'POSTOMAT_ID': row.postomat_id || '',
+        'Город': row.city || '',
+        'Филиал': row.branch || '',
+        'Адрес': row.address || '',
+        'Установка': row.install_place || '',
+        'Г/П': row.location_type || '',
+        'Дата из Excel': row.last_cleaned_date ? formatDate(row.last_cleaned_date) : '',
+        'Отчет ID': report?.id || '',
+        'Статус сопоставления': report ? (matchMode === 'latest' ? 'Последний отчет' : 'Точная дата') : 'Не найден',
+        'Дата отчета': report?.submitted_at ? formatDate(report.submitted_at) : '',
+        'До': before,
+        'После': after,
+        'Архив Drive': drive,
+        'Есть фото': before + after + drive > 0 ? 'Да' : 'Нет',
+        'Тип мойки': report?.work_type || sheet?.workType || '',
+        'Куратор/клинер': row.curator || report?.cleaner_name || '',
+      }
+    })
+
+    if (!rows.length) return
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet['!cols'] = [
+      { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 34 },
+      { wch: 22 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+      { wch: 22 }, { wch: 18 }, { wch: 8 }, { wch: 8 },
+      { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 22 },
+    ]
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'ИСТИНА')
+    const safeSheet = String(sheet?.label || activeTab || 'PST').replace(/[\\/:*?"<>|]/g, '')
+    const safePeriod = String(periodConfig.label || period).replace(/[\\/:*?"<>|]/g, '')
+    XLSX.writeFile(workbook, `PST_ИСТИНА_${safeSheet}_${safePeriod}.xlsx`)
   }
 
   const hasFilters = search || city || dateFrom || dateTo
@@ -481,6 +535,16 @@ export default function PstReview() {
           <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Дата от" />
           <DatePicker value={dateTo} onChange={setDateTo} placeholder="Дата до" />
           {hasFilters && <button type="button" className="btn-reset" onClick={resetFilters}><X size={13} /> Сброс</button>}
+          <button
+            type="button"
+            className="btn-export-truth"
+            onClick={exportTruthRows}
+            disabled={loading || truthExportRows.length === 0}
+            title="Выгрузить строки с ИСТИНА в Excel"
+          >
+            <Download size={14} />
+            Выгрузить ИСТИНА
+          </button>
           <button type="button" className="btn-refresh" onClick={fetchReports} title="Обновить">
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
