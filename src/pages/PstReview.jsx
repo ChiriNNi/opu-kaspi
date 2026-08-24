@@ -476,8 +476,8 @@ export default function PstReview() {
   const truthExportRows = useMemo(() => (
     dedupeReviewEntries(
       visibleSourceRows
-        .filter(row => row.show_static !== false)
         .map(matchSourceRow)
+        .filter(entry => entry.source.show_static !== false || Boolean(entry.report))
     )
   ), [visibleSourceRows, matchSourceRow, dedupeReviewEntries])
 
@@ -535,9 +535,10 @@ export default function PstReview() {
         'Адрес': row.address || '',
         'Установка': row.install_place || '',
         'Г/П': row.location_type || '',
+        'Помыли?': 'ИСТИНА',
         'Дата из Excel': row.last_cleaned_date ? formatDate(row.last_cleaned_date) : '',
         'Отчет ID': combinedReport?.report_ids?.join(', ') || combinedReport?.id || '',
-        'Статус сопоставления': report ? (matchMode === 'latest' ? 'Последний отчет' : 'Точная дата') : 'Не найден',
+        'Статус сопоставления': report ? (row.show_static === false ? 'Было ЛОЖЬ, есть отчет' : matchMode === 'latest' ? 'Последний отчет' : 'Точная дата') : 'Не найден',
         'Дата отчета': combinedReport?.submitted_at ? formatDate(combinedReport.submitted_at) : '',
         'До': before,
         'После': after,
@@ -553,9 +554,10 @@ export default function PstReview() {
     const worksheet = XLSX.utils.json_to_sheet(rows)
     worksheet['!cols'] = [
       { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 34 },
-      { wch: 22 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
-      { wch: 22 }, { wch: 18 }, { wch: 8 }, { wch: 8 },
-      { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 22 },
+      { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 12 }, { wch: 24 }, { wch: 18 }, { wch: 8 },
+      { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 20 },
+      { wch: 22 },
     ]
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ИСТИНА')
@@ -679,7 +681,9 @@ export default function PstReview() {
               const statusText = report
                 ? reportCount > 1 ? `ID ${report.id} +${reportCount - 1}` : `ID ${report.id}`
                 : 'Не найден'
-              const statusClass = entry.matchMode === 'exact' ? 'ok' : entry.matchMode === 'latest' ? 'fallback' : 'miss'
+              const statusClass = report && row.show_static === false
+                ? 'ok'
+                : entry.matchMode === 'exact' ? 'ok' : entry.matchMode === 'latest' ? 'fallback' : 'miss'
               return (
                 <tr key={`${activeTab}-${row.postomat_id}-${index}`} className={index % 2 === 0 ? 'even' : 'odd'}>
                   <td className="cell-id"><span className="chip-id">{row.postomat_id}</span></td>
