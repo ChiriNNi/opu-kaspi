@@ -568,10 +568,6 @@ export default function PstReview() {
 
   const hasFilters = search || city || dateFrom || dateTo
   const loading = loadingBook || loadingReports
-  const noteText = sheet?.key === 'incident' && period === 'august-2026'
-    ? 'Инциденты берутся из отчетов нашей системы за выбранный месяц. Данные обновляются при загрузке страницы.'
-    : 'Строки с ИСТИНА берутся из Excel постоянно. Строки с ЛОЖЬ появляются автоматически, если по ним уже есть отчет в системе.'
-
   return (
     <div className="pst-page pr-page">
       <div className="pr-tabs-row">
@@ -639,11 +635,6 @@ export default function PstReview() {
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
         </div>
-      </div>
-
-      <div className="pr-note">
-        <CalendarClock size={15} />
-        <span>{noteText}</span>
       </div>
 
       <div className="pst-table-wrap">
