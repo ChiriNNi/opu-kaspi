@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import api from '../api'
 import { useStore } from '../store'
 import './PstReports.css'
@@ -17,7 +17,9 @@ const EMPTY_FORM = { postomat_id: '', city: '', branch: '', address: '' }
 
 export default function PstIncidents() {
   const { user } = useStore()
+  const isAdmin = user?.role === 'admin'
   const [incidents, setIncidents] = useState([])
+  const [deletingId, setDeletingId] = useState(null)
   const [loading, setLoading]     = useState(false)
   const [form, setForm]           = useState(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -39,6 +41,19 @@ export default function PstIncidents() {
   useEffect(() => { fetchIncidents() }, [fetchIncidents])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Удалить инцидент #' + id + '?')) return
+    setDeletingId(id)
+    try {
+      await api.delete(`/pst/incident/${id}`)
+      setIncidents(list => list.filter(r => r.id !== id))
+    } catch (err) {
+      alert(err.response?.data?.error || 'Ошибка при удалении')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -151,6 +166,7 @@ export default function PstIncidents() {
                 <th style={{ width: 130 }}>Филиал</th>
                 <th>Адрес</th>
                 <th style={{ width: 80 }}>Синхр.</th>
+                {isAdmin && <th style={{ width: 50 }}></th>}
               </tr>
             </thead>
             <tbody>
@@ -167,6 +183,18 @@ export default function PstIncidents() {
                       {r.sync_status === 'synced' ? 'OK' : r.sync_status === 'pending' ? '...' : 'Ошибка'}
                     </span>
                   </td>
+                  {isAdmin && (
+                    <td>
+                      <button
+                        className="inc-del-btn"
+                        onClick={() => handleDelete(r.id)}
+                        disabled={deletingId === r.id}
+                        title="Удалить инцидент"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

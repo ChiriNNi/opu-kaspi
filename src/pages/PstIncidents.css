@@ -89,3 +89,12 @@
 /* Spin animation for refresh */
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Delete button (admin only) */
+.inc-del-btn {
+  width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(26,29,30,0.1);
+  background: none; color: rgba(26,29,30,0.35); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.12s;
+}
+.inc-del-btn:hover { background: #fef2f2; color: #ef4444; border-color: #fecaca; }
+.inc-del-btn:disabled { opacity: 0.4; cursor: default; }
