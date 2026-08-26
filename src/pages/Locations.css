@@ -44,6 +44,26 @@
 }
 .loc-reset:hover { background: #f5fbe9; border-color: #8fc640; }
 
+/* Пара дат "с—по" — держим вместе одним блоком, чтобы не расползались
+   по отдельным строкам среди остальных фильтров при переносе. */
+.filter-daterange { display: flex; align-items: center; gap: 6px; }
+.filter-daterange-sep { font-size: 12px; opacity: 0.4; flex-shrink: 0; }
+.filter-daterange .dp { flex: 1; min-width: 0; }
+.filter-daterange .dp-field { width: 100%; min-width: 0; box-sizing: border-box; }
+
+@media (max-width: 640px) {
+  .loc-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .lf-group { width: 100%; }
+  .lf-group select { width: 100%; }
+  .filter-daterange { grid-column: 1 / -1; }
+  .loc-reset { grid-column: 1 / -1; justify-content: center; }
+}
+
 /* Table */
 .loc-table-wrap {
   background: #fff; border: 1px solid rgba(0,0,0,0.06);

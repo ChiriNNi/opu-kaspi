@@ -742,11 +742,11 @@ export default function PstReports() {
             </div>
           )}
 
-          <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} placeholder="Дата от" />
-
-          <span style={{ fontSize: 12, opacity: 0.5 }}>—</span>
-
-          <DatePicker value={dateTo} onChange={v => { setDateTo(v); setPage(1) }} placeholder="Дата до" />
+          <div className="filter-daterange">
+            <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} placeholder="Дата от" />
+            <span className="filter-daterange-sep">—</span>
+            <DatePicker value={dateTo} onChange={v => { setDateTo(v); setPage(1) }} placeholder="Дата до" />
+          </div>
 
           {hasFilters && (
             <button className="btn-reset" onClick={resetFilters}>

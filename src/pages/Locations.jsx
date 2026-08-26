@@ -1016,9 +1016,11 @@ export default function Locations() {
             </select>
           </div>
 
-          <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} placeholder="Мойка с" />
-          <span style={{ opacity: 0.4, fontSize: 12 }}>—</span>
-          <DatePicker value={dateTo} onChange={v => { setDateTo(v); setPage(1) }} placeholder="Мойка по" />
+          <div className="filter-daterange">
+            <DatePicker value={dateFrom} onChange={v => { setDateFrom(v); setPage(1) }} placeholder="Мойка с" />
+            <span className="filter-daterange-sep">—</span>
+            <DatePicker value={dateTo} onChange={v => { setDateTo(v); setPage(1) }} placeholder="Мойка по" />
+          </div>
 
           {partners.length > 0 && (
             <div className="lf-group">

@@ -94,6 +94,27 @@
 .btn-photos:hover:not(:disabled) { background: #8fc640; border-color: #8fc640; color: #1A1D1E; }
 .btn-photos:disabled { opacity: 0.6; cursor: default; }
 
+/* Пара дат "от—до" — держим вместе одним блоком, чтобы не расползались
+   по отдельным строкам среди остальных фильтров при переносе. */
+.filter-daterange { display: flex; align-items: center; gap: 6px; }
+.filter-daterange-sep { font-size: 12px; opacity: 0.5; flex-shrink: 0; }
+.filter-daterange .dp { flex: 1; min-width: 0; }
+.filter-daterange .dp-field { width: 100%; min-width: 0; box-sizing: border-box; }
+
+@media (max-width: 640px) {
+  .toolbar-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .filter-group { width: 100%; }
+  .filter-group select { width: 100%; }
+  .filter-daterange { grid-column: 1 / -1; }
+  .btn-reset, .btn-excel, .btn-photos { justify-content: center; }
+  .btn-refresh { justify-self: start; }
+}
+
 /* Table */
 .pst-table-wrap {
   background: #fff; border: 1px solid rgba(0,0,0,0.06);
