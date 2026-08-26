@@ -245,7 +245,7 @@
 .pst-list-sheet thead th {
   position: sticky;
   z-index: 4;
-  top: 26px;
+  top: 0;
   height: 36px;
   background: #f8f9f5;
   color: rgba(26, 29, 30, 0.58);
@@ -253,16 +253,6 @@
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.pst-list-sheet thead .pst-list-letters th {
-  top: 0;
-  height: 26px;
-  background: #e8f2de;
-  color: rgba(26, 29, 30, 0.52);
-  text-align: center;
-  font-size: 0.72rem;
-  border-bottom-color: rgba(26, 29, 30, 0.16);
 }
 
 .pst-list-sheet tbody tr:nth-child(even) td {
@@ -317,10 +307,6 @@
 .pst-list-sheet thead .id-col {
   z-index: 5;
   background: #f8f9f5;
-}
-
-.pst-list-sheet thead .pst-list-letters .id-col {
-  background: #e8f2de;
 }
 
 .pst-list-sheet .wide {

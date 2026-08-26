@@ -505,12 +505,6 @@ export default function PstList() {
       <div className="pst-list-sheet-wrap" ref={scrollRef}>
         <table className="pst-list-sheet">
           <thead>
-            <tr className="pst-list-letters">
-              <th className="row-num corner"></th>
-              {visibleColumns.map((col, index) => (
-                <th key={col.key} className={col.className || ''}>{String.fromCharCode(65 + (index % 26))}</th>
-              ))}
-            </tr>
             <tr>
               <th className="row-num">#</th>
               {visibleColumns.map(col => (
