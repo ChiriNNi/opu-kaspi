@@ -158,7 +158,9 @@
 
 .pst-list-search button {
   position: absolute;
+  top: 50%;
   right: 9px;
+  transform: translateY(-50%);
   border: 0;
   background: none;
   color: rgba(26, 29, 30, 0.38);
@@ -309,7 +311,7 @@
   width: 105px;
   min-width: 105px;
   max-width: 105px;
-  background: inherit;
+  background: #fff;
 }
 
 .pst-list-sheet thead .id-col {
@@ -374,11 +376,14 @@
 }
 
 .pst-list-check {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  background: #111718;
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #eef6e3;
+  color: #5a7d20;
 }
 
 .pst-list-empty-mark {

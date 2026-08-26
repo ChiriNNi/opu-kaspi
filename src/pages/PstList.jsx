@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Check, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react'
+import * as XLSX from 'xlsx'
+import { Check, Download, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
 
@@ -89,6 +90,18 @@ const get2GisUrl = (row) => {
     return `https://2gis.kz/search/${encodeURIComponent(`${row.lat},${row.lng}`)}?m=${row.lng},${row.lat}/17`
   }
   return ''
+}
+
+// Плоское текстовое значение колонки для экспорта — большинство col.render()
+// и так возвращают строку, но у части колонок это JSX (значок/ссылка), для них
+// значение достаём отдельно.
+const exportCellValue = (col, row) => {
+  if (col.key === 'id') return row.id
+  if (col.key === 'install_place') return row.install_place || '—'
+  if (col.key === 'washed') return row.cleanings_count > 0 ? 'Да' : 'Нет'
+  if (col.key === 'two_gis_url') return get2GisUrl(row) || '—'
+  const value = col.render(row)
+  return typeof value === 'string' || typeof value === 'number' ? value : ''
 }
 
 const rowHasIncident = (row) => {
@@ -207,6 +220,7 @@ export default function PstList() {
   const [installPlace, setInstallPlace] = useState('')
   const [status, setStatus] = useState('all')
   const [columnsOpen, setColumnsOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [visibleIds, setVisibleIds] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
@@ -323,6 +337,23 @@ export default function PstList() {
     incidents: rows.filter(rowHasIncident).length,
   }), [rows, filteredRows])
 
+  const handleExportExcel = () => {
+    setExporting(true)
+    try {
+      const data = filteredRows.map(row => {
+        const line = {}
+        visibleColumns.forEach(col => { line[col.label] = exportCellValue(col, row) })
+        return line
+      })
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Список')
+      XLSX.writeFile(wb, `pst-list_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const resetFilters = () => {
     setSearch('')
     setCity('')
@@ -351,6 +382,9 @@ export default function PstList() {
           <p>Активные Kaspi Postomat из базы в табличном виде</p>
         </div>
         <div className="pst-list-actions">
+          <button type="button" className="pst-list-btn" onClick={handleExportExcel} disabled={exporting || filteredRows.length === 0}>
+            <Download size={16} /> {exporting ? 'Выгрузка...' : 'Excel'}
+          </button>
           <button type="button" className="pst-list-btn" onClick={() => setColumnsOpen(true)}>
             <Settings2 size={16} /> Колонки
           </button>
