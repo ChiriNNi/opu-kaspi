@@ -140,6 +140,11 @@ const DEFAULT_COLUMNS = [
   'two_gis_url',
 ]
 
+// На телефоне таблица остаётся таблицей (не превращается в карточки), но с 13
+// колонками по умолчанию горизонтальный скролл был бы бесконечным — сужаем
+// стартовый набор до самого нужного, остальное доступно через "Колонки".
+const MOBILE_DEFAULT_COLUMNS = ['id', 'address', 'install_place', 'washed', 'partner', 'planned_wash_date']
+
 function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
   const [query, setQuery] = useState('')
   const visible = new Set(visibleIds)
@@ -308,11 +313,23 @@ export default function PstList() {
   const [visibleIds, setVisibleIds] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-      return Array.isArray(saved) && saved.length ? saved : DEFAULT_COLUMNS
-    } catch {
-      return DEFAULT_COLUMNS
-    }
+      if (Array.isArray(saved) && saved.length) return saved
+    } catch {}
+    const isMobileNow = typeof window !== 'undefined' && window.innerWidth <= 768
+    return isMobileNow ? MOBILE_DEFAULT_COLUMNS : DEFAULT_COLUMNS
   })
+
+  // Только для подсказки в поиске (короче на узком экране) — вёрстка таблицы
+  // сама по себе не зависит от JS, реагирует через CSS media query.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const onChange = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => { rowsRef.current = rows }, [rows])
 
@@ -495,7 +512,7 @@ export default function PstList() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Поиск по ID, городу, филиалу, адресу, партнеру"
+            placeholder={isMobile ? 'Поиск...' : 'Поиск по ID, городу, филиалу, адресу, партнеру'}
           />
           {search && <button type="button" onClick={() => setSearch('')}><X size={15} /></button>}
         </label>

@@ -551,6 +551,55 @@
   }
 }
 
+/* ── Мобильный телефон: таблица остаётся таблицей, но не разваливается ── */
+@media (max-width: 640px) {
+  .pst-list-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .pst-list-actions {
+    width: 100%;
+  }
+
+  .pst-list-btn {
+    flex: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Плавный инерционный скролл + едва заметная тень справа — подсказка,
+     что колонок больше, чем видно, без необходимости крутить телефон. */
+  .pst-list-sheet-wrap {
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(to right, #fff 50%, rgba(255, 255, 255, 0)) 0 0,
+      linear-gradient(to right, rgba(255, 255, 255, 0), #fff 50%) 100% 0,
+      linear-gradient(to right, rgba(26, 29, 30, 0.16), rgba(26, 29, 30, 0)) 0 0,
+      linear-gradient(to left, rgba(26, 29, 30, 0.16), rgba(26, 29, 30, 0)) 100% 0;
+    background-repeat: no-repeat;
+    background-color: #fff;
+    background-size: 24px 100%, 24px 100%, 10px 100%, 10px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  .pst-list-sheet {
+    font-size: 0.74rem;
+  }
+
+  .pst-list-sheet th,
+  .pst-list-sheet td {
+    padding: 4px 6px;
+  }
+
+  /* тап по маленькой воронке пальцем — увеличиваем зону нажатия */
+  .pst-list-filter-btn {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 /* ── Фильтр по колонке (как в Google Таблицах) ── */
 .pst-list-th-row {
   display: flex;
