@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Check, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
@@ -7,6 +8,7 @@ const STORAGE_KEY = 'pst_list_visible_columns_v1'
 const CACHE_KEY = 'pst_list_rows_cache_v1'
 const CACHE_TTL_MS = 5 * 60 * 1000
 const PAGE_LIMIT = 1000
+const ROW_HEIGHT = 34 // держим в синхроне с .pst-list-sheet th/td { height } в PstList.css
 
 const readRowsCache = () => {
   try {
@@ -328,6 +330,19 @@ export default function PstList() {
     setStatus('all')
   }
 
+  // Виртуализация строк: в DOM держим только видимые (+overscan), а не все 10к+ разом —
+  // иначе рендер и любой ре-рендер (поиск/фильтр) ощутимо подтормаживал.
+  const scrollRef = useRef(null)
+  const rowVirtualizer = useVirtualizer({
+    count: filteredRows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 15,
+  })
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  const topPad = virtualRows.length ? virtualRows[0].start : 0
+  const bottomPad = virtualRows.length ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end : 0
+
   return (
     <div className="pst-list-page">
       <div className="pst-list-header">
@@ -387,7 +402,7 @@ export default function PstList() {
         </div>
       )}
 
-      <div className="pst-list-sheet-wrap">
+      <div className="pst-list-sheet-wrap" ref={scrollRef}>
         <table className="pst-list-sheet">
           <thead>
             <tr className="pst-list-letters">
@@ -410,16 +425,33 @@ export default function PstList() {
               <tr><td colSpan={visibleColumns.length + 1} className="pst-list-state">Загружаю активные постоматы...</td></tr>
             ) : filteredRows.length === 0 ? (
               <tr><td colSpan={visibleColumns.length + 1} className="pst-list-state">Ничего не найдено</td></tr>
-            ) : filteredRows.map((row, index) => (
-              <tr key={row.id} className={`${rowHasIncident(row) ? 'is-incident' : ''} ${rowUnavailable(row) ? 'is-unavailable' : ''}`}>
-                <td className="row-num">{index + 1}</td>
-                {visibleColumns.map(col => (
-                  <td key={col.key} className={`${col.className || ''} ${col.align ? `align-${col.align}` : ''}`}>
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            ) : (
+              <>
+                {topPad > 0 && (
+                  <tr className="pst-list-spacer" style={{ height: topPad }}>
+                    <td colSpan={visibleColumns.length + 1} />
+                  </tr>
+                )}
+                {virtualRows.map(virtualRow => {
+                  const row = filteredRows[virtualRow.index]
+                  return (
+                    <tr key={row.id} className={`${rowHasIncident(row) ? 'is-incident' : ''} ${rowUnavailable(row) ? 'is-unavailable' : ''}`}>
+                      <td className="row-num">{virtualRow.index + 1}</td>
+                      {visibleColumns.map(col => (
+                        <td key={col.key} className={`${col.className || ''} ${col.align ? `align-${col.align}` : ''}`}>
+                          {col.render(row)}
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+                {bottomPad > 0 && (
+                  <tr className="pst-list-spacer" style={{ height: bottomPad }}>
+                    <td colSpan={visibleColumns.length + 1} />
+                  </tr>
+                )}
+              </>
+            )}
           </tbody>
         </table>
       </div>

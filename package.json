@@ -10,6 +10,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.10",
     "axios": "^1.6.0",
     "jsqr": "^1.4.0",
     "jszip": "^3.10.1",
