@@ -104,6 +104,30 @@ const exportCellValue = (col, row) => {
   return typeof value === 'string' || typeof value === 'number' ? value : ''
 }
 
+// Та же структура и те же названия колонок, что были в листе "Актуальный список"
+// в Google Таблицах (с которого раньше работали вручную) — чтобы выгрузка выглядела
+// привычно, а не по внутренней раскладке приложения. Не зависит от того, какие
+// колонки сейчас включены/выключены на экране — экспортируется полный набор.
+const GOOGLE_SHEET_EXPORT_COLUMNS = [
+  { header: 'POSTOMAT_ID', get: row => row.id },
+  { header: 'Город', get: row => row.city || '' },
+  { header: 'Филиал', get: row => row.branch || '' },
+  { header: 'Адрес', get: row => row.address || '' },
+  { header: 'Широта', get: row => row.lat ?? '' },
+  { header: 'Долгота', get: row => row.lng ?? '' },
+  { header: 'Категория точки', get: row => row.category || '' },
+  { header: 'ROUTE_TEXT', get: row => row.route_text || '' },
+  { header: 'Место установки', get: row => row.install_place || '' },
+  { header: 'Кол-во ячеек', get: row => row.cells_count || '' },
+  { header: 'Комментарий', get: row => row.comment || row.hint || '' },
+  { header: 'Помыли?', get: row => row.cleanings_count > 0 },
+  { header: 'Дата последняя уборка', get: row => row.last_cleaned_at ? formatDateOnly(row.last_cleaned_at) : '' },
+  { header: 'На витрине?', get: row => row.on_point_status || '' },
+  { header: 'Доступен?', get: row => row.availability_status || '' },
+  { header: 'Партнер', get: row => row.curator_name || row.partner_name || row.last_cleaned_by || '' },
+  { header: 'Дата план', get: row => row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '' },
+]
+
 const rowHasIncident = (row) => {
   const hay = [
     row.activity_status,
@@ -422,13 +446,13 @@ export default function PstList() {
     try {
       const data = filteredRows.map(row => {
         const line = {}
-        visibleColumns.forEach(col => { line[col.label] = exportCellValue(col, row) })
+        GOOGLE_SHEET_EXPORT_COLUMNS.forEach(col => { line[col.header] = col.get(row) })
         return line
       })
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Список')
-      XLSX.writeFile(wb, `pst-list_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, ws, 'Актуальный список')
+      XLSX.writeFile(wb, `Актуальный_список_${new Date().toISOString().slice(0, 10)}.xlsx`)
     } finally {
       setExporting(false)
     }
