@@ -160,8 +160,8 @@
     transform: none;
     order: 3;
     width: 100%;
-    justify-content: center;
-    padding: 6px 0 2px;
+    justify-content: flex-start;
+    padding: 6px 16px 2px;
     gap: 2px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -169,8 +169,20 @@
   }
   .topnav-main::-webkit-scrollbar { display: none; }
 
-  .topnav-sub { padding: 0 16px 10px; }
-  .tnav-item { padding: 5px 10px; font-size: 0.65rem; }
+  /* Ряд под ней (Постоматы/Список/Инциденты/...) — раньше не скроллился и
+     обрезался с обеих сторон (justify-content: center без overflow), поэтому
+     первый и последний пункты были не видны и недостижимы. */
+  .topnav-sub {
+    justify-content: flex-start;
+    padding: 0 16px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topnav-sub::-webkit-scrollbar { display: none; }
+
+  .tnav-item { padding: 5px 10px; font-size: 0.65rem; flex-shrink: 0; }
+  .tsub-item { flex-shrink: 0; }
   .brand-sub { display: none; }
   .topnav-user-info span { display: none; }
 }
