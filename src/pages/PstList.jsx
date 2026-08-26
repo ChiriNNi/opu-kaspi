@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import * as XLSX from 'xlsx'
-import { Check, Download, ExternalLink, RefreshCw, Search, Settings2, X } from 'lucide-react'
+import { Check, Download, ExternalLink, Filter, RefreshCw, Search, Settings2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
 
@@ -208,6 +208,92 @@ function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
   )
 }
 
+// Фильтр по значениям колонки (как в Google Таблицах): воронка на заголовке →
+// список уникальных значений с чекбоксами. selected === undefined значит "все";
+// selected — массив (может быть пустым — тогда строк не показываем).
+function ColumnFilterMenu({ col, rows, selected, onApply }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
+
+  const options = useMemo(() => {
+    const counts = new Map()
+    rows.forEach(row => {
+      const raw = exportCellValue(col, row)
+      const v = raw === '' || raw == null ? '—' : String(raw)
+      counts.set(v, (counts.get(v) || 0) + 1)
+    })
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ru'))
+  }, [rows, col])
+
+  const filteredOptions = options.filter(([v]) => normalize(v).includes(normalize(query)))
+  const isChecked = (v) => selected === undefined || selected.includes(v)
+  const active = selected !== undefined
+
+  const toggleValue = (v) => {
+    const base = selected === undefined ? options.map(([val]) => val) : selected
+    const next = base.includes(v) ? base.filter(val => val !== v) : [...base, v]
+    onApply(next.length === options.length ? undefined : next)
+  }
+
+  const openMenu = () => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 260) })
+    setQuery('')
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    return () => window.removeEventListener('scroll', close, true)
+  }, [open])
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={btnRef}
+        className={`pst-list-filter-btn ${active ? 'active' : ''}`}
+        onClick={e => { e.stopPropagation(); open ? setOpen(false) : openMenu() }}
+        title="Фильтр"
+      >
+        <Filter size={11} />
+      </button>
+      {open && pos && (
+        <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
+          <div className="pst-list-filter-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+            <label className="pst-list-filter-search">
+              <Search size={13} />
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Поиск значений..." autoFocus />
+            </label>
+            <div className="pst-list-filter-actions">
+              <button type="button" onClick={() => onApply(undefined)}>Выбрать все</button>
+              <button type="button" onClick={() => onApply([])}>Снять все</button>
+            </div>
+            <div className="pst-list-filter-list">
+              {filteredOptions.length === 0 ? (
+                <div className="pst-list-filter-empty">Ничего не найдено</div>
+              ) : filteredOptions.map(([v, count]) => (
+                <label key={v} className="pst-list-filter-item">
+                  <input type="checkbox" checked={isChecked(v)} onChange={() => toggleValue(v)} />
+                  <span>{v}</span>
+                  <span className="pst-list-filter-count">{count}</span>
+                </label>
+              ))}
+            </div>
+            <div className="pst-list-filter-footer">
+              <button type="button" className="primary" onClick={() => setOpen(false)}>Готово</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function PstList() {
   const cachedRowsRef = useRef(readRowsCache())
   const [rows, setRows] = useState(() => cachedRowsRef.current)
@@ -216,9 +302,7 @@ export default function PstList() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [city, setCity] = useState('')
-  const [installPlace, setInstallPlace] = useState('')
-  const [status, setStatus] = useState('all')
+  const [columnFilters, setColumnFilters] = useState({}) // { [colKey]: string[] | undefined }
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [visibleIds, setVisibleIds] = useState(() => {
@@ -262,16 +346,6 @@ export default function PstList() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
   }
 
-  const cities = useMemo(() => (
-    Array.from(new Set(rows.map(row => row.city).filter(Boolean)))
-      .sort((a, b) => a.localeCompare(b, 'ru'))
-  ), [rows])
-
-  const installPlaces = useMemo(() => (
-    Array.from(new Set(rows.map(row => row.install_place).filter(Boolean)))
-      .sort((a, b) => a.localeCompare(b, 'ru'))
-  ), [rows])
-
   const columns = useMemo(() => [
     { key: 'id', label: 'POSTOMAT_ID', group: 'Основное', className: 'id-col', render: row => <span className="pst-list-id">{row.id}</span> },
     { key: 'city', label: 'Город', group: 'Основное', render: row => row.city || '—' },
@@ -304,15 +378,21 @@ export default function PstList() {
 
   const visibleColumns = columns.filter(col => visibleIds.includes(col.key))
 
+  const activeColumnFilters = useMemo(
+    () => Object.entries(columnFilters).filter(([, values]) => values !== undefined),
+    [columnFilters]
+  )
+
   const filteredRows = useMemo(() => {
     const q = normalize(search)
     return rows.filter(row => {
-      if (city && row.city !== city) return false
-      if (installPlace && row.install_place !== installPlace) return false
-      if (status === 'incident' && !rowHasIncident(row)) return false
-      if (status === 'washed' && !(row.cleanings_count > 0)) return false
-      if (status === 'not_washed' && row.cleanings_count > 0) return false
-      if (status === 'unavailable' && !rowUnavailable(row)) return false
+      for (const [key, values] of activeColumnFilters) {
+        const col = columns.find(c => c.key === key)
+        if (!col) continue
+        const raw = exportCellValue(col, row)
+        const v = raw === '' || raw == null ? '—' : String(raw)
+        if (!values.includes(v)) return false
+      }
       if (!q) return true
       return normalize([
         row.id,
@@ -328,7 +408,7 @@ export default function PstList() {
         row.last_cleaned_by,
       ].join(' ')).includes(q)
     })
-  }, [rows, city, installPlace, status, search])
+  }, [rows, activeColumnFilters, columns, search])
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -356,10 +436,9 @@ export default function PstList() {
 
   const resetFilters = () => {
     setSearch('')
-    setCity('')
-    setInstallPlace('')
-    setStatus('all')
+    setColumnFilters({})
   }
+  const hasActiveFilters = search || activeColumnFilters.length > 0
 
   // Виртуализация строк: в DOM держим только видимые (+overscan), а не все 10к+ разом —
   // иначе рендер и любой ре-рендер (поиск/фильтр) ощутимо подтормаживал.
@@ -411,22 +490,9 @@ export default function PstList() {
           />
           {search && <button type="button" onClick={() => setSearch('')}><X size={15} /></button>}
         </label>
-        <select value={city} onChange={e => setCity(e.target.value)}>
-          <option value="">Все города</option>
-          {cities.map(item => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <select value={installPlace} onChange={e => setInstallPlace(e.target.value)}>
-          <option value="">Все установки</option>
-          {installPlaces.map(item => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <select value={status} onChange={e => setStatus(e.target.value)}>
-          <option value="all">Все статусы</option>
-          <option value="washed">Помытые</option>
-          <option value="not_washed">Без уборки</option>
-          <option value="incident">Инцидент</option>
-          <option value="unavailable">Недоступные</option>
-        </select>
-        <button type="button" className="pst-list-reset" onClick={resetFilters}><X size={14} /> Сброс</button>
+        {hasActiveFilters && (
+          <button type="button" className="pst-list-reset" onClick={resetFilters}><X size={14} /> Сброс</button>
+        )}
       </div>
 
       {error && <div className="pst-list-error">{error}</div>}
@@ -449,7 +515,15 @@ export default function PstList() {
               <th className="row-num">#</th>
               {visibleColumns.map(col => (
                 <th key={col.key} className={`${col.className || ''} ${col.align ? `align-${col.align}` : ''}`}>
-                  {col.label}
+                  <div className="pst-list-th-row">
+                    <span className="pst-list-th-label">{col.label}</span>
+                    <ColumnFilterMenu
+                      col={col}
+                      rows={rows}
+                      selected={columnFilters[col.key]}
+                      onApply={(values) => setColumnFilters(prev => ({ ...prev, [col.key]: values }))}
+                    />
+                  </div>
                 </th>
               ))}
             </tr>
