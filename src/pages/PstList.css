@@ -780,3 +780,26 @@
   font-weight: 800;
   cursor: pointer;
 }
+
+/* Переключатель квартального плана (postomat_plans.period) в шапке "Список" */
+.pst-list-period-btn.active {
+  border-color: #8fc640;
+  background: #f5fbe9;
+  color: #5a7d20;
+}
+
+.pst-list-period-menu {
+  width: 260px;
+  max-height: 320px;
+}
+
+.pst-list-period-menu .pst-list-filter-list {
+  border-top: none;
+  padding: 4px;
+}
+
+.pst-list-period-current {
+  font-style: normal;
+  color: #7ba52e;
+  font-weight: 700;
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import * as XLSX from 'xlsx'
-import { Check, Download, ExternalLink, Filter, RefreshCw, Search, Settings2, X } from 'lucide-react'
+import { Calendar, Check, ChevronDown, Download, ExternalLink, Filter, RefreshCw, Search, Settings2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
 
@@ -299,6 +299,80 @@ function ColumnFilterMenu({ col, rows, selected, onApply }) {
   )
 }
 
+const MONTHS_SHORT_RU = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+function formatPeriodRange(p) {
+  if (!p) return ''
+  const from = new Date(p.period_start)
+  const to = new Date(p.period_end)
+  const fromStr = `${from.getDate()} ${MONTHS_SHORT_RU[from.getMonth()]}`
+  const toStr = `${to.getDate()} ${MONTHS_SHORT_RU[to.getMonth()]} ${to.getFullYear()}`
+  return from.getFullYear() === to.getFullYear() ? `${fromStr} – ${toStr}` : `${fromStr} ${from.getFullYear()} – ${toStr}`
+}
+
+// Выбор квартального плана (postomat_plans.period): по умолчанию показываем
+// последний загруженный квартал, но можно посмотреть и данные прошлых кварталов —
+// раньше под каждый квартал была своя отдельная таблица в Google Таблицах.
+function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
+
+  const currentPeriod = periods[0]?.period
+  const active = periods.find(p => p.period === (selectedPeriod || currentPeriod))
+
+  const openMenu = () => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 260) })
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    return () => window.removeEventListener('scroll', close, true)
+  }, [open])
+
+  if (periods.length === 0) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={btnRef}
+        className={`pst-list-btn pst-list-period-btn ${selectedPeriod ? 'active' : ''}`}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        title="Выбрать квартальный план"
+      >
+        <Calendar size={16} /> {active ? (compact ? active.period : formatPeriodRange(active)) : 'Квартал'} <ChevronDown size={13} />
+      </button>
+      {open && pos && (
+        <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
+          <div className="pst-list-filter-menu pst-list-period-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+            <div className="pst-list-filter-list">
+              {periods.map(p => (
+                <label key={p.period} className="pst-list-filter-item">
+                  <input
+                    type="radio"
+                    name="pst-list-period"
+                    checked={(selectedPeriod || currentPeriod) === p.period}
+                    onChange={() => { onSelect(p.period === currentPeriod ? '' : p.period); setOpen(false) }}
+                  />
+                  <span>
+                    {formatPeriodRange(p)}
+                    {p.period === currentPeriod && <em className="pst-list-period-current"> · текущий</em>}
+                  </span>
+                  <span className="pst-list-filter-count">{p.locations_count}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function PstList() {
   const cachedRowsRef = useRef(readRowsCache())
   const [rows, setRows] = useState(() => cachedRowsRef.current)
@@ -310,6 +384,8 @@ export default function PstList() {
   const [columnFilters, setColumnFilters] = useState({}) // { [colKey]: string[] | undefined }
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [periods, setPeriods] = useState([]) // квартальные планы (postomat_plans.period), новые сверху
+  const [selectedPeriod, setSelectedPeriod] = useState('') // '' = последний загруженный квартал
   const [visibleIds, setVisibleIds] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
@@ -341,22 +417,30 @@ export default function PstList() {
     try {
       let nextRows = []
       try {
-        const res = await api.get('/locations/pst-list')
+        const qs = selectedPeriod ? `?period=${encodeURIComponent(selectedPeriod)}` : ''
+        const res = await api.get(`/locations/pst-list${qs}`)
         nextRows = (res.data.locations || []).filter(row => row.is_active !== false)
       } catch (fastErr) {
-        nextRows = await fetchPagedLocations()
+        nextRows = selectedPeriod ? [] : await fetchPagedLocations()
       }
       setRows(nextRows)
-      writeRowsCache(nextRows)
+      if (!selectedPeriod) writeRowsCache(nextRows)
     } catch (e) {
       setError(e.response?.data?.error || 'Не удалось загрузить список постоматов')
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [])
+  }, [selectedPeriod])
 
   useEffect(() => { fetchRows() }, [fetchRows])
+
+  // Список загруженных кварталов для переключателя — грузится один раз, не зависит от выбора.
+  useEffect(() => {
+    api.get('/locations/plan-periods')
+      .then(res => setPeriods(res.data.periods || []))
+      .catch(() => {})
+  }, [])
 
   const saveVisibleIds = (ids) => {
     setVisibleIds(ids)
@@ -487,6 +571,7 @@ export default function PstList() {
           <p>Активные Kaspi Postomat из базы в табличном виде</p>
         </div>
         <div className="pst-list-actions">
+          <PeriodMenu periods={periods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} compact={isMobile} />
           <button type="button" className="pst-list-btn" onClick={handleExportExcel} disabled={exporting || filteredRows.length === 0}>
             <Download size={16} /> {exporting ? 'Выгрузка...' : 'Excel'}
           </button>
