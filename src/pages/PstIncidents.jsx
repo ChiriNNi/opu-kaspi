@@ -13,7 +13,8 @@ const formatDate = (val) => {
   }).format(new Date(val))
 }
 
-const EMPTY_FORM = { postomat_id: '', city: '', branch: '', address: '' }
+const WORK_TYPES = ['ПОЛНАЯ МОЙКА', 'НАРУЖНАЯ МОЙКА']
+const EMPTY_FORM = { postomat_id: '', city: '', branch: '', address: '', work_type: WORK_TYPES[0] }
 
 export default function PstIncidents() {
   const { user } = useStore()
@@ -63,9 +64,10 @@ export default function PstIncidents() {
     try {
       await api.post('/pst/incident', {
         postomat_id: form.postomat_id.trim(),
-        city:    form.city.trim(),
-        branch:  form.branch.trim(),
-        address: form.address.trim(),
+        city:      form.city.trim(),
+        branch:    form.branch.trim(),
+        address:   form.address.trim(),
+        work_type: form.work_type,
       })
       setSuccess('Инцидент добавлен')
       setForm(EMPTY_FORM)
@@ -128,6 +130,12 @@ export default function PstIncidents() {
                 autoComplete="off"
               />
             </label>
+            <label className="inc-field">
+              <span>Тип работы</span>
+              <select value={form.work_type} onChange={e => set('work_type', e.target.value)}>
+                {WORK_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
           </div>
 
           {error   && <div className="inc-msg inc-msg--err"><X size={13}/> {error}</div>}
@@ -165,6 +173,7 @@ export default function PstIncidents() {
                 <th style={{ width: 110 }}>Город</th>
                 <th style={{ width: 130 }}>Филиал</th>
                 <th>Адрес</th>
+                <th style={{ width: 140 }}>Тип работы</th>
                 <th style={{ width: 80 }}>Синхр.</th>
                 {isAdmin && <th style={{ width: 50 }}></th>}
               </tr>
@@ -178,6 +187,7 @@ export default function PstIncidents() {
                   <td>{r.city || '—'}</td>
                   <td className="cell-branch">{r.branch || '—'}</td>
                   <td className="cell-address">{r.address || '—'}</td>
+                  <td>{r.work_type || '—'}</td>
                   <td>
                     <span className={`sync-badge sync-${r.sync_status}`}>
                       {r.sync_status === 'synced' ? 'OK' : r.sync_status === 'pending' ? '...' : 'Ошибка'}

@@ -30,7 +30,8 @@
 
 .inc-required { color: #e53e3e; }
 
-.inc-field input {
+.inc-field input,
+.inc-field select {
   padding: 9px 12px;
   border: 1px solid rgba(26,29,30,0.12);
   border-radius: 8px;
@@ -39,7 +40,9 @@
   outline: none; font-family: inherit;
   transition: border-color 0.2s, background 0.2s;
 }
-.inc-field input:focus { border-color: #8fc640; background: #fff; }
+.inc-field input:focus,
+.inc-field select:focus { border-color: #8fc640; background: #fff; }
+.inc-field select { cursor: pointer; }
 
 .inc-msg {
   display: flex; align-items: center; gap: 6px;
