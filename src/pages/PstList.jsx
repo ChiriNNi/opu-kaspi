@@ -373,6 +373,66 @@ function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
   )
 }
 
+const isAvailable = (row) => normalize(row.availability_status || row.on_point_status) === 'да'
+const isNotWashed = (row) => !(row.cleanings_count > 0)
+
+// Кнопка "Excel" со своим выбором: выгрузить текущую выборку как есть, или
+// "снять остатки" — отдельный операционный отчёт (Помыли? = Нет, Доступен? = Да),
+// не зависящий от того, что сейчас включено в поиске/фильтрах на экране.
+function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
+
+  const remainingCount = useMemo(
+    () => rows.filter(row => isNotWashed(row) && isAvailable(row)).length,
+    [rows]
+  )
+
+  const openMenu = () => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 280) })
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    return () => window.removeEventListener('scroll', close, true)
+  }, [open])
+
+  const choose = (mode) => { setOpen(false); onExport(mode) }
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={btnRef}
+        className="pst-list-btn"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        disabled={disabled || exporting}
+      >
+        <Download size={16} /> {exporting ? 'Выгрузка...' : 'Excel'} <ChevronDown size={13} />
+      </button>
+      {open && pos && (
+        <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
+          <div className="pst-list-filter-menu pst-list-excel-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+            <button type="button" className="pst-list-excel-option" onClick={() => choose('all')} disabled={filteredCount === 0}>
+              <strong>Скачать как есть</strong>
+              <span>Текущая выборка — с учётом поиска и фильтров на экране</span>
+            </button>
+            <button type="button" className="pst-list-excel-option" onClick={() => choose('remaining')} disabled={remainingCount === 0}>
+              <strong>Снять остатки <em className="pst-list-excel-count">{remainingCount}</em></strong>
+              <span>Помыли? = Нет, Доступен? = Да — по всем постоматам, без учёта фильтров на экране</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function PstList() {
   const cachedRowsRef = useRef(readRowsCache())
   const [rows, setRows] = useState(() => cachedRowsRef.current)
@@ -518,10 +578,16 @@ export default function PstList() {
     incidents: rows.filter(rowHasIncident).length,
   }), [rows, filteredRows])
 
-  const handleExportExcel = () => {
+  const handleExportExcel = (mode = 'all') => {
     setExporting(true)
     try {
-      const data = filteredRows.map(row => {
+      // 'remaining' ("снять остатки") — отдельный операционный отчёт по ВСЕМ
+      // загруженным постоматам (не только по текущей выборке на экране):
+      // ещё не помыли, но точка доступна для мойки.
+      const sourceRows = mode === 'remaining'
+        ? rows.filter(row => isNotWashed(row) && isAvailable(row))
+        : filteredRows
+      const data = sourceRows.map(row => {
         const line = {}
         visibleColumns.forEach(col => { line[col.label] = exportCellValue(col, row) })
         return line
@@ -537,8 +603,9 @@ export default function PstList() {
         return { wch: Math.min(60, Math.max(10, longest + 2)) }
       })
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Список')
-      XLSX.writeFile(wb, `pst-list_${new Date().toISOString().slice(0, 10)}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, ws, mode === 'remaining' ? 'Остатки' : 'Список')
+      const suffix = mode === 'remaining' ? 'ostatki' : 'list'
+      XLSX.writeFile(wb, `pst-${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`)
     } finally {
       setExporting(false)
     }
@@ -572,9 +639,7 @@ export default function PstList() {
         </div>
         <div className="pst-list-actions">
           <PeriodMenu periods={periods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} compact={isMobile} />
-          <button type="button" className="pst-list-btn" onClick={handleExportExcel} disabled={exporting || filteredRows.length === 0}>
-            <Download size={16} /> {exporting ? 'Выгрузка...' : 'Excel'}
-          </button>
+          <ExcelMenu rows={rows} filteredCount={filteredRows.length} exporting={exporting} disabled={rows.length === 0} onExport={handleExportExcel} />
           <button type="button" className="pst-list-btn" onClick={() => setColumnsOpen(true)}>
             <Settings2 size={16} /> Колонки
           </button>
