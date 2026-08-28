@@ -804,62 +804,97 @@
   font-weight: 700;
 }
 
-/* Меню выбора типа выгрузки Excel: "как есть" / "снять остатки" */
+/* Меню выбора типа выгрузки Excel: "текущий вид" / "остатки по мойке" */
 .pst-list-excel-menu {
-  width: 280px;
-  max-height: none;
-  padding: 6px;
+  position: fixed;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(26, 29, 30, 0.08);
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
 .pst-list-excel-option {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 11px;
   width: 100%;
-  padding: 10px 10px;
+  padding: 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: none;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.12s ease;
 }
 
 .pst-list-excel-option:hover {
   background: #f8f9f5;
 }
 
+.pst-list-excel-option--accent:hover {
+  background: #f5fbe9;
+}
+
 .pst-list-excel-option:disabled {
   cursor: default;
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .pst-list-excel-option:disabled:hover {
   background: none;
 }
 
-.pst-list-excel-option strong {
-  font-size: 0.82rem;
+.pst-list-excel-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: rgba(26, 29, 30, 0.06);
+  color: rgba(26, 29, 30, 0.65);
+}
+
+.pst-list-excel-icon--accent {
+  background: #eaf5d8;
+  color: #5a7d20;
+}
+
+.pst-list-excel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pst-list-excel-text strong {
+  font-size: 0.83rem;
   font-weight: 800;
   color: #1A1D1E;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
-.pst-list-excel-option span {
+.pst-list-excel-text > span {
   font-size: 0.72rem;
   font-weight: 500;
-  color: rgba(26, 29, 30, 0.5);
-  line-height: 1.35;
+  color: rgba(26, 29, 30, 0.48);
+  line-height: 1.4;
 }
 
 .pst-list-excel-count {
   font-style: normal;
   font-weight: 800;
   color: #5a7d20;
-  background: #f5fbe9;
+  background: #eaf5d8;
   border-radius: 6px;
   padding: 1px 7px;
   font-size: 0.72rem;

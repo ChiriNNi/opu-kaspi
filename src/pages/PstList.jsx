@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import * as XLSX from 'xlsx'
-import { Calendar, Check, ChevronDown, Download, ExternalLink, Filter, RefreshCw, Search, Settings2, X } from 'lucide-react'
+import { Calendar, Check, ChevronDown, ClipboardList, Download, ExternalLink, Filter, RefreshCw, Search, Settings2, Table2, X } from 'lucide-react'
 import api from '../api'
 import './PstList.css'
 
@@ -373,6 +373,7 @@ function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
   )
 }
 
+const EXCEL_MENU_WIDTH = 300
 const isAvailable = (row) => normalize(row.availability_status || row.on_point_status) === 'да'
 const isNotWashed = (row) => !(row.cleanings_count > 0)
 
@@ -391,7 +392,12 @@ function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
 
   const openMenu = () => {
     const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 280) })
+    if (r) {
+      // Прижимаем меню правым краем к кнопке (она обычно у правого края шапки) —
+      // а не просто впритык к границе экрана, как было.
+      const left = Math.min(r.right - EXCEL_MENU_WIDTH, window.innerWidth - EXCEL_MENU_WIDTH - 12)
+      setPos({ top: r.bottom + 6, left: Math.max(12, left) })
+    }
     setOpen(true)
   }
 
@@ -417,14 +423,20 @@ function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
       </button>
       {open && pos && (
         <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
-          <div className="pst-list-filter-menu pst-list-excel-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+          <div className="pst-list-excel-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <button type="button" className="pst-list-excel-option" onClick={() => choose('all')} disabled={filteredCount === 0}>
-              <strong>Скачать как есть</strong>
-              <span>Текущая выборка — с учётом поиска и фильтров на экране</span>
+              <span className="pst-list-excel-icon"><Table2 size={15} /></span>
+              <span className="pst-list-excel-text">
+                <strong>Текущий вид таблицы</strong>
+                <span>Что сейчас на экране: с поиском и фильтрами</span>
+              </span>
             </button>
-            <button type="button" className="pst-list-excel-option" onClick={() => choose('remaining')} disabled={remainingCount === 0}>
-              <strong>Снять остатки <em className="pst-list-excel-count">{remainingCount}</em></strong>
-              <span>Помыли? = Нет, Доступен? = Да — по всем постоматам, без учёта фильтров на экране</span>
+            <button type="button" className="pst-list-excel-option pst-list-excel-option--accent" onClick={() => choose('remaining')} disabled={remainingCount === 0}>
+              <span className="pst-list-excel-icon pst-list-excel-icon--accent"><ClipboardList size={15} /></span>
+              <span className="pst-list-excel-text">
+                <strong>Остатки по мойке <em className="pst-list-excel-count">{remainingCount}</em></strong>
+                <span>Ещё не помыли, но точка доступна — по всем постоматам, без фильтров на экране</span>
+              </span>
             </button>
           </div>
         </div>
