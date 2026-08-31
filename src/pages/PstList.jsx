@@ -147,14 +147,14 @@ const DEFAULT_COLUMNS = [
 const MOBILE_DEFAULT_COLUMNS = ['id', 'address', 'install_place', 'washed', 'partner', 'planned_wash_date']
 
 const ABSENCE_REASONS = [
-  'выезд специалиста',
-  'нет с подтверждением каспи',
-  'перемещение с точки',
-  'снят с витрины',
-  'отказ точки',
-  'адрес изменен',
-  'увезли постомат',
-  'нет электричества',
+  'Выезд специалиста',
+  'Нет с подтверждением каспи',
+  'Перемещение с точки',
+  'Снят с витрины',
+  'Отказ точки',
+  'Адрес изменен',
+  'Увезли постомат',
+  'Нет электричества',
 ]
 
 function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
