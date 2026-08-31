@@ -100,6 +100,7 @@ const exportCellValue = (col, row) => {
   if (col.key === 'install_place') return row.install_place || '—'
   if (col.key === 'washed') return row.cleanings_count > 0 ? 'Да' : 'Нет'
   if (col.key === 'two_gis_url') return get2GisUrl(row) || '—'
+  if (col.key === 'absence_reason') return row.absence_reason || '—'
   const value = col.render(row)
   return typeof value === 'string' || typeof value === 'number' ? value : ''
 }
@@ -144,6 +145,17 @@ const DEFAULT_COLUMNS = [
 // колонками по умолчанию горизонтальный скролл был бы бесконечным — сужаем
 // стартовый набор до самого нужного, остальное доступно через "Колонки".
 const MOBILE_DEFAULT_COLUMNS = ['id', 'address', 'install_place', 'washed', 'partner', 'planned_wash_date']
+
+const ABSENCE_REASONS = [
+  'выезд специалиста',
+  'нет с подтверждением каспи',
+  'перемещение с точки',
+  'снят с витрины',
+  'отказ точки',
+  'адрес изменен',
+  'увезли постомат',
+  'нет электричества',
+]
 
 function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
   const [query, setQuery] = useState('')
@@ -481,6 +493,25 @@ export default function PstList() {
 
   useEffect(() => { rowsRef.current = rows }, [rows])
 
+  // Квартал, по которому реально показаны данные: выбранный, либо (по умолчанию)
+  // самый свежий загруженный — используется при сохранении "Причины отсутствия".
+  const effectivePeriod = selectedPeriod || periods[0]?.period || ''
+
+  const updateAbsenceReason = useCallback(async (row, value) => {
+    if (!effectivePeriod) return
+    const prev = row.absence_reason
+    setRows(list => list.map(r => (r.id === row.id ? { ...r, absence_reason: value || null } : r)))
+    try {
+      await api.patch(`/locations/${encodeURIComponent(row.id)}/absence-reason`, {
+        period: effectivePeriod,
+        absence_reason: value || null,
+      })
+    } catch (e) {
+      setRows(list => list.map(r => (r.id === row.id ? { ...r, absence_reason: prev } : r)))
+      alert(e.response?.data?.error || 'Не удалось сохранить причину отсутствия')
+    }
+  }, [effectivePeriod])
+
   const fetchRows = useCallback(async () => {
     const hadRows = rowsRef.current.length > 0
     if (hadRows) setLoadingMore(true)
@@ -536,6 +567,17 @@ export default function PstList() {
     { key: 'category', label: 'Категория', group: 'Excel', render: row => row.category || '—' },
     { key: 'activity_status', label: 'Активность', group: 'Excel', render: row => row.activity_status || '—' },
     { key: 'availability_status', label: 'Доступен?', group: 'Excel', render: row => row.availability_status || row.on_point_status || '—' },
+    { key: 'absence_reason', label: 'Причина отсутствия', group: 'Excel', className: 'wide', render: row => (
+      <select
+        className={`pst-list-reason-select ${row.absence_reason ? 'pst-list-reason-select--set' : ''}`}
+        value={row.absence_reason || ''}
+        onClick={e => e.stopPropagation()}
+        onChange={e => updateAbsenceReason(row, e.target.value)}
+      >
+        <option value="">—</option>
+        {ABSENCE_REASONS.map(reason => <option key={reason} value={reason}>{reason}</option>)}
+      </select>
+    ) },
     { key: 'on_point_status', label: 'На точке', group: 'Excel', render: row => row.on_point_status || '—' },
     { key: 'postomat_removed', label: 'Постомат удален', group: 'Excel', render: row => yesNo(row.postomat_removed) },
     { key: 'access_card_required', label: 'Нужен доступ', group: 'Excel', render: row => yesNo(row.access_card_required) },
@@ -547,7 +589,7 @@ export default function PstList() {
       const url = get2GisUrl(row)
       return url ? <a className="pst-list-2gis" href={url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> 2GIS</a> : '—'
     } },
-  ], [])
+  ], [updateAbsenceReason])
 
   const visibleColumns = columns.filter(col => visibleIds.includes(col.key))
 
