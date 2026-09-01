@@ -444,6 +444,8 @@
   font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.15s;
 }
 .upl-drop:hover { border-color: #8fc640; color: #5a7d20; background: #f5fbe9; }
+.upl-drop--busy { cursor: default; border-style: solid; border-color: #8fc640; color: #5a7d20; background: #f5fbe9; }
+.upl-drop--busy:hover { background: #f5fbe9; }
 
 .upl-count {
   color: #5a7d20; background: #eaf5d8; border-radius: 6px;

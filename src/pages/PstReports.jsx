@@ -441,6 +441,23 @@ const toLocalDatetimeValue = (date) => {
 }
 
 const OFFSET_PRESETS = [5, 10, 15, 20, 30, 45, 60]
+const IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i
+const isZipFile = (file) => /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed'
+
+// Распаковывает zip и вытаскивает из него только файлы-картинки (папки внутри
+// архива игнорируем, всё складываем в один плоский список).
+const extractImagesFromZip = async (zipFile) => {
+  const buffer = await zipFile.arrayBuffer()
+  const zip = await JSZip.loadAsync(buffer)
+  const entries = Object.values(zip.files).filter(f => !f.dir && IMAGE_EXT_RE.test(f.name))
+  const files = []
+  for (const entry of entries) {
+    const blob = await entry.async('blob')
+    const name = entry.name.split('/').pop()
+    files.push(new File([blob], name, { type: blob.type || 'image/jpeg' }))
+  }
+  return files
+}
 
 // Модалка ручной загрузки отчёта администратором: ID постомата → тип мойки →
 // фото "До" со своим таймстампом и фото "После" со своим (через сдвиг в минутах
@@ -456,6 +473,8 @@ function UploadReportModal({ onClose, onUploaded }) {
   const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА')
   const [beforeFiles, setBeforeFiles] = useState([])
   const [afterFiles, setAfterFiles] = useState([])
+  const [unzippingBefore, setUnzippingBefore] = useState(false)
+  const [unzippingAfter, setUnzippingAfter] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -480,14 +499,37 @@ function UploadReportModal({ onClose, onUploaded }) {
     return new Date(base.getTime() + Number(offsetMin || 0) * 60000)
   })()
 
-  const addFiles = (setter) => (e) => {
+  // Поддерживает и обычные фото, и ZIP-архив с фото (в одном и том же выборе можно
+  // смешивать) — архив тут же распаковывается, наружу идут только файлы-картинки.
+  const addFiles = (setter, setUnzipping) => async (e) => {
     const picked = Array.from(e.target.files || [])
-    setter(prev => [...prev, ...picked])
     e.target.value = ''
+    const zips = picked.filter(isZipFile)
+    const plain = picked.filter(f => !isZipFile(f))
+
+    if (plain.length) setter(prev => [...prev, ...plain])
+
+    if (zips.length) {
+      setUnzipping(true)
+      try {
+        for (const zip of zips) {
+          const extracted = await extractImagesFromZip(zip)
+          if (extracted.length === 0) {
+            setError(`В архиве «${zip.name}» не нашлось изображений`)
+          }
+          setter(prev => [...prev, ...extracted])
+        }
+      } catch (err) {
+        setError(`Не удалось распаковать архив: ${err.message}`)
+      } finally {
+        setUnzipping(false)
+      }
+    }
   }
   const removeFile = (setter, idx) => setter(prev => prev.filter((_, i) => i !== idx))
 
-  const canSubmit = location && beforeFiles.length > 0 && afterFiles.length > 0 && afterAt && !submitting
+  const canSubmit = location && beforeFiles.length > 0 && afterFiles.length > 0 && afterAt
+    && !submitting && !unzippingBefore && !unzippingAfter
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -640,10 +682,17 @@ function UploadReportModal({ onClose, onUploaded }) {
           <div className="upl-row">
             <div className="upl-photos-field">
               <label>Фото «До» <span className="upl-count">{beforeFiles.length}</span></label>
-              <label className="upl-drop">
-                <ImagePlus size={18} />
-                <span>Выбрать фото</span>
-                <input type="file" accept="image/*" multiple onChange={addFiles(setBeforeFiles)} hidden />
+              <label className={`upl-drop ${unzippingBefore ? 'upl-drop--busy' : ''}`}>
+                {unzippingBefore ? <Loader2 size={18} className="spin" /> : <ImagePlus size={18} />}
+                <span>{unzippingBefore ? 'Распаковка архива...' : 'Фото или ZIP-архив'}</span>
+                <input
+                  type="file"
+                  accept="image/*,.zip,application/zip,application/x-zip-compressed"
+                  multiple
+                  disabled={unzippingBefore}
+                  onChange={addFiles(setBeforeFiles, setUnzippingBefore)}
+                  hidden
+                />
               </label>
               {beforeFiles.length > 0 && (
                 <div className="upl-file-list">
@@ -659,10 +708,17 @@ function UploadReportModal({ onClose, onUploaded }) {
 
             <div className="upl-photos-field">
               <label>Фото «После» <span className="upl-count">{afterFiles.length}</span></label>
-              <label className="upl-drop">
-                <ImagePlus size={18} />
-                <span>Выбрать фото</span>
-                <input type="file" accept="image/*" multiple onChange={addFiles(setAfterFiles)} hidden />
+              <label className={`upl-drop ${unzippingAfter ? 'upl-drop--busy' : ''}`}>
+                {unzippingAfter ? <Loader2 size={18} className="spin" /> : <ImagePlus size={18} />}
+                <span>{unzippingAfter ? 'Распаковка архива...' : 'Фото или ZIP-архив'}</span>
+                <input
+                  type="file"
+                  accept="image/*,.zip,application/zip,application/x-zip-compressed"
+                  multiple
+                  disabled={unzippingAfter}
+                  onChange={addFiles(setAfterFiles, setUnzippingAfter)}
+                  hidden
+                />
               </label>
               {afterFiles.length > 0 && (
                 <div className="upl-file-list">
