@@ -423,13 +423,21 @@ export default function PstReview() {
     }
   }, [reportIndexes])
 
+  // На "Инциденты" источник строк — live-отчёты (см. isDynamicIncidentSheet), каждый
+  // со своим report_id и датой; один и тот же постомат может иметь несколько отдельных
+  // инцидентов в разные дни. В отличие от наружной уборки (где несколько фото-пачек за
+  // ОДИН день — это одна и та же уборка, и их разумно объединять с суммой фото),
+  // здесь разные даты — это разные события, дублировать строки не нужно: оставляем
+  // только последний инцидент по постомату.
+  const isIncidentSheet = sheet?.key === 'incident'
+
   const dedupeReviewEntries = useCallback((entries) => {
     const grouped = new Map()
     entries.forEach(entry => {
       const row = entry.source
       const key = [
         row.postomat_id || '',
-        row.last_cleaned_date || '',
+        isIncidentSheet ? '' : (row.last_cleaned_date || ''),
         row.install_place || '',
         row.location_type || '',
         sheet?.key || '',
@@ -457,13 +465,19 @@ export default function PstReview() {
       })
     })
     return Array.from(grouped.values()).map(entry => {
+      if (isIncidentSheet && (entry.reports || []).length > 1) {
+        // Разные даты инцидентов на одном постомате — не суммируем фото между ними,
+        // показываем только последний (и подтягиваем адрес/дату из него же).
+        const latest = [...entry.reports].sort((a, b) => reportTimestamp(b) - reportTimestamp(a))[0]
+        return { ...entry, source: reportToSourceRow(latest), reports: [latest], report: latest }
+      }
       if ((entry.reports || []).length <= 1) return entry
       return {
         ...entry,
         report: combineReports(entry.reports),
       }
     })
-  }, [sheet?.key])
+  }, [sheet?.key, isIncidentSheet])
 
   const reviewRows = useMemo(() => (
     dedupeReviewEntries(
