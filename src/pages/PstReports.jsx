@@ -440,7 +440,7 @@ const toLocalDatetimeValue = (date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const OFFSET_PRESETS = [5, 10, 15, 20, 30, 45, 60]
+const OFFSET_PRESETS = [5, 10, 15, 20, 30, 45]
 const IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i
 const isZipFile = (file) => /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed'
 
