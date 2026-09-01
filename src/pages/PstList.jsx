@@ -388,6 +388,13 @@ function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
 const EXCEL_MENU_WIDTH = 300
 const isAvailable = (row) => normalize(row.availability_status || row.on_point_status) === 'да'
 const isNotWashed = (row) => !(row.cleanings_count > 0)
+const partnerNameOf = (row) => row.curator_name || row.partner_name || row.last_cleaned_by || ''
+
+// Excel не даёт называть лист длиннее 31 символа и с символами : \ / ? * [ ]
+const sanitizeSheetName = (name) => {
+  const cleaned = String(name || '').replace(/[:\\/?*[\]]/g, ' ').trim()
+  return (cleaned || 'Без партнёра').slice(0, 31)
+}
 
 // Кнопка "Excel" со своим выбором: выгрузить текущую выборку как есть, или
 // "снять остатки" — отдельный операционный отчёт (Помыли? = Нет, Доступен? = Да),
@@ -447,7 +454,7 @@ function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
               <span className="pst-list-excel-icon pst-list-excel-icon--accent"><ClipboardList size={15} /></span>
               <span className="pst-list-excel-text">
                 <strong>Остатки по мойке <em className="pst-list-excel-count">{remainingCount}</em></strong>
-                <span>Ещё не помыли, но точка доступна — по всем постоматам, без фильтров на экране</span>
+                <span>Ещё не помыли, но точка доступна — отдельный лист на каждого партнёра</span>
               </span>
             </button>
           </div>
@@ -560,7 +567,7 @@ export default function PstList() {
     { key: 'washed', label: 'Помыли?', group: 'Уборки', align: 'center', render: row => row.cleanings_count > 0 ? <span className="pst-list-check"><Check size={14} /></span> : <span className="pst-list-empty-mark">—</span> },
     { key: 'cleanings_count', label: 'Кол-во уборок', group: 'Уборки', align: 'right', render: row => row.cleanings_count || 0 },
     { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Уборки', render: row => row.last_cleaned_at ? formatDate(row.last_cleaned_at) : '—' },
-    { key: 'partner', label: 'Партнер', group: 'Уборки', render: row => row.curator_name || row.partner_name || row.last_cleaned_by || '—' },
+    { key: 'partner', label: 'Партнер', group: 'Уборки', render: row => partnerNameOf(row) || '—' },
     { key: 'planned_wash_date', label: 'Плановая дата', group: 'План', render: row => row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '—' },
     { key: 'plan_per_month', label: 'План/мес', group: 'План', align: 'right', render: row => row.plan_per_month ?? '—' },
     { key: 'location_type', label: 'Г/П', group: 'Excel', render: row => row.location_type || '—' },
@@ -632,6 +639,25 @@ export default function PstList() {
     incidents: rows.filter(rowHasIncident).length,
   }), [rows, filteredRows])
 
+  const addExcelSheet = (wb, sheetRows, sheetName) => {
+    const data = sheetRows.map(row => {
+      const line = {}
+      visibleColumns.forEach(col => { line[col.label] = exportCellValue(col, row) })
+      return line
+    })
+    const ws = XLSX.utils.json_to_sheet(data)
+    // Без явной ширины Excel сжимает все столбцы до дефолтной узкой —
+    // подбираем ширину по самому длинному значению (заголовок или ячейка) в колонке.
+    ws['!cols'] = visibleColumns.map(col => {
+      const longest = data.reduce((max, line) => {
+        const len = String(line[col.label] ?? '').length
+        return len > max ? len : max
+      }, col.label.length)
+      return { wch: Math.min(60, Math.max(10, longest + 2)) }
+    })
+    XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  }
+
   const handleExportExcel = (mode = 'all') => {
     setExporting(true)
     try {
@@ -641,23 +667,32 @@ export default function PstList() {
       const sourceRows = mode === 'remaining'
         ? rows.filter(row => isNotWashed(row) && isAvailable(row))
         : filteredRows
-      const data = sourceRows.map(row => {
-        const line = {}
-        visibleColumns.forEach(col => { line[col.label] = exportCellValue(col, row) })
-        return line
-      })
-      const ws = XLSX.utils.json_to_sheet(data)
-      // Без явной ширины Excel сжимает все столбцы до дефолтной узкой —
-      // подбираем ширину по самому длинному значению (заголовок или ячейка) в колонке.
-      ws['!cols'] = visibleColumns.map(col => {
-        const longest = data.reduce((max, line) => {
-          const len = String(line[col.label] ?? '').length
-          return len > max ? len : max
-        }, col.label.length)
-        return { wch: Math.min(60, Math.max(10, longest + 2)) }
-      })
+
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, mode === 'remaining' ? 'Остатки' : 'Список')
+
+      if (mode === 'remaining') {
+        // Один лист на партнёра — удобно раздавать каждой бригаде только её часть остатков.
+        const byPartner = new Map()
+        sourceRows.forEach(row => {
+          const name = partnerNameOf(row) || 'Без партнёра'
+          if (!byPartner.has(name)) byPartner.set(name, [])
+          byPartner.get(name).push(row)
+        })
+
+        const usedSheetNames = new Set()
+        ;[...byPartner.entries()]
+          .sort(([a], [b]) => a.localeCompare(b, 'ru'))
+          .forEach(([name, partnerRows]) => {
+            let sheetName = sanitizeSheetName(name)
+            let suffix = 2
+            while (usedSheetNames.has(sheetName)) sheetName = `${sanitizeSheetName(name).slice(0, 28)} ${suffix++}`
+            usedSheetNames.add(sheetName)
+            addExcelSheet(wb, partnerRows, sheetName)
+          })
+      } else {
+        addExcelSheet(wb, sourceRows, 'Список')
+      }
+
       const suffix = mode === 'remaining' ? 'ostatki' : 'list'
       XLSX.writeFile(wb, `pst-${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`)
     } finally {
