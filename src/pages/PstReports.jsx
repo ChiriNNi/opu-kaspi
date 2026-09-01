@@ -5,7 +5,8 @@ import JSZip from 'jszip'
 import {
   Search, ChevronUp, ChevronDown, ChevronsUpDown,
   X, ArrowLeft, ArrowRight, MapPin, RefreshCw,
-  Eye, Building2, Download, ImageDown
+  Eye, Building2, Download, ImageDown, UploadCloud,
+  CheckCircle2, AlertTriangle, ImagePlus, Loader2
 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { useStore } from '../store'
@@ -433,6 +434,263 @@ function WorkTypeCell({ row, onUpdate }) {
   )
 }
 
+// Локальное datetime для value инпута <input type="datetime-local"> — без сдвига в UTC.
+const toLocalDatetimeValue = (date) => {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const OFFSET_PRESETS = [5, 10, 15, 20, 30, 45, 60]
+
+// Модалка ручной загрузки отчёта администратором: ID постомата → тип мойки →
+// фото "До" со своим таймстампом и фото "После" со своим (через сдвиг в минутах
+// от времени "До") — то, что раньше только мобильное приложение партнёра умело.
+function UploadReportModal({ onClose, onUploaded }) {
+  const [postomatId, setPostomatId] = useState('')
+  const [feed, setFeed] = useState(null)          // кэш /locations/feed, грузим один раз при открытии
+  const [feedLoading, setFeedLoading] = useState(true)
+  const [feedError, setFeedError] = useState('')
+  const [location, setLocation] = useState(null)  // резолвленная локация по ID
+  const [beforeAt, setBeforeAt] = useState(() => toLocalDatetimeValue(new Date()))
+  const [offsetMin, setOffsetMin] = useState(15)
+  const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА')
+  const [beforeFiles, setBeforeFiles] = useState([])
+  const [afterFiles, setAfterFiles] = useState([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.get('/locations/feed')
+      .then(res => setFeed(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setFeedError('Не удалось загрузить список постоматов для поиска ID'))
+      .finally(() => setFeedLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (!feed) return
+    const id = postomatId.trim()
+    if (!id) { setLocation(null); return }
+    const found = feed.find(l => String(l.id) === id)
+    setLocation(found || null)
+  }, [postomatId, feed])
+
+  const afterAt = (() => {
+    const base = new Date(beforeAt)
+    if (isNaN(base.getTime())) return null
+    return new Date(base.getTime() + Number(offsetMin || 0) * 60000)
+  })()
+
+  const addFiles = (setter) => (e) => {
+    const picked = Array.from(e.target.files || [])
+    setter(prev => [...prev, ...picked])
+    e.target.value = ''
+  }
+  const removeFile = (setter, idx) => setter(prev => prev.filter((_, i) => i !== idx))
+
+  const canSubmit = location && beforeFiles.length > 0 && afterFiles.length > 0 && afterAt && !submitting
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!location) { setError('Укажите существующий ID постомата'); return }
+    if (beforeFiles.length === 0 || afterFiles.length === 0) {
+      setError('Нужно хотя бы одно фото «До» и одно «После»')
+      return
+    }
+    if (!afterAt) { setError('Некорректная дата/время'); return }
+
+    setSubmitting(true)
+    try {
+      const beforeIso = new Date(beforeAt).toISOString()
+      const afterIso = afterAt.toISOString()
+
+      const reportMeta = {
+        submittedAt: afterIso,
+        location: {
+          id: location.id,
+          title: location.hint || location.address,
+          city: location.city,
+          branch: location.branch,
+          address: location.address,
+          category: location.category,
+          installPlace: location.installPlace,
+          surfaceType: location.surfaceType,
+          cellsCount: location.cellsCount,
+          lat: location.lat,
+          lng: location.lng,
+        },
+        workType,
+      }
+
+      const formData = new FormData()
+      formData.append('report', JSON.stringify(reportMeta))
+      beforeFiles.forEach(f => { formData.append('before', f, f.name); formData.append('before_captured_at', beforeIso) })
+      afterFiles.forEach(f => { formData.append('after', f, f.name); formData.append('after_captured_at', afterIso) })
+
+      // Как и в мобильной форме — сырой fetch, не общий axios-клиент: FormData с
+      // бинарными файлами через axios-интерсептор с Content-Type:application/json
+      // по умолчанию иногда ломается (особенно в iOS Safari).
+      const API_URL = import.meta.env.VITE_API_URL || 'https://opu.ic-group.kz'
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/api/pst`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || `Сервер вернул ошибку ${response.status}`)
+      }
+      onUploaded?.()
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Не удалось загрузить отчёт')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card upl-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title"><UploadCloud size={16} style={{ verticalAlign: -3, marginRight: 7 }} />Загрузить отчёт</div>
+            <div className="modal-meta">Ручное добавление отчёта об уборке — от имени администратора</div>
+          </div>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <form className="upl-body" onSubmit={handleSubmit}>
+          <div className="upl-field">
+            <label>POSTOMAT_ID</label>
+            <input
+              type="text"
+              value={postomatId}
+              onChange={e => setPostomatId(e.target.value)}
+              placeholder="Например: 12345"
+              autoComplete="off"
+              autoFocus
+            />
+            {postomatId.trim() && !feedLoading && (
+              location ? (
+                <div className="upl-location-hint upl-hint-ok">
+                  <CheckCircle2 size={13} />
+                  {location.city}{location.branch ? `, ${location.branch}` : ''} — {location.address}
+                </div>
+              ) : (
+                <div className="upl-location-hint upl-hint-warn">
+                  <AlertTriangle size={13} /> Постомат с таким ID не найден среди активных
+                </div>
+              )
+            )}
+            {feedLoading && <div className="upl-location-hint">Загрузка списка постоматов...</div>}
+            {feedError && <div className="upl-location-hint upl-hint-warn"><AlertTriangle size={13} /> {feedError}</div>}
+          </div>
+
+          <div className="upl-row">
+            <div className="upl-field">
+              <label>Дата и время «До»</label>
+              <input
+                type="datetime-local"
+                value={beforeAt}
+                onChange={e => setBeforeAt(e.target.value)}
+              />
+            </div>
+            <div className="upl-field upl-field--narrow">
+              <label>Разница во времени, мин</label>
+              <input
+                type="number"
+                min={0}
+                value={offsetMin}
+                onChange={e => setOffsetMin(e.target.value)}
+              />
+              <div className="upl-offset-presets">
+                {OFFSET_PRESETS.map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`upl-offset-chip ${Number(offsetMin) === p ? 'active' : ''}`}
+                    onClick={() => setOffsetMin(p)}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {afterAt && (
+            <div className="upl-after-hint">
+              Фото «После» получат штамп: <strong>{formatDate(afterAt.toISOString())}</strong>
+            </div>
+          )}
+
+          <div className="upl-field">
+            <label>Тип мойки</label>
+            <select value={workType} onChange={e => setWorkType(e.target.value)}>
+              {WORK_TYPES.map(wt => <option key={wt} value={wt}>{wt}</option>)}
+            </select>
+          </div>
+
+          <div className="upl-row">
+            <div className="upl-photos-field">
+              <label>Фото «До» <span className="upl-count">{beforeFiles.length}</span></label>
+              <label className="upl-drop">
+                <ImagePlus size={18} />
+                <span>Выбрать фото</span>
+                <input type="file" accept="image/*" multiple onChange={addFiles(setBeforeFiles)} hidden />
+              </label>
+              {beforeFiles.length > 0 && (
+                <div className="upl-file-list">
+                  {beforeFiles.map((f, i) => (
+                    <span key={i} className="upl-file-chip">
+                      {f.name}
+                      <button type="button" onClick={() => removeFile(setBeforeFiles, i)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="upl-photos-field">
+              <label>Фото «После» <span className="upl-count">{afterFiles.length}</span></label>
+              <label className="upl-drop">
+                <ImagePlus size={18} />
+                <span>Выбрать фото</span>
+                <input type="file" accept="image/*" multiple onChange={addFiles(setAfterFiles)} hidden />
+              </label>
+              {afterFiles.length > 0 && (
+                <div className="upl-file-list">
+                  {afterFiles.map((f, i) => (
+                    <span key={i} className="upl-file-chip">
+                      {f.name}
+                      <button type="button" onClick={() => removeFile(setAfterFiles, i)}><X size={11} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {error && <div className="upl-error"><AlertTriangle size={13} /> {error}</div>}
+
+          <div className="upl-actions">
+            <button type="button" className="upl-btn-cancel" onClick={onClose}>Отмена</button>
+            <button type="submit" className="upl-btn-submit" disabled={!canSubmit}>
+              {submitting ? <><Loader2 size={15} className="spin" /> Загрузка...</> : <><UploadCloud size={15} /> Загрузить отчёт</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function PstReports() {
   const { user } = useStore()
   const isAdmin = user?.role === 'admin'
@@ -464,6 +722,7 @@ export default function PstReports() {
   const [downloadProgress, setDownloadProgress] = useState('')
   const [zipLoadingId, setZipLoadingId] = useState(null)
   const [syncingId, setSyncingId] = useState(null)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const searchTimer = useRef(null)
 
   const fetchReports = useCallback(async (params = {}) => {
@@ -763,6 +1022,13 @@ export default function PstReports() {
             {exporting ? 'Выгрузка...' : 'Excel'}
           </button>
 
+          {isAdmin && (
+            <button className="btn-upload-report" onClick={() => setUploadOpen(true)} title="Загрузить отчёт вручную">
+              <UploadCloud size={14} />
+              Загрузить отчёт
+            </button>
+          )}
+
           <div className="filter-group">
             <select value={workTypeFilter} onChange={e => { setWorkTypeFilter(e.target.value); setPage(1) }}>
               <option value="">Все типы мойки</option>
@@ -916,6 +1182,13 @@ export default function PstReports() {
           isAdmin={isAdmin}
           onReportUpdate={setActiveReport}
           onClose={() => setActiveReport(null)}
+        />
+      )}
+
+      {uploadOpen && (
+        <UploadReportModal
+          onClose={() => setUploadOpen(false)}
+          onUploaded={() => { fetchReports(); fetchStats() }}
         />
       )}
     </div>
