@@ -224,5 +224,13 @@
 .rz-route-badge.main { background: rgba(143,198,64,0.15); color: #4f6e1c; }
 .rz-route-badge.spec { background: rgba(234,179,8,0.15); color: #92400e; }
 
+.rz-wash-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 0.72rem; font-weight: 800;
+}
+.rz-wash-badge.ext { background: rgba(37,99,235,0.12); color: #1d4ed8; }
+.rz-wash-badge.full { background: rgba(234,88,12,0.12); color: #c2410c; }
+.rz-wash-suffix { color: rgba(26,29,30,0.4); font-size: 0.72rem; font-weight: 600; }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }

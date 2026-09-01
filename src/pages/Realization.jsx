@@ -175,7 +175,10 @@ function ReportTab() {
                     <td>{g.ready ? <CheckCircle2 size={14} className="rz-ok-ico" /> : <AlertTriangle size={14} className="rz-warn-ico" />}</td>
                     <td>{g.is_spec_route ? 'Спец' : 'Осн'}</td>
                     <td>{g.location_type || <span className="rz-missing">не указано</span>}</td>
-                    <td>{g.install_place || <span className="rz-missing">—</span>}</td>
+                    <td>
+                      {g.install_place || <span className="rz-missing">—</span>}
+                      {g.wash_type && <span className="rz-wash-suffix"> · {g.wash_type}</span>}
+                    </td>
                     <td>{g.partner_name || <span className="rz-missing">не назначен</span>}</td>
                     <td>{g.postomat_count}</td>
                     <td>{g.sum_contract != null ? Number(g.sum_contract).toLocaleString('ru-RU') + ' ₸' : <span className="rz-missing">—</span>}</td>
@@ -274,6 +277,11 @@ function RatesTab() {
         <td><span className={`rz-route-badge ${r.is_spec_route ? 'spec' : 'main'}`}>{route}</span></td>
         <td>{zone}</td>
         <td>{place}</td>
+        <td>
+          {r.wash_type
+            ? <span className={`rz-wash-badge ${r.wash_type === 'наружная' ? 'ext' : 'full'}`}>{r.wash_type === 'наружная' ? 'Наружная' : 'Полная'}</span>
+            : <span className="rz-missing">—</span>}
+        </td>
         <td className="rz-rate-cell" onClick={() => !isEdit && setEditing({ id: r.id, value: String(r.rate) })}>
           {isEdit ? (
             <input
@@ -302,7 +310,7 @@ function RatesTab() {
           <div className="rz-rates-section-title">Основной маршрут</div>
           <div className="rz-table-wrap">
             <table className="rz-table">
-              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Стоимость</th></tr></thead>
+              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Мойка</th><th>Стоимость</th></tr></thead>
               <tbody>{mainRates.map(r => <RateRow key={r.id} r={r} />)}</tbody>
             </table>
           </div>
@@ -311,7 +319,7 @@ function RatesTab() {
           <div className="rz-rates-section-title">Спец маршрут</div>
           <div className="rz-table-wrap">
             <table className="rz-table">
-              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Стоимость</th></tr></thead>
+              <thead><tr><th>Маршрут</th><th>Зона</th><th>Тип</th><th>Мойка</th><th>Стоимость</th></tr></thead>
               <tbody>{specRates.map(r => <RateRow key={r.id} r={r} />)}</tbody>
             </table>
           </div>
