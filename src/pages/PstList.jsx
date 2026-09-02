@@ -225,14 +225,52 @@ function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
   )
 }
 
+// Меню (воронка фильтра, квартал, Excel) рендерятся с position: fixed по координатам
+// кнопки, поэтому при скролле их нужно двигать вместе с кнопкой. Раньше вместо этого висел
+// window.addEventListener('scroll', close, true): capture:true ловит скролл ЛЮБОГО элемента,
+// включая список значений внутри самого меню (.pst-list-filter-list прокручивается) и
+// прокрутку страницы под полноэкранным backdrop. Из-за этого меню закрывалось, не дав
+// по нему кликнуть. Теперь: скролл внутри меню игнорируем, снаружи — пересчитываем позицию,
+// и закрываем только когда кнопка-якорь ушла за пределы окна.
+function useAnchoredMenu(computePos) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+
+  const openMenu = useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos(computePos(r))
+    setOpen(true)
+  }, [computePos])
+
+  useEffect(() => {
+    if (!open) return
+    const onMove = (e) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return
+      const r = btnRef.current?.getBoundingClientRect()
+      if (!r || r.bottom < 0 || r.top > window.innerHeight) { setOpen(false); return }
+      setPos(computePos(r))
+    }
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    return () => {
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+    }
+  }, [open, computePos])
+
+  return { open, setOpen, pos, btnRef, menuRef, openMenu }
+}
+
+const anchorBelowLeft = (r) => ({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 260) })
+
 // Фильтр по значениям колонки (как в Google Таблицах): воронка на заголовке →
 // список уникальных значений с чекбоксами. selected === undefined значит "все";
 // selected — массив (может быть пустым — тогда строк не показываем).
 function ColumnFilterMenu({ col, rows, selected, onApply }) {
-  const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [pos, setPos] = useState(null)
-  const btnRef = useRef(null)
+  const { open, setOpen, pos, btnRef, menuRef, openMenu } = useAnchoredMenu(anchorBelowLeft)
 
   const options = useMemo(() => {
     const counts = new Map()
@@ -254,19 +292,7 @@ function ColumnFilterMenu({ col, rows, selected, onApply }) {
     onApply(next.length === options.length ? undefined : next)
   }
 
-  const openMenu = () => {
-    const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 260) })
-    setQuery('')
-    setOpen(true)
-  }
-
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
-    return () => window.removeEventListener('scroll', close, true)
-  }, [open])
+  const handleOpen = () => { setQuery(''); openMenu() }
 
   return (
     <>
@@ -274,14 +300,14 @@ function ColumnFilterMenu({ col, rows, selected, onApply }) {
         type="button"
         ref={btnRef}
         className={`pst-list-filter-btn ${active ? 'active' : ''}`}
-        onClick={e => { e.stopPropagation(); open ? setOpen(false) : openMenu() }}
+        onClick={e => { e.stopPropagation(); open ? setOpen(false) : handleOpen() }}
         title="Фильтр"
       >
         <Filter size={11} />
       </button>
       {open && pos && (
         <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
-          <div className="pst-list-filter-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+          <div ref={menuRef} className="pst-list-filter-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <label className="pst-list-filter-search">
               <Search size={13} />
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Поиск значений..." autoFocus />
@@ -325,25 +351,10 @@ function formatPeriodRange(p) {
 // последний загруженный квартал, но можно посмотреть и данные прошлых кварталов —
 // раньше под каждый квартал была своя отдельная таблица в Google Таблицах.
 function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState(null)
-  const btnRef = useRef(null)
+  const { open, setOpen, pos, btnRef, menuRef, openMenu } = useAnchoredMenu(anchorBelowLeft)
 
   const currentPeriod = periods[0]?.period
   const active = periods.find(p => p.period === (selectedPeriod || currentPeriod))
-
-  const openMenu = () => {
-    const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 260) })
-    setOpen(true)
-  }
-
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
-    return () => window.removeEventListener('scroll', close, true)
-  }, [open])
 
   if (periods.length === 0) return null
 
@@ -360,7 +371,7 @@ function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
       </button>
       {open && pos && (
         <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
-          <div className="pst-list-filter-menu pst-list-period-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+          <div ref={menuRef} className="pst-list-filter-menu pst-list-period-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <div className="pst-list-filter-list">
               {periods.map(p => (
                 <label key={p.period} className="pst-list-filter-item">
@@ -386,6 +397,12 @@ function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
 }
 
 const EXCEL_MENU_WIDTH = 300
+
+// Excel-меню прижимаем правым краем к кнопке — она обычно у правого края шапки.
+const anchorExcelMenu = (r) => ({
+  top: r.bottom + 6,
+  left: Math.max(12, Math.min(r.right - EXCEL_MENU_WIDTH, window.innerWidth - EXCEL_MENU_WIDTH - 12)),
+})
 const isAvailable = (row) => normalize(row.availability_status || row.on_point_status) === 'да'
 const isNotWashed = (row) => !(row.cleanings_count > 0)
 const partnerNameOf = (row) => row.curator_name || row.partner_name || row.last_cleaned_by || ''
@@ -399,33 +416,13 @@ const sanitizeSheetName = (name) => {
 // Кнопка "Excel" со своим выбором: выгрузить текущую выборку как есть, или
 // "снять остатки" — отдельный операционный отчёт (Помыли? = Нет, Доступен? = Да),
 // не зависящий от того, что сейчас включено в поиске/фильтрах на экране.
-function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState(null)
-  const btnRef = useRef(null)
+function ExcelMenu({ rows, filteredCount, exporting, disabled, refreshing, degraded, onExport }) {
+  const { open, setOpen, pos, btnRef, menuRef, openMenu } = useAnchoredMenu(anchorExcelMenu)
 
   const remainingCount = useMemo(
     () => rows.filter(row => isNotWashed(row) && isAvailable(row)).length,
     [rows]
   )
-
-  const openMenu = () => {
-    const r = btnRef.current?.getBoundingClientRect()
-    if (r) {
-      // Прижимаем меню правым краем к кнопке (она обычно у правого края шапки) —
-      // а не просто впритык к границе экрана, как было.
-      const left = Math.min(r.right - EXCEL_MENU_WIDTH, window.innerWidth - EXCEL_MENU_WIDTH - 12)
-      setPos({ top: r.bottom + 6, left: Math.max(12, left) })
-    }
-    setOpen(true)
-  }
-
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
-    return () => window.removeEventListener('scroll', close, true)
-  }, [open])
 
   const choose = (mode) => { setOpen(false); onExport(mode) }
 
@@ -436,13 +433,18 @@ function ExcelMenu({ rows, filteredCount, exporting, disabled, onExport }) {
         ref={btnRef}
         className="pst-list-btn"
         onClick={() => (open ? setOpen(false) : openMenu())}
-        disabled={disabled || exporting}
+        disabled={disabled || exporting || refreshing || degraded}
+        title={
+          degraded ? 'Данные загружены в упрощённом режиме — количество уборок посчитано за всю историю, а не за квартал. Обновите страницу.'
+            : refreshing ? 'Дожидаюсь свежих данных — иначе в файл попадут устаревшие цифры'
+              : undefined
+        }
       >
-        <Download size={16} /> {exporting ? 'Выгрузка...' : 'Excel'} <ChevronDown size={13} />
+        <Download size={16} /> {exporting ? 'Выгрузка...' : refreshing ? 'Обновляю...' : 'Excel'} <ChevronDown size={13} />
       </button>
       {open && pos && (
         <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
-          <div className="pst-list-excel-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
+          <div ref={menuRef} className="pst-list-excel-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <button type="button" className="pst-list-excel-option" onClick={() => choose('all')} disabled={filteredCount === 0}>
               <span className="pst-list-excel-icon"><Table2 size={15} /></span>
               <span className="pst-list-excel-text">
@@ -471,6 +473,10 @@ export default function PstList() {
   const [loading, setLoading] = useState(() => cachedRowsRef.current.length === 0)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
+  // Резервный путь загрузки (/locations вместо /locations/pst-list) считает cleanings_count
+  // за ВСЮ историю, а не за выбранный квартал — на таких данных "остатки" считать нельзя,
+  // поэтому выгрузку в этом режиме блокируем.
+  const [degraded, setDegraded] = useState(false)
   const [search, setSearch] = useState('')
   const [columnFilters, setColumnFilters] = useState({}) // { [colKey]: string[] | undefined }
   const [columnsOpen, setColumnsOpen] = useState(false)
@@ -526,15 +532,20 @@ export default function PstList() {
     setError('')
     try {
       let nextRows = []
+      let usedFallback = false
       try {
         const qs = selectedPeriod ? `?period=${encodeURIComponent(selectedPeriod)}` : ''
         const res = await api.get(`/locations/pst-list${qs}`)
         nextRows = (res.data.locations || []).filter(row => row.is_active !== false)
       } catch (fastErr) {
+        usedFallback = true
         nextRows = selectedPeriod ? [] : await fetchPagedLocations()
       }
+      setDegraded(usedFallback)
       setRows(nextRows)
-      if (!selectedPeriod) writeRowsCache(nextRows)
+      // Кэшируем только полноценные данные — иначе упрощённый снимок с "историческими"
+      // счётчиками уборок осел бы в localStorage и врал бы при следующем открытии.
+      if (!selectedPeriod && !usedFallback) writeRowsCache(nextRows)
     } catch (e) {
       setError(e.response?.data?.error || 'Не удалось загрузить список постоматов')
     } finally {
@@ -728,7 +739,15 @@ export default function PstList() {
         </div>
         <div className="pst-list-actions">
           <PeriodMenu periods={periods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} compact={isMobile} />
-          <ExcelMenu rows={rows} filteredCount={filteredRows.length} exporting={exporting} disabled={rows.length === 0} onExport={handleExportExcel} />
+          <ExcelMenu
+            rows={rows}
+            filteredCount={filteredRows.length}
+            exporting={exporting}
+            disabled={rows.length === 0}
+            refreshing={loading || loadingMore}
+            degraded={degraded}
+            onExport={handleExportExcel}
+          />
           <button type="button" className="pst-list-btn" onClick={() => setColumnsOpen(true)}>
             <Settings2 size={16} /> Колонки
           </button>
