@@ -144,8 +144,12 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
   const [tab, setTab] = useState('before')
   const [lightbox, setLightbox] = useState(null)
   const [savingPhoto, setSavingPhoto] = useState('')
-  const before = report.before_photos || []
-  const after = report.after_photos || []
+  const beforeAll = report.before_photos || []
+  const afterAll = report.after_photos || []
+  const before = isAdmin ? beforeAll : beforeAll.filter(p => !p?.hidden)
+  const after = isAdmin ? afterAll : afterAll.filter(p => !p?.hidden)
+  const hiddenBeforeCount = beforeAll.filter(p => p?.hidden).length
+  const hiddenAfterCount = afterAll.filter(p => p?.hidden).length
   const driveAll = report.drive_photos || []
   const reportPostomatId = String(sourceRow.postomat_id || report.location_id || report.location_data?.id || '')
   const isReportDrivePhoto = (photo) => !photo?.postomatId || String(photo.postomatId) === reportPostomatId
@@ -175,6 +179,28 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
         )),
       }
       onReportUpdate?.(updated)
+    } finally {
+      setSavingPhoto('')
+    }
+  }
+
+  // Фото "до/после" живут в самом отчёте (pst_reports), поэтому скрытие здесь —
+  // то же самое, что и на странице Отчёты: флаг ставится на запись, не на страницу.
+  // В объединённом отчёте (report_ids) фото несут _reportId — правим нужный отчёт.
+  const togglePhoto = async (photo, e) => {
+    e.stopPropagation()
+    if (!photo?.path || savingPhoto) return
+    const hidden = !photo.hidden
+    const section = (report.before_photos || []).some(x => x.path === photo.path) ? 'before' : 'after'
+    const targetReportId = photo._reportId || report.id
+    setSavingPhoto(photo.path)
+    try {
+      await api.patch(`/pst/${targetReportId}/photo-visibility`, { section, path: photo.path, hidden })
+      const key = section === 'before' ? 'before_photos' : 'after_photos'
+      onReportUpdate?.({
+        ...report,
+        [key]: (report[key] || []).map(item => (item.path === photo.path ? { ...item, hidden } : item)),
+      })
     } finally {
       setSavingPhoto('')
     }
@@ -219,9 +245,11 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
         <div className="modal-tabs">
           <button type="button" className={`modal-tab ${tab === 'before' ? 'active' : ''}`} onClick={() => setTab('before')}>
             До уборки ({before.length + driveBefore.length})
+            {isAdmin && hiddenBeforeCount > 0 ? ` · скрыто ${hiddenBeforeCount}` : ''}
           </button>
           <button type="button" className={`modal-tab ${tab === 'after' ? 'active' : ''}`} onClick={() => setTab('after')}>
             После уборки ({after.length + driveAfter.length})
+            {isAdmin && hiddenAfterCount > 0 ? ` · скрыто ${hiddenAfterCount}` : ''}
           </button>
           {isAdmin && drive.length > 0 && (
             <button type="button" className={`modal-tab ${tab === 'drive' ? 'active' : ''}`} onClick={() => setTab('drive')}>
@@ -238,19 +266,23 @@ function PhotoModal({ report, sourceRow, isAdmin, onReportUpdate, onClose }) {
             <button key={index} type="button" className="photo-thumb" onClick={() => setLightbox(index)}>
               <img src={photoUrl(photo, 'thumb')} alt={`фото ${index + 1}`} />
               <div className="photo-size">{photo?.driveId ? 'Drive' : photo?.sizeBytes ? `${Math.round(photo.sizeBytes / 1024)} КБ` : ''}</div>
-              {isAdmin && photo?.driveId && (
-                <span
-                  className={`photo-hide-toggle ${photo.hidden ? 'is-hidden' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => toggleDrivePhoto(photo, e)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') toggleDrivePhoto(photo, e)
-                  }}
-                >
-                  {savingPhoto === photo.driveId ? '...' : photo.hidden ? 'Показать' : 'Скрыть'}
-                </span>
-              )}
+              {isAdmin && (photo?.driveId || photo?.path) && (() => {
+                const toggle = photo.driveId ? toggleDrivePhoto : togglePhoto
+                const busyKey = photo.driveId || photo.path
+                return (
+                  <span
+                    className={`photo-hide-toggle ${photo.hidden ? 'is-hidden' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => toggle(photo, e)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') toggle(photo, e)
+                    }}
+                  >
+                    {savingPhoto === busyKey ? '...' : photo.hidden ? 'Показать' : 'Скрыть'}
+                  </span>
+                )
+              })()}
             </button>
           ))}
         </div>
