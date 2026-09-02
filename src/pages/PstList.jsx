@@ -95,6 +95,24 @@ const get2GisUrl = (row) => {
 // Плоское текстовое значение колонки для экспорта — большинство col.render()
 // и так возвращают строку, но у части колонок это JSX (значок/ссылка), для них
 // значение достаём отдельно.
+// Значение, по которому строится фильтр колонки. Обычно совпадает с тем, что в ячейке,
+// но для "Последней уборки" ячейка показывает дату со временем — по такому значению
+// фильтровать бессмысленно (каждая уборка уникальна, в списке тысячи пунктов по одному).
+// Поэтому колонка может задать filterValue и группировать, например, только по дате.
+const filterCellValue = (col, row) => {
+  const raw = col.filterValue ? col.filterValue(row) : exportCellValue(col, row)
+  return raw === '' || raw == null ? '—' : String(raw)
+}
+
+// Даты в формате ДД.ММ.ГГГГ нельзя сортировать как строки — сравниваем хронологически.
+const DMY_RE = /^(\d{2})\.(\d{2})\.(\d{4})$/
+const compareFilterOptions = (a, b) => {
+  const ma = DMY_RE.exec(a)
+  const mb = DMY_RE.exec(b)
+  if (ma && mb) return `${ma[3]}${ma[2]}${ma[1]}`.localeCompare(`${mb[3]}${mb[2]}${mb[1]}`)
+  return a.localeCompare(b, 'ru')
+}
+
 const exportCellValue = (col, row) => {
   if (col.key === 'id') return row.id
   if (col.key === 'install_place') return row.install_place || '—'
@@ -275,11 +293,10 @@ function ColumnFilterMenu({ col, rows, selected, onApply }) {
   const options = useMemo(() => {
     const counts = new Map()
     rows.forEach(row => {
-      const raw = exportCellValue(col, row)
-      const v = raw === '' || raw == null ? '—' : String(raw)
+      const v = filterCellValue(col, row)
       counts.set(v, (counts.get(v) || 0) + 1)
     })
-    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ru'))
+    return Array.from(counts.entries()).sort((a, b) => compareFilterOptions(a[0], b[0]))
   }, [rows, col])
 
   const filteredOptions = options.filter(([v]) => normalize(v).includes(normalize(query)))
@@ -577,7 +594,7 @@ export default function PstList() {
     { key: 'hint', label: 'Комментарий', group: 'Основное', className: 'wide-xl', render: row => row.hint || row.comment || row.routeText || '—' },
     { key: 'washed', label: 'Помыли?', group: 'Уборки', align: 'center', render: row => row.cleanings_count > 0 ? <span className="pst-list-check"><Check size={14} /></span> : <span className="pst-list-empty-mark">—</span> },
     { key: 'cleanings_count', label: 'Кол-во уборок', group: 'Уборки', align: 'right', render: row => row.cleanings_count || 0 },
-    { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Уборки', render: row => row.last_cleaned_at ? formatDate(row.last_cleaned_at) : '—' },
+    { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Уборки', render: row => row.last_cleaned_at ? formatDate(row.last_cleaned_at) : '—', filterValue: row => row.last_cleaned_at ? formatDateOnly(row.last_cleaned_at) : '—' },
     { key: 'partner', label: 'Партнер', group: 'Уборки', render: row => partnerNameOf(row) || '—' },
     { key: 'planned_wash_date', label: 'Плановая дата', group: 'План', render: row => row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '—' },
     { key: 'plan_per_month', label: 'План/мес', group: 'План', align: 'right', render: row => row.plan_per_month ?? '—' },
@@ -622,9 +639,7 @@ export default function PstList() {
       for (const [key, values] of activeColumnFilters) {
         const col = columns.find(c => c.key === key)
         if (!col) continue
-        const raw = exportCellValue(col, row)
-        const v = raw === '' || raw == null ? '—' : String(raw)
-        if (!values.includes(v)) return false
+        if (!values.includes(filterCellValue(col, row))) return false
       }
       if (!q) return true
       return normalize([
