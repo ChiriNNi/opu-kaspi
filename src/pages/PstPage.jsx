@@ -537,6 +537,126 @@ const PstFindPostomatTab = ({
   );
 };
 
+// ── Широкоугольная съёмка (0.5x) ──────────────────────────────────────────────
+// В прод пускаем ТОЛЬКО путь через зум: телефон сам должен сказать, что умеет зум
+// меньше 1 (getCapabilities().zoom.min <= 0.5). Тогда 0.5x и 1x — это один и тот же
+// поток и один applyConstraints(): переключение мгновенное, без пересоздания и мигания.
+//
+// Путь «взять вторую заднюю камеру отдельным устройством» сознательно НЕ используем:
+// порядок камер браузер не гарантирует, угол обзора числом не сообщает, и на телефоне
+// с тремя задними камерами второй легко может оказаться телевик — клинер нажал бы
+// «0.5x», а кадр наоборот приблизился.
+//
+// Если подходящей камеры нет (старые Android, одна задняя камера) — кнопка просто не
+// появляется, съёмка работает ровно как раньше. Любая осечка детекта = поведение как сегодня.
+
+const WIDE_CACHE_KEY = 'pst_wide_cam_v1'
+const WIDE_MAX_PROBE = 4      // не перебираем больше камер, чтобы не тормозить открытие
+const WIDE_ZOOM = 0.5
+
+const readWideCache = () => {
+  try { return JSON.parse(localStorage.getItem(WIDE_CACHE_KEY) || 'null') } catch { return null }
+}
+const writeWideCache = (value) => {
+  try { localStorage.setItem(WIDE_CACHE_KEY, JSON.stringify(value)) } catch { /* приватный режим */ }
+}
+
+const stopTracks = (stream) => stream?.getTracks?.().forEach(t => t.stop())
+const trackOf = (stream) => stream?.getVideoTracks?.()[0] || null
+const zoomMinOf = (stream) => {
+  const caps = trackOf(stream)?.getCapabilities?.()
+  return caps?.zoom && typeof caps.zoom.min === 'number' ? caps.zoom.min : null
+}
+const deviceIdOf = (stream) => trackOf(stream)?.getSettings?.().deviceId || null
+const facingOf = (stream) => trackOf(stream)?.getSettings?.().facingMode || null
+const setZoomOn = async (stream, value) => {
+  const track = trackOf(stream)
+  if (!track) return false
+  try { await track.applyConstraints({ zoom: value }); return true } catch { return false }
+}
+
+const openDefaultCam = () => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+const openCamById = (deviceId) => navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } }, audio: false })
+
+// Возвращает { stream, wideZoom }. wideZoom !== null значит, что 0.5x доступен.
+// Детект выполняется до показа превью: на iOS открытие второй камеры гасит первую,
+// поэтому перебирать камеры можно только пока картинка ещё не отдана пользователю.
+const resolveCameraStream = async () => {
+  const cached = readWideCache()
+
+  // Уже знаем, что 0.5x тут нет — открываем как всегда, без лишних проб.
+  if (cached?.none) return { stream: await openDefaultCam(), wideZoom: null }
+
+  // Знаем нужную камеру — открываем сразу её.
+  if (cached?.deviceId) {
+    try {
+      const stream = await openCamById(cached.deviceId)
+      const z = zoomMinOf(stream)
+      if (z != null && z <= WIDE_ZOOM) {
+        await setZoomOn(stream, 1)
+        return { stream, wideZoom: z }
+      }
+      stopTracks(stream)   // кэш устарел (сменился браузер/телефон) — пересчитаем ниже
+    } catch { /* устройство пропало — пересчитаем ниже */ }
+  }
+
+  // Короткий путь: сразу просим заднюю камеру, умеющую зум 0.5. Если браузер это
+  // понимает, он сам выберет нужное устройство и перебор не понадобится.
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', zoom: { min: WIDE_ZOOM } }, audio: false,
+    })
+    const z = zoomMinOf(stream)
+    if (z != null && z <= WIDE_ZOOM) {
+      writeWideCache({ deviceId: deviceIdOf(stream), zoom: z })
+      await setZoomOn(stream, 1)
+      return { stream, wideZoom: z }
+    }
+    stopTracks(stream)
+  } catch { /* браузер не понимает zoom в запросе — идём обычным путём */ }
+
+  // Обычное открытие. Часто этого достаточно: на многих Android задняя камера сама
+  // отдаёт полный диапазон зума, включая 0.5 — тогда камеру менять вообще не нужно.
+  const base = await openDefaultCam()
+  const zBase = zoomMinOf(base)
+  if (zBase != null && zBase <= WIDE_ZOOM) {
+    writeWideCache({ deviceId: deviceIdOf(base), zoom: zBase })
+    return { stream: base, wideZoom: zBase }
+  }
+
+  // Разовый перебор задних камер (случай iPhone: 0.5 умеет «двойная широкоугольная»,
+  // а facingMode отдаёт обычную заднюю). Результат кэшируем, чтобы это было один раз.
+  let probedAny = false
+  try {
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput')
+    if (cams.length > 1) {
+      const baseId = deviceIdOf(base)
+      for (const d of cams.slice(0, WIDE_MAX_PROBE)) {
+        if (!d.deviceId || d.deviceId === baseId) continue
+        let probe = null
+        probedAny = true
+        try { probe = await openCamById(d.deviceId) } catch { continue }
+        const z = zoomMinOf(probe)
+        if (facingOf(probe) === 'environment' && z != null && z <= WIDE_ZOOM) {
+          stopTracks(base)
+          writeWideCache({ deviceId: d.deviceId, zoom: z })
+          await setZoomOn(probe, 1)
+          return { stream: probe, wideZoom: z }
+        }
+        stopTracks(probe)
+      }
+    }
+  } catch { /* не смогли перебрать — просто не будет 0.5x */ }
+
+  // Не нашли. Если камеры перебирались, базовый поток мог быть погашен пробами
+  // (на iOS открытие второй камеры гасит первую) — тогда открываем заново, чтобы не
+  // отдать мёртвый поток. Если не перебирались, base жив и лишний вызов не нужен.
+  writeWideCache({ none: true })
+  if (!probedAny) return { stream: base, wideZoom: null }
+  stopTracks(base)
+  return { stream: await openDefaultCam(), wideZoom: null }
+}
+
 const InlineCamera = ({ section, onCapture, onClose }) => {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -545,22 +665,44 @@ const InlineCamera = ({ section, onCapture, onClose }) => {
   const [count, setCount] = useState(0)
   const [flash, setFlash] = useState(false)
   const [camError, setCamError] = useState('')
+  const [wideZoom, setWideZoom] = useState(null) // не null — 0.5x доступен на этом телефоне
+  const [lens, setLens] = useState('1x')
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      .then(stream => {
+    let cancelled = false
+    resolveCameraStream()
+      .then(({ stream, wideZoom: wz }) => {
+        // Пока шёл детект, экран могли закрыть — иначе камера останется висеть включённой.
+        if (cancelled) { stopTracks(stream); return }
         streamRef.current = stream
         if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play() }
+        setWideZoom(wz)
         setReady(true)
       })
       .catch(err => {
+        if (cancelled) return
         const msg = err.name === 'NotAllowedError'
           ? 'Доступ к камере запрещён. Разрешите доступ к камере в настройках браузера.'
           : 'Камера недоступна на этом устройстве.'
         setCamError(msg)
       })
-    return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()) }
+    return () => {
+      cancelled = true
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    }
   }, [])
+
+  // Переключение объектива — один applyConstraints на том же потоке, поэтому мгновенно.
+  // Если применить не удалось, прячем кнопку: лучше без неё, чем кнопка-обманка.
+  const switchLens = useCallback(async (next) => {
+    if (switching || next === lens || wideZoom == null) return
+    setSwitching(true)
+    const ok = await setZoomOn(streamRef.current, next === '0.5x' ? wideZoom : 1)
+    if (ok) setLens(next)
+    else setWideZoom(null)
+    setSwitching(false)
+  }, [switching, lens, wideZoom])
 
   const snap = useCallback(() => {
     const video = videoRef.current
@@ -571,14 +713,22 @@ const InlineCamera = ({ section, onCapture, onClose }) => {
     canvas.getContext('2d').drawImage(video, 0, 0)
     setFlash(true)
     setTimeout(() => setFlash(false), 120)
+    // В имя файла добавляем объектив только для 0.5x — обычные кадры называются
+    // как раньше. Имя попадает в fileName отчёта, и потом видно, почему кадр широкий.
+    const lensTag = lens === '0.5x' ? '_0.5x' : ''
     canvas.toBlob(blob => {
       if (!blob) return
-      const name = `photo_${section}_${Date.now()}.jpg`
+      const name = `photo_${section}${lensTag}_${Date.now()}.jpg`
       const file = new File([blob], name, { type: 'image/jpeg' })
       onCapture(file)
       setCount(c => c + 1)
     }, 'image/jpeg', 0.88)
-  }, [section, onCapture])
+
+    // 0.5x не залипает: следующий кадр снова обычный. Иначе один раз включат — и весь
+    // отчёт уедет на широкоугольнике, который мылит по краям и слабее в темноте, а по
+    // этим фото принимают работу.
+    if (lens === '0.5x') switchLens('1x')
+  }, [section, onCapture, lens, switchLens])
 
   const done = () => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
@@ -597,12 +747,33 @@ const InlineCamera = ({ section, onCapture, onClose }) => {
         <video ref={videoRef} playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover' }} />
       )}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+      {!camError && wideZoom != null && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '0 24px 12px', background: '#000' }}>
+          {['0.5x', '1x'].map(v => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => switchLens(v)}
+              disabled={switching || !ready}
+              style={{
+                padding: '7px 16px', borderRadius: 100, border: 'none', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                background: lens === v ? '#8fc640' : 'rgba(255,255,255,0.18)',
+                color: lens === v ? '#1A1D1E' : '#fff',
+                opacity: switching ? 0.5 : 1,
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
       {!camError && (
-        <div style={{ padding: '20px 24px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#000' }}>
+        <div style={{ padding: `${wideZoom != null ? 8 : 20}px 24px 40px`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#000' }}>
           <button onClick={done} style={{ color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 16, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             Готово {count > 0 && `(${count} фото)`}
           </button>
-          <button onClick={snap} disabled={!ready} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: ready ? 1 : 0.5 }}>
+          <button onClick={snap} disabled={!ready || switching} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: (ready && !switching) ? 1 : 0.5 }}>
             <Camera size={28} color="#1A1D1E" />
           </button>
           <div style={{ width: 80 }} />
