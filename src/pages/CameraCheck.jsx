@@ -47,8 +47,17 @@ const stopTracks = (stream) => stream?.getTracks?.().forEach(t => t.stop())
 // добавлена пилюля 0.5x / 1x над панелью управления — так, чтобы НЕ сдвигать кнопку
 // спуска: клинеры снимают по 16 кадров не глядя, у них моторная память.
 //
+// Два режима переключения, чтобы сравнить их вживую:
+//   mode='zoom'   — «вариант А»: сразу открываем камеру, которая умеет зум < 1, и держим
+//                   её весь сеанс на зуме 1. Переключение 0.5↔1 — это один
+//                   applyConstraints() на том же потоке: моментально, без мигания.
+//                   Платим тем, что все кадры снимаются другой камерой, чем сейчас.
+//   mode='reopen' — «вариант Б»: открываем как сегодня (facingMode: environment), а на
+//                   0.5x пересоздаём поток с широким источником. Основной путь не тронут,
+//                   но переключение с задержкой.
+//
 // Ничего не отправляется на сервер: фото остаются в памяти вкладки как превью.
-function MockCapture({ wideSource, onClose }) {
+function MockCapture({ wideSource, mode, onClose }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const canvasRef = useRef(null)
@@ -69,12 +78,29 @@ function MockCapture({ wideSource, onClose }) {
     setReady(true)
   }, [])
 
-  // Открываем ровно как настоящая съёмка отчётов — facingMode: 'environment'.
-  // Основной путь остаётся нетронутым, широкий угол включается только по кнопке.
-  const openNormal = useCallback(async () => {
+  // Можно ли переключать зумом на одном потоке (моментальный режим).
+  const instant = mode === 'zoom' && wideSource?.mode === 'zoom'
+
+  const setZoom = useCallback(async (value) => {
+    const track = streamRef.current?.getVideoTracks?.()[0]
+    if (!track) return
+    try { await track.applyConstraints({ zoom: value }) } catch { /* останемся как есть */ }
+  }, [])
+
+  // Базовый поток. В моментальном режиме это сразу широкоугольная камера, но на зуме 1
+  // (визуально то же, что обычная задняя). В обычном — как настоящая съёмка сегодня.
+  const openBase = useCallback(async () => {
+    if (instant) {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: wideSource.deviceId } }, audio: false,
+      })
+      await attach(stream)
+      await setZoom(1)
+      return
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
     await attach(stream)
-  }, [attach])
+  }, [attach, instant, wideSource, setZoom])
 
   const openWide = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -82,14 +108,11 @@ function MockCapture({ wideSource, onClose }) {
       audio: false,
     })
     await attach(stream)
-    if (wideSource.mode === 'zoom') {
-      const track = stream.getVideoTracks()[0]
-      try { await track.applyConstraints({ zoom: wideSource.zoom }) } catch { /* останемся на 1x */ }
-    }
-  }, [attach, wideSource])
+    if (wideSource.mode === 'zoom') await setZoom(wideSource.zoom)
+  }, [attach, wideSource, setZoom])
 
   useEffect(() => {
-    openNormal().catch(err => {
+    openBase().catch(err => {
       setCamError(err.name === 'NotAllowedError'
         ? 'Доступ к камере запрещён. Разрешите доступ в настройках браузера.'
         : 'Камера недоступна на этом устройстве.')
@@ -104,9 +127,14 @@ function MockCapture({ wideSource, onClose }) {
     setSwitching(true)
     const t0 = performance.now()
     try {
-      stopTracks(streamRef.current)
-      if (next === '0.5x') await openWide()
-      else await openNormal()
+      if (instant) {
+        // Один поток на оба режима — только меняем зум.
+        await setZoom(next === '0.5x' ? wideSource.zoom : 1)
+      } else {
+        stopTracks(streamRef.current)
+        if (next === '0.5x') await openWide()
+        else await openBase()
+      }
       setLens(next)
       setSwitchMs(Math.round(performance.now() - t0))
     } catch {
@@ -114,7 +142,7 @@ function MockCapture({ wideSource, onClose }) {
     } finally {
       setSwitching(false)
     }
-  }, [switching, lens, openWide, openNormal])
+  }, [switching, lens, instant, setZoom, wideSource, openWide, openBase])
 
   const snap = useCallback(() => {
     const video = videoRef.current
@@ -186,8 +214,8 @@ function MockCapture({ wideSource, onClose }) {
           <div style={{ padding: '0 24px 8px', background: '#000', color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', lineHeight: 1.4 }}>
             {switching ? 'переключаю объектив...' : (
               <>
-                прототип — ничего не отправляется
-                {switchMs != null && ` · переключение заняло ${switchMs} мс`}
+                {instant ? 'режим: зумом (моментально)' : 'режим: переоткрытием'}
+                {switchMs != null && ` · переключение ${switchMs} мс`}
                 {!wideSource && ' · широкий угол на этом телефоне недоступен'}
               </>
             )}
@@ -211,6 +239,7 @@ function MockCapture({ wideSource, onClose }) {
                   <div style={{ color: s.lens === '0.5x' ? '#8fc640' : 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 800, marginTop: 4 }}>
                     {s.lens}
                   </div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{s.w}×{s.h}</div>
                   <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{s.kb} КБ</div>
                 </div>
               ))}
@@ -230,6 +259,7 @@ export default function CameraCheck() {
   const [verdict, setVerdict] = useState(null)     // { ok, text }
   const [wideSource, setWideSource] = useState(null) // { mode, deviceId, zoom, label }
   const [mockOpen, setMockOpen] = useState(false)
+  const [mockMode, setMockMode] = useState('zoom') // 'zoom' — моментально, 'reopen' — как сегодня
   const [mockResult, setMockResult] = useState(null)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -437,6 +467,7 @@ export default function CameraCheck() {
       {mockOpen && (
         <MockCapture
           wideSource={wideSource}
+          mode={mockMode}
           onClose={(n) => { setMockOpen(false); setMockResult(n) }}
         />
       )}
@@ -487,6 +518,32 @@ export default function CameraCheck() {
           остаются в телефоне и никуда не отправляются.
           {!wideSource && ' Сначала нажми «Проверить 0.5x», иначе переключателя не будет.'}
         </div>
+        {wideSource?.mode === 'zoom' && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>Как переключать объектив</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                style={mockMode === 'zoom' ? btnAccent : btnLight}
+                onClick={() => setMockMode('zoom')}
+              >
+                Зумом — моментально
+              </button>
+              <button
+                type="button"
+                style={mockMode === 'reopen' ? btnAccent : btnLight}
+                onClick={() => setMockMode('reopen')}
+              >
+                Переоткрытием — как сегодня
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(26,29,30,0.5)', lineHeight: 1.5, marginTop: 8 }}>
+              {mockMode === 'zoom'
+                ? 'Держим широкоугольную камеру весь сеанс на зуме 1, переключение — один applyConstraints. Мгновенно, но все кадры снимает другая камера, чем сегодня — сравни разрешение и резкость на 1x.'
+                : 'Открываем камеру как сегодня, на 0.5x пересоздаём поток. Обычная съёмка не меняется, но переключение с задержкой.'}
+            </div>
+          </div>
+        )}
         <button type="button" style={wideSource ? btnAccent : btnLight} onClick={openMock} disabled={busy}>
           Открыть прототип съёмки
         </button>
