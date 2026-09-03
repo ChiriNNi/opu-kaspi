@@ -17,6 +17,7 @@ import Realization from './pages/Realization'
 import PstIncidents from './pages/PstIncidents'
 import PstReview from './pages/PstReview'
 import PstList from './pages/PstList'
+import CameraCheck from './pages/CameraCheck'
 import { useStore } from './store'
 import api from './api'
 import { Eye, EyeOff } from 'lucide-react'
@@ -254,6 +255,9 @@ export default function App() {
           <Route path="/realization/rates" element={<Realization />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="/pst-review"  element={<PstReview />} />
+          {/* Диагностика камер телефона: намеренно нет ни в одном меню и только
+              у админа — у остальных ролей путь ловит их Route path="*". */}
+          <Route path="/camera-check" element={<CameraCheck />} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
