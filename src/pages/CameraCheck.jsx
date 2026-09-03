@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Camera } from 'lucide-react'
 
-// Диагностика камер телефона. Отвечает на один вопрос: можно ли вшить 0.5x в нашу
-// съёмку отчётов, не выходя в родную камеру телефона.
+// Диагностика камер телефона + прототип съёмки с переключателем 0.5x.
 //
-// Два возможных пути, и страница проверяет оба:
-//   1) взять заднюю камеру, которая заявляет zoom.min < 1, и применить zoom: 0.5
+// Два возможных пути получить широкий угол, страница проверяет оба:
+//   1) задняя камера, которая заявляет zoom.min < 1, и применённый zoom: 0.5
 //      (так работает iPhone: «Задняя двойная широкоугольная» отдаёт 0.5–10 и iOS сама
 //      переключает объектив внутри одного потока — как в родной камере);
-//   2) взять сверхширокоугольную отдельным устройством по deviceId.
+//   2) сверхширокоугольная отдельным устройством по deviceId (ожидаемый путь Android).
 //
 // Кандидатов ищем по возможностям (zoom.min < 1 + facingMode: environment), а НЕ по
-// названию камеры: на iOS название локализовано, на Android это вообще «camera2 0,
-// facing back». Заявленный диапазон зума ещё не значит, что он применится, поэтому
-// после applyConstraints() перечитываем getSettings() и показываем, что реально встало.
+// названию камеры: на iOS название локализовано, на Android это «camera2 0, facing back».
+// Заявленный диапазон зума ещё не значит, что он применится, поэтому после
+// applyConstraints() перечитываем getSettings() и смотрим, что реально встало.
 //
 // Маршрут /camera-check зарегистрирован только в админском блоке App.jsx и нигде не
 // показан в меню: у остальных ролей его перехватывает Route path="*". Страница
@@ -39,12 +39,198 @@ const zoomCaps = (cap) => (cap && cap.zoom && typeof cap.zoom.min === 'number' ?
 const isBack = (settings, cap) => settings?.facingMode === 'environment'
   || (Array.isArray(cap?.facingMode) && cap.facingMode.includes('environment'))
 
+const stopTracks = (stream) => stream?.getTracks?.().forEach(t => t.stop())
+
+// ── Прототип съёмки отчёта ────────────────────────────────────────────────────
+// Разметка повторяет InlineCamera из PstPage.jsx один в один (те же размеры кнопок,
+// отступы, вспышка), чтобы можно было честно оценить ощущение. Отличие одно:
+// добавлена пилюля 0.5x / 1x над панелью управления — так, чтобы НЕ сдвигать кнопку
+// спуска: клинеры снимают по 16 кадров не глядя, у них моторная память.
+//
+// Ничего не отправляется на сервер: фото остаются в памяти вкладки как превью.
+function MockCapture({ wideSource, onClose }) {
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [ready, setReady] = useState(false)
+  const [flash, setFlash] = useState(false)
+  const [lens, setLens] = useState('1x')
+  const [switching, setSwitching] = useState(false)
+  const [shots, setShots] = useState([])
+  const [camError, setCamError] = useState('')
+  const [switchMs, setSwitchMs] = useState(null)
+
+  const attach = useCallback(async (stream) => {
+    streamRef.current = stream
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream
+      await videoRef.current.play().catch(() => {})
+    }
+    setReady(true)
+  }, [])
+
+  // Открываем ровно как настоящая съёмка отчётов — facingMode: 'environment'.
+  // Основной путь остаётся нетронутым, широкий угол включается только по кнопке.
+  const openNormal = useCallback(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    await attach(stream)
+  }, [attach])
+
+  const openWide = useCallback(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: wideSource.deviceId } },
+      audio: false,
+    })
+    await attach(stream)
+    if (wideSource.mode === 'zoom') {
+      const track = stream.getVideoTracks()[0]
+      try { await track.applyConstraints({ zoom: wideSource.zoom }) } catch { /* останемся на 1x */ }
+    }
+  }, [attach, wideSource])
+
+  useEffect(() => {
+    openNormal().catch(err => {
+      setCamError(err.name === 'NotAllowedError'
+        ? 'Доступ к камере запрещён. Разрешите доступ в настройках браузера.'
+        : 'Камера недоступна на этом устройстве.')
+    })
+    return () => stopTracks(streamRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Замеряем реальную задержку переключения — её и надо оценивать, а не воображать.
+  const switchLens = useCallback(async (next) => {
+    if (switching || next === lens) return
+    setSwitching(true)
+    const t0 = performance.now()
+    try {
+      stopTracks(streamRef.current)
+      if (next === '0.5x') await openWide()
+      else await openNormal()
+      setLens(next)
+      setSwitchMs(Math.round(performance.now() - t0))
+    } catch {
+      setCamError('Не удалось переключить объектив')
+    } finally {
+      setSwitching(false)
+    }
+  }, [switching, lens, openWide, openNormal])
+
+  const snap = useCallback(() => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    // Размеры берём из текущего трека, а не запомненные — иначе после переключения
+    // объектива кадр уехал бы. Это же надо будет проверить в реальной съёмке.
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    setFlash(true)
+    setTimeout(() => setFlash(false), 120)
+    const shotLens = lens
+    canvas.toBlob(blob => {
+      if (!blob) return
+      setShots(prev => [...prev, {
+        url: URL.createObjectURL(blob),
+        kb: Math.round(blob.size / 1024),
+        w: canvas.width, h: canvas.height,
+        lens: shotLens,
+      }])
+    }, 'image/jpeg', 0.88)
+
+    // 0.5x не «залипает»: после кадра возвращаемся на 1x. Иначе один раз включат —
+    // и весь месяц отчёты будут отсняты широкоугольником, который мылит по краям
+    // и хуже в темноте, а по этим фото принимают работу.
+    if (lens === '0.5x') switchLens('1x')
+  }, [lens, switchLens])
+
+  const done = () => {
+    stopTracks(streamRef.current)
+    shots.forEach(s => URL.revokeObjectURL(s.url))
+    onClose(shots.length)
+  }
+
+  const pill = (value) => ({
+    padding: '7px 14px', borderRadius: 100, border: 'none', fontFamily: 'inherit',
+    fontSize: 13, fontWeight: 800, cursor: 'pointer',
+    background: lens === value ? '#8fc640' : 'rgba(255,255,255,0.18)',
+    color: lens === value ? '#1A1D1E' : '#fff',
+    opacity: switching ? 0.5 : 1,
+  })
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column' }}>
+      {flash && <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: 0.6, zIndex: 2, pointerEvents: 'none' }} />}
+
+      {camError ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 }}>
+          <div style={{ color: '#ff6b6b', fontSize: 15, fontWeight: 700, textAlign: 'center', lineHeight: 1.5 }}>{camError}</div>
+          <button onClick={done} style={{ color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 16, padding: '12px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Закрыть</button>
+        </div>
+      ) : (
+        <video ref={videoRef} playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover' }} />
+      )}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {!camError && (
+        <>
+          {/* Пилюля объектива — над панелью, кнопку спуска не двигаем */}
+          {wideSource && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '0 24px 10px', background: '#000' }}>
+              <button type="button" style={pill('0.5x')} onClick={() => switchLens('0.5x')} disabled={switching}>0.5x</button>
+              <button type="button" style={pill('1x')} onClick={() => switchLens('1x')} disabled={switching}>1x</button>
+            </div>
+          )}
+
+          {/* Плашка-подсказка прототипа: в реальной съёмке её не будет */}
+          <div style={{ padding: '0 24px 8px', background: '#000', color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', lineHeight: 1.4 }}>
+            {switching ? 'переключаю объектив...' : (
+              <>
+                прототип — ничего не отправляется
+                {switchMs != null && ` · переключение заняло ${switchMs} мс`}
+                {!wideSource && ' · широкий угол на этом телефоне недоступен'}
+              </>
+            )}
+          </div>
+
+          <div style={{ padding: '10px 24px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#000' }}>
+            <button onClick={done} style={{ color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 16, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Готово {shots.length > 0 && `(${shots.length} фото)`}
+            </button>
+            <button onClick={snap} disabled={!ready || switching} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: (ready && !switching) ? 1 : 0.5 }}>
+              <Camera size={28} color="#1A1D1E" />
+            </button>
+            <div style={{ width: 80 }} />
+          </div>
+
+          {shots.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 24px 28px', background: '#000' }}>
+              {shots.map((s, i) => (
+                <div key={i} style={{ flexShrink: 0, textAlign: 'center' }}>
+                  <img src={s.url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                  <div style={{ color: s.lens === '0.5x' ? '#8fc640' : 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 800, marginTop: 4 }}>
+                    {s.lens}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{s.kb} КБ</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function CameraCheck() {
   const [devices, setDevices] = useState([])
   const [probed, setProbed] = useState({})   // deviceId -> { settings, capabilities, error }
   const [activeId, setActiveId] = useState('')
   const [zoomState, setZoomState] = useState(null) // { min, max, requested, applied, error }
   const [verdict, setVerdict] = useState(null)     // { ok, text }
+  const [wideSource, setWideSource] = useState(null) // { mode, deviceId, zoom, label }
+  const [mockOpen, setMockOpen] = useState(false)
+  const [mockResult, setMockResult] = useState(null)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -53,7 +239,7 @@ export default function CameraCheck() {
   const streamRef = useRef(null)
 
   const stopStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach(t => t.stop())
+    stopTracks(streamRef.current)
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
   }, [])
@@ -71,7 +257,7 @@ export default function CameraCheck() {
         throw new Error('Браузер не поддерживает mediaDevices — камера недоступна')
       }
       const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      probe.getTracks().forEach(t => t.stop())
+      stopTracks(probe)
 
       setStatus('Читаю список камер...')
       const all = await navigator.mediaDevices.enumerateDevices()
@@ -144,50 +330,64 @@ export default function CameraCheck() {
   }, [])
 
   // Главная проверка: ищем заднюю камеру, которая умеет зум меньше 1, и пробуем
-  // реально выставить её минимум.
+  // реально выставить её минимум. Найденный источник запоминаем — он же пойдёт
+  // в прототип съёмки.
   const testWide = useCallback(async () => {
-    setBusy(true); setVerdict(null); setError('')
+    setBusy(true); setVerdict(null); setError(''); setWideSource(null)
     try {
       let candidate = null
-      let anyBack = false
+      let backCams = []
 
       for (const d of devices) {
         setStatus(`Проверяю: ${d.label || shortId(d.deviceId)}`)
         const res = await openDevice(d.deviceId)
         if (res.error) continue
         const back = isBack(res.settings, res.capabilities)
-        if (back) anyBack = true
+        if (back) backCams.push(d)
         const z = zoomCaps(res.capabilities)
         if (back && z && z.min < 1) { candidate = { d, z }; break }
       }
 
-      if (!candidate) {
+      // Путь 1: зум меньше 1 на задней камере (iPhone).
+      if (candidate) {
+        const { d, z } = candidate
+        setStatus(`Применяю zoom ${z.min} на «${d.label || shortId(d.deviceId)}»...`)
+        const applied = await applyZoom(z.min)
         setStatus('')
+        if (applied != null && Math.abs(applied - z.min) < 0.01) {
+          setWideSource({ mode: 'zoom', deviceId: d.deviceId, zoom: z.min, label: d.label })
+          setVerdict({
+            ok: true,
+            text: `Работает через зум. Камера «${d.label || shortId(d.deviceId)}»: запрошен zoom ${z.min}, применился ${applied}. Ниже появилась кнопка прототипа — посмотри, как это будет в съёмке отчёта.`,
+          })
+          return
+        }
         setVerdict({
           ok: false,
-          text: anyBack
-            ? 'Ни одна задняя камера не заявляет зум меньше 1. Через zoom 0.5x не получить — остаётся только отдельная сверхширокоугольная камера, если она есть в списке выше: открой её кнопкой и сравни кадр глазами.'
-            : 'Задних камер не найдено вообще — проверь, что разрешение на камеру выдано.',
+          text: `Камера «${d.label || shortId(d.deviceId)}» заявляет зум от ${z.min}, но применить не удалось (сейчас ${applied ?? 'не сообщается'}). Пробую второй путь — отдельным устройством.`,
+        })
+      }
+
+      // Путь 2: сверхширокоугольная отдельным устройством. Какая из задних камер
+      // широкая — API числом не говорит, поэтому берём вторую заднюю и решаем глазами.
+      if (backCams.length > 1) {
+        const alt = backCams[1]
+        setWideSource({ mode: 'device', deviceId: alt.deviceId, label: alt.label })
+        setStatus('')
+        setVerdict({
+          ok: true,
+          text: `Через зум не вышло, но задних камер несколько (${backCams.length}). Взял вторую: «${alt.label || shortId(alt.deviceId)}». Открой прототип и сравни кадр глазами — если он шире, путь рабочий.`,
         })
         return
       }
 
-      const { d, z } = candidate
-      setStatus(`Применяю zoom ${z.min} на «${d.label || shortId(d.deviceId)}»...`)
-      const applied = await applyZoom(z.min)
       setStatus('')
-
-      if (applied != null && Math.abs(applied - z.min) < 0.01) {
-        setVerdict({
-          ok: true,
-          text: `Работает. Камера «${d.label || shortId(d.deviceId)}»: запрошен zoom ${z.min}, применился ${applied}. Значит 0.5x можно вшить в нашу съёмку — смотри предпросмотр, кадр должен стать заметно шире.`,
-        })
-      } else {
-        setVerdict({
-          ok: false,
-          text: `Камера «${d.label || shortId(d.deviceId)}» заявляет зум от ${z.min}, но применить его не удалось (сейчас ${applied ?? 'не сообщается'}). Путь через zoom не работает — надо пробовать отдельную сверхширокоугольную камеру по deviceId.`,
-        })
-      }
+      setVerdict({
+        ok: false,
+        text: backCams.length
+          ? 'Задняя камера одна и зум меньше 1 не поддерживается — 0.5x на этом телефоне недоступен.'
+          : 'Задних камер не найдено вообще — проверь, что разрешение на камеру выдано.',
+      })
     } finally {
       setBusy(false)
     }
@@ -200,6 +400,7 @@ export default function CameraCheck() {
     camerasFound: devices.length,
     cameras: devices.map(d => ({ ...d, ...(probed[d.deviceId] || {}) })),
     zoomTest: zoomState,
+    wideSource,
     verdict: verdict?.text || null,
   }
 
@@ -220,18 +421,31 @@ export default function CameraCheck() {
     return `зум ${z.min}–${z.max}${z.min < 1 ? '  ← умеет 0.5x' : ''}`
   }
 
-  // Кнопки быстрого зума для активной камеры: только значения внутри её диапазона.
   const zoomSteps = zoomState
     ? [zoomState.min, 1, 2].filter((v, i, arr) => arr.indexOf(v) === i && v >= zoomState.min && v <= zoomState.max)
     : []
 
+  const openMock = () => {
+    stopStream()          // отпускаем камеру диагностики, иначе прототип её не получит
+    setActiveId('')
+    setMockResult(null)
+    setMockOpen(true)
+  }
+
   return (
     <div style={{ padding: 16, maxWidth: 720, margin: '0 auto' }}>
+      {mockOpen && (
+        <MockCapture
+          wideSource={wideSource}
+          onClose={(n) => { setMockOpen(false); setMockResult(n) }}
+        />
+      )}
+
       <h1 style={{ fontSize: 20, fontWeight: 900, margin: '0 0 4px' }}>Диагностика камер</h1>
       <div style={{ fontSize: 13, color: 'rgba(26,29,30,0.55)', lineHeight: 1.5, marginBottom: 14 }}>
         Открой на телефоне. «Начать проверку» → разреши доступ → «Проверить 0.5x».
-        Страница сама найдёт подходящую заднюю камеру, попробует выставить 0.5x и скажет,
-        получилось ли по-настоящему, а не только на бумаге.
+        Если 0.5x доступен, появится кнопка прототипа — там видно, как это будет
+        выглядеть в реальной съёмке отчёта.
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -263,6 +477,25 @@ export default function CameraCheck() {
           {verdict.ok ? '✅ ' : '⚠️ '}{verdict.text}
         </div>
       )}
+
+      {/* Прототип реальной съёмки */}
+      <div style={{ ...box, borderColor: wideSource ? '#8fc640' : 'rgba(0,0,0,0.08)' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>Как это будет в съёмке отчёта</div>
+        <div style={{ fontSize: 12, color: 'rgba(26,29,30,0.55)', lineHeight: 1.5, marginBottom: 10 }}>
+          Экран собран один в один с настоящей съёмкой постоматов, добавлен только
+          переключатель 0.5x / 1x над кнопкой спуска. Снимай сколько хочешь — фото
+          остаются в телефоне и никуда не отправляются.
+          {!wideSource && ' Сначала нажми «Проверить 0.5x», иначе переключателя не будет.'}
+        </div>
+        <button type="button" style={wideSource ? btnAccent : btnLight} onClick={openMock} disabled={busy}>
+          Открыть прототип съёмки
+        </button>
+        {mockResult != null && (
+          <div style={{ fontSize: 12, color: 'rgba(26,29,30,0.55)', marginTop: 10 }}>
+            Снято кадров: {mockResult}. В реальной съёмке они бы ушли в отчёт.
+          </div>
+        )}
+      </div>
 
       <video
         ref={videoRef}
@@ -297,14 +530,6 @@ export default function CameraCheck() {
             применилось: {zoomState.applied ?? '—'}
             {zoomState.error ? `\nошибка: ${zoomState.error}` : ''}
           </p>
-        </div>
-      )}
-
-      {activeId && (
-        <div style={{ fontSize: 12, color: 'rgba(26,29,30,0.55)', marginBottom: 12, lineHeight: 1.5 }}>
-          Жми 0.5x и 1x по очереди и смотри на предпросмотр: если на 0.5x в кадр влезает
-          заметно больше — объектив реально переключился. Угол обзора браузер числом не
-          сообщает, поэтому окончательная проверка только глазами.
         </div>
       )}
 
