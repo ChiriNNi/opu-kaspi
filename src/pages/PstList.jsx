@@ -173,6 +173,8 @@ const ABSENCE_REASONS = [
   'Адрес изменен',
   'Увезли постомат',
   'Нет электричества',
+  'Инцидент',
+  'Отсутствует на адресе',
 ]
 
 function ColumnPicker({ columns, visibleIds, onChange, onClose }) {
