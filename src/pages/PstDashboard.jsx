@@ -293,8 +293,7 @@ export default function PstDashboard() {
       <div className="pst-dash-hero">
         <div>
           <div className="pst-dash-kicker"><BarChart3 size={16} /> Полная мойка</div>
-          <h1>Дашборд</h1>
-          <p>План берется из активных постоматов, факт из отчетов. Повторные отчеты по одному POSTOMAT_ID в один день считаются как один факт.</p>
+          <h1>Kaspi PST Dashboard</h1>
         </div>
         <div className="pst-dash-actions">
           <label className="pst-dash-select">
