@@ -76,14 +76,6 @@ const formatDateOnly = (value) => {
   }).format(new Date(value))
 }
 
-const toDateInputValue = (value) => {
-  if (!value) return ''
-  if (/^\d{4}-\d{2}-\d{2}/.test(String(value))) return String(value).slice(0, 10)
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
-}
-
 const normalize = (value) => String(value || '').trim().toLowerCase()
 
 const yesNo = (value) => {
@@ -125,29 +117,11 @@ const exportCellValue = (col, row) => {
   if (col.key === 'id') return row.id
   if (col.key === 'install_place') return row.install_place || '—'
   if (col.key === 'washed') return row.cleanings_count > 0 ? 'Да' : 'Нет'
-  if (col.key === 'planned_wash_date') return row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '—'
   if (col.key === 'two_gis_url') return get2GisUrl(row) || '—'
   if (col.key === 'absence_reason') return row.absence_reason || '—'
   const value = col.render(row)
   return typeof value === 'string' || typeof value === 'number' ? value : ''
 }
-
-const locationPayloadWithPlannedDate = (row, plannedDate) => ({
-  city: row.city || '',
-  branch: row.branch || '',
-  address: row.address || '',
-  install_place: row.install_place || '',
-  cells_count: row.cells_count || '',
-  category: row.category || '',
-  route_text: row.route_text || row.routeText || '',
-  comment: row.comment || '',
-  hint: row.hint || '',
-  lat: row.lat ?? null,
-  lng: row.lng ?? null,
-  location_type: row.location_type || '',
-  is_spec_route: row.is_spec_route || false,
-  planned_wash_date: plannedDate || null,
-})
 
 const rowHasIncident = (row) => {
   const hay = [
@@ -526,7 +500,6 @@ export default function PstList() {
   const [columnFilters, setColumnFilters] = useState({}) // { [colKey]: string[] | undefined }
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [savingPlannedDateId, setSavingPlannedDateId] = useState('')
   const [periods, setPeriods] = useState([]) // квартальные планы (postomat_plans.period), новые сверху
   const [selectedPeriod, setSelectedPeriod] = useState('') // '' = последний загруженный квартал
   const [visibleIds, setVisibleIds] = useState(() => {
@@ -570,30 +543,6 @@ export default function PstList() {
       alert(e.response?.data?.error || 'Не удалось сохранить причину отсутствия')
     }
   }, [effectivePeriod])
-
-  const updatePlannedWashDate = useCallback(async (row, value) => {
-    const nextDate = value || null
-    const prevDate = row.planned_wash_date || null
-    const rowId = String(row.id)
-    setSavingPlannedDateId(rowId)
-    setRows(list => {
-      const next = list.map(r => (String(r.id) === rowId ? { ...r, planned_wash_date: nextDate } : r))
-      if (!selectedPeriod) writeRowsCache(next)
-      return next
-    })
-    try {
-      await api.put(`/locations/${encodeURIComponent(row.id)}`, locationPayloadWithPlannedDate(row, nextDate))
-    } catch (e) {
-      setRows(list => {
-        const next = list.map(r => (String(r.id) === rowId ? { ...r, planned_wash_date: prevDate } : r))
-        if (!selectedPeriod) writeRowsCache(next)
-        return next
-      })
-      alert(e.response?.data?.error || 'Не удалось сохранить плановую дату мойки')
-    } finally {
-      setSavingPlannedDateId('')
-    }
-  }, [selectedPeriod])
 
   const fetchRows = useCallback(async () => {
     const hadRows = rowsRef.current.length > 0
@@ -649,17 +598,7 @@ export default function PstList() {
     { key: 'cleanings_count', label: 'Кол-во уборок', group: 'Уборки', align: 'right', render: row => row.cleanings_count || 0 },
     { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Уборки', render: row => row.last_cleaned_at ? formatDate(row.last_cleaned_at) : '—', filterValue: row => row.last_cleaned_at ? formatDateOnly(row.last_cleaned_at) : '—' },
     { key: 'partner', label: 'Партнер', group: 'Уборки', render: row => partnerNameOf(row) || '—' },
-    { key: 'planned_wash_date', label: 'Плановая дата', group: 'План', render: row => (
-      <label className={`pst-list-date-cell ${savingPlannedDateId === String(row.id) ? 'saving' : ''}`} title="Изменить плановую дату мойки">
-        <input
-          type="date"
-          value={toDateInputValue(row.planned_wash_date)}
-          disabled={savingPlannedDateId === String(row.id)}
-          onClick={e => e.stopPropagation()}
-          onChange={e => updatePlannedWashDate(row, e.target.value)}
-        />
-      </label>
-    ) },
+    { key: 'planned_wash_date', label: 'Плановая дата', group: 'План', render: row => row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '—' },
     { key: 'plan_per_month', label: 'План/мес', group: 'План', align: 'right', render: row => row.plan_per_month ?? '—' },
     { key: 'location_type', label: 'Г/П', group: 'Excel', render: row => row.location_type || '—' },
     { key: 'category', label: 'Категория', group: 'Excel', render: row => row.category || '—' },
@@ -687,7 +626,7 @@ export default function PstList() {
       const url = get2GisUrl(row)
       return url ? <a className="pst-list-2gis" href={url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> 2GIS</a> : '—'
     } },
-  ], [savingPlannedDateId, updateAbsenceReason, updatePlannedWashDate])
+  ], [updateAbsenceReason])
 
   const visibleColumns = columns.filter(col => visibleIds.includes(col.key))
 
