@@ -1,0 +1,598 @@
+.pst-dash-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #1A1D1E;
+}
+
+.pst-dash-hero,
+.pst-dash-progress-panel,
+.pst-dash-panel,
+.pst-dash-stat {
+  border: 1px solid rgba(26, 29, 30, 0.07);
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.025);
+}
+
+.pst-dash-hero {
+  min-height: 118px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  background:
+    linear-gradient(135deg, rgba(143, 198, 64, 0.13), rgba(255, 255, 255, 0.86) 42%),
+    #fff;
+  box-sizing: border-box;
+}
+
+.pst-dash-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(26, 29, 30, 0.88);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pst-dash-hero h1 {
+  margin: 12px 0 4px;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.pst-dash-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: rgba(26, 29, 30, 0.56);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.pst-dash-actions,
+.pst-dash-filters,
+.pst-dash-select,
+.pst-dash-search,
+.pst-dash-refresh,
+.pst-dash-clear {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pst-dash-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pst-dash-select,
+.pst-dash-search {
+  position: relative;
+  height: 38px;
+  color: rgba(26, 29, 30, 0.42);
+}
+
+.pst-dash-select svg,
+.pst-dash-search svg {
+  position: absolute;
+  left: 12px;
+  pointer-events: none;
+}
+
+.pst-dash-select select,
+.pst-dash-filters select,
+.pst-dash-search input,
+.pst-dash-refresh,
+.pst-dash-clear {
+  height: 38px;
+  border: 1px solid rgba(26, 29, 30, 0.1);
+  border-radius: 10px;
+  background: #fff;
+  color: #1A1D1E;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.pst-dash-select select {
+  min-width: 166px;
+  padding: 0 12px 0 36px;
+}
+
+.pst-dash-refresh,
+.pst-dash-clear {
+  gap: 7px;
+  padding: 0 13px;
+  cursor: pointer;
+}
+
+.pst-dash-refresh:hover,
+.pst-dash-clear:hover,
+.pst-dash-select select:focus,
+.pst-dash-filters select:focus,
+.pst-dash-search input:focus {
+  border-color: #8fc640;
+}
+
+.pst-dash-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.pst-dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pst-dash-stat {
+  min-height: 92px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.pst-dash-stat.primary {
+  background: #15191a;
+  color: #fff;
+}
+
+.pst-dash-stat span,
+.pst-dash-stat small {
+  display: block;
+  color: rgba(26, 29, 30, 0.46);
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.pst-dash-stat.primary span,
+.pst-dash-stat.primary small {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pst-dash-stat strong {
+  display: block;
+  margin: 7px 0;
+  font-size: 1.85rem;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.pst-dash-progress-panel {
+  padding: 16px 18px;
+  border-radius: 14px;
+}
+
+.pst-dash-progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.pst-dash-progress-head strong {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 950;
+}
+
+.pst-dash-progress-head span,
+.pst-dash-meta span {
+  color: rgba(26, 29, 30, 0.52);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.pst-dash-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pst-dash-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: #f4f7ef;
+}
+
+.pst-dash-progress,
+.pst-dash-mini-progress {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1e8;
+}
+
+.pst-dash-progress i,
+.pst-dash-mini-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8fc640, #18a957);
+}
+
+.pst-dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 12px;
+  align-items: start;
+}
+
+.pst-dash-panel {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.pst-dash-panel.main {
+  min-width: 0;
+}
+
+.pst-dash-panel-head {
+  min-height: 66px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(26, 29, 30, 0.06);
+  box-sizing: border-box;
+}
+
+.pst-dash-panel-head.compact {
+  align-items: flex-start;
+}
+
+.pst-dash-panel-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.pst-dash-panel-head p {
+  margin: 3px 0 0;
+  color: rgba(26, 29, 30, 0.45);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.pst-dash-filters {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pst-dash-search {
+  min-width: 330px;
+}
+
+.pst-dash-search input {
+  width: 100%;
+  padding: 0 36px;
+  background: #f8f9f5;
+}
+
+.pst-dash-search button {
+  position: absolute;
+  right: 10px;
+  border: 0;
+  background: none;
+  color: rgba(26, 29, 30, 0.4);
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.pst-dash-filters select {
+  min-width: 175px;
+  padding: 0 12px;
+  background: #f8f9f5;
+}
+
+.pst-dash-clear {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.18);
+  background: #fff7f7;
+}
+
+.pst-dash-table-wrap {
+  max-height: calc(100vh - 430px);
+  min-height: 360px;
+  overflow: auto;
+}
+
+.pst-dash-table {
+  min-width: 1960px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.pst-dash-table th,
+.pst-dash-table td {
+  height: 42px;
+  padding: 5px 8px;
+  border-right: 1px solid rgba(26, 29, 30, 0.06);
+  border-bottom: 1px solid rgba(26, 29, 30, 0.06);
+  font-size: 0.72rem;
+  box-sizing: border-box;
+}
+
+.pst-dash-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #edf5e6;
+  color: rgba(26, 29, 30, 0.58);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.pst-dash-table th.sticky-main,
+.pst-dash-table td.sticky-main {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  width: 210px;
+  border-right: 1px solid rgba(26, 29, 30, 0.1);
+}
+
+.pst-dash-table td.sticky-main {
+  z-index: 2;
+  background: #fff;
+}
+
+.pst-dash-table th:nth-child(2),
+.pst-dash-table td:nth-child(2) {
+  width: 154px;
+}
+
+.pst-dash-table th:nth-child(3),
+.pst-dash-table td:nth-child(3) {
+  width: 78px;
+}
+
+.pst-dash-table tbody tr:nth-child(even) td {
+  background: #fbfcf8;
+}
+
+.branch-cell strong,
+.branch-cell span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.branch-cell strong {
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.branch-cell span {
+  margin-top: 2px;
+  color: rgba(26, 29, 30, 0.46);
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.responsible-cell {
+  color: rgba(26, 29, 30, 0.7);
+  font-weight: 850;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.num-cell {
+  text-align: right;
+  font-weight: 950;
+}
+
+.num-cell.total {
+  background: #f7faef;
+}
+
+.num-cell.fact,
+.num-cell.good {
+  color: #0c9b49;
+}
+
+.num-cell.bad {
+  color: #dc2626;
+}
+
+.day-cell {
+  text-align: center;
+  color: rgba(26, 29, 30, 0.28);
+  font-weight: 900;
+}
+
+.day-cell span {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 1px;
+  min-width: 28px;
+  padding: 3px 2px;
+  border-radius: 7px;
+  background: #f4f4f1;
+  color: rgba(26, 29, 30, 0.72);
+}
+
+.day-cell em {
+  color: rgba(26, 29, 30, 0.48);
+  font-style: normal;
+  font-size: 0.64rem;
+}
+
+.day-cell.done span {
+  background: #ebf8dd;
+  color: #5a8a1f;
+}
+
+.day-cell.done em {
+  color: #12833c;
+}
+
+.day-cell.partial span {
+  background: #fff6d6;
+  color: #a96700;
+}
+
+.day-cell.missed span {
+  background: #fff1f2;
+  color: #c52828;
+}
+
+.day-cell.is-today,
+.pst-dash-table th.is-today {
+  box-shadow: inset 0 0 0 2px rgba(143, 198, 64, 0.38);
+}
+
+.pst-dash-state {
+  height: 180px;
+  color: rgba(26, 29, 30, 0.42);
+  text-align: center;
+  font-weight: 900;
+}
+
+.pst-dash-state svg {
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.pst-dash-problems {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.pst-dash-problem {
+  padding: 12px;
+  border: 1px solid rgba(26, 29, 30, 0.06);
+  border-radius: 12px;
+  background: #fbfcf8;
+}
+
+.pst-dash-problem div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pst-dash-problem strong {
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.pst-dash-problem span,
+.pst-dash-problem small {
+  color: rgba(26, 29, 30, 0.5);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.pst-dash-problem b {
+  display: block;
+  margin: 10px 0 7px;
+  color: #dc2626;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.pst-dash-mini-progress {
+  height: 7px;
+  margin-bottom: 7px;
+}
+
+.pst-dash-empty {
+  padding: 22px 12px;
+  color: rgba(26, 29, 30, 0.45);
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.spin {
+  animation: pst-dash-spin 0.85s linear infinite;
+}
+
+@keyframes pst-dash-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1180px) {
+  .pst-dash-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pst-dash-panel.side {
+    order: -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .pst-dash-hero,
+  .pst-dash-progress-head,
+  .pst-dash-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pst-dash-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pst-dash-search {
+    min-width: 100%;
+  }
+
+  .pst-dash-filters select,
+  .pst-dash-select select,
+  .pst-dash-refresh,
+  .pst-dash-clear {
+    width: 100%;
+  }
+
+  .pst-dash-table-wrap {
+    max-height: calc(100vh - 520px);
+  }
+}
+
+@media (max-width: 520px) {
+  .pst-dash-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .pst-dash-hero {
+    padding: 18px;
+  }
+
+  .pst-dash-hero h1 {
+    font-size: 1.72rem;
+  }
+}
