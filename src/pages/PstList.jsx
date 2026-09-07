@@ -716,11 +716,14 @@ export default function PstList() {
     })
   }, [rows, activeColumnFilters, columns, search])
 
+  // «Активных PST» — это вся база, а остальные карточки описывают текущую выборку:
+  // считать «с уборкой» и «инциденты» по всем строкам смысла нет — включив фильтр,
+  // пользователь видел бы цифры не про то, что у него на экране.
   const stats = useMemo(() => ({
     total: rows.length,
     filtered: filteredRows.length,
-    washed: rows.filter(row => row.cleanings_count > 0).length,
-    incidents: rows.filter(rowHasIncident).length,
+    washed: filteredRows.filter(row => row.cleanings_count > 0).length,
+    incidents: filteredRows.filter(rowHasIncident).length,
   }), [rows, filteredRows])
 
   const addExcelSheet = (wb, sheetRows, sheetName) => {
