@@ -253,6 +253,14 @@ export default function CleanerWork() {
     return map
   }, [templateZones])
 
+  // Секция, в которую зона входит по шаблону (уровень выше зоны).
+  // У задач своего поля нет — берём из template_zones, которые уже приходят.
+  const zoneSection = useMemo(() => {
+    const map = {}
+    templateZones.forEach(z => { if (z.name && (z.group || '').trim()) map[z.name] = z.group.trim() })
+    return map
+  }, [templateZones])
+
   // ── Check training status ────────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -694,7 +702,10 @@ export default function CleanerWork() {
               return (
                 <div key={z} className="cw-done-zone-row">
                   <div className="cw-done-zone-dot" style={{ background: getZoneStyle(z).gradient }} />
-                  <span className="cw-done-zone-name">{z}</span>
+                  <span className="cw-done-zone-name">
+                    {zoneSection[z] && <span className="cw-done-zone-section">{zoneSection[z]} · </span>}
+                    {z}
+                  </span>
                   <span className={`cw-done-zone-pct ${done === zoneItems.length ? 'full' : ''}`}>
                     {done}/{zoneItems.length}
                   </span>
@@ -743,7 +754,10 @@ export default function CleanerWork() {
                 const full = zDone === zItems.length
                 return (
                   <div key={z} className={`cw-zone-cell ${full ? 'done' : ''}`}>
-                    <span className="cw-zone-cell-name">{z.toUpperCase()}</span>
+                    <span className="cw-zone-cell-label">
+                      {zoneSection[z] && <span className="cw-zone-cell-section">{zoneSection[z]}</span>}
+                      <span className="cw-zone-cell-name">{z.toUpperCase()}</span>
+                    </span>
                     <span className={`cw-zone-cell-cnt ${zPct >= 80 ? 'green' : zPct >= 50 ? 'yellow' : 'red'}`}>{zDone}/{zItems.length}</span>
                   </div>
                 )
@@ -764,6 +778,9 @@ export default function CleanerWork() {
                   <div className="cw-zone-tags">
                     {currentStep.style.tags.map(t => <span key={t} className="cw-zone-tag">{t}</span>)}
                   </div>
+                  {zoneSection[currentStep.zone] && (
+                    <div className="cw-zone-card-section">{zoneSection[currentStep.zone]}</div>
+                  )}
                   <div className="cw-zone-card-title">{currentStep.zone || 'Общая'}</div>
                   <div className="cw-zone-card-sub">{checklist?.location_name || 'Ежедневная уборка'}</div>
                 </div>

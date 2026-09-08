@@ -312,6 +312,25 @@
 .zones-add-btn:hover { background: #f5f7f2; border-style: solid; color: #1A1D1E; }
 .zones-list { display: flex; flex-direction: column; gap: 8px; }
 
+
+/* ── Секции: зоны внутри зоны, единое время на всю секцию ─────────────────── */
+.zone-section { border: 1.5px solid rgba(26,29,30,0.14); border-radius: 18px; background: #fbfcfa; overflow: hidden; }
+.zone-section-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #f3f5f0; border-bottom: 1px solid rgba(26,29,30,0.08); }
+.zone-section-toggle { width: 26px; height: 26px; border-radius: 7px; border: none; background: rgba(26,29,30,0.06); color: rgba(26,29,30,0.45); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.zone-section-toggle:hover { background: rgba(26,29,30,0.12); color: #1A1D1E; }
+.zone-section-icon { color: rgba(26,29,30,0.4); flex-shrink: 0; }
+.zone-section-name { flex: 1; min-width: 0; border: none; background: none; font-size: 14px; font-weight: 900; letter-spacing: 0.01em; color: #1A1D1E; outline: none; padding: 0; }
+.zone-section-name::placeholder { color: rgba(26,29,30,0.3); font-weight: 600; }
+.zone-section-meta { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,29,30,0.35); white-space: nowrap; flex-shrink: 0; }
+.zone-section-clock-mixed { color: #EA580C; }
+.zone-section-ungroup { border: 1px dashed rgba(26,29,30,0.2); background: none; border-radius: 8px; padding: 4px 9px; font-size: 11px; font-weight: 700; color: rgba(26,29,30,0.45); cursor: pointer; flex-shrink: 0; }
+.zone-section-ungroup:hover { border-style: solid; color: #1A1D1E; background: #fff; }
+.zone-section-body { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+
+.zone-section-select { border: 1px solid rgba(26,29,30,0.12); border-radius: 8px; padding: 4px 6px; font-size: 11px; font-weight: 700; color: rgba(26,29,30,0.6); background: rgba(255,255,255,0.7); outline: none; cursor: pointer; max-width: 150px; flex-shrink: 0; }
+.zone-section-select:focus { border-color: #1A1D1E; }
+.zone-time-inherited { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: rgba(26,29,30,0.4); white-space: nowrap; flex-shrink: 0; }
+
 .zone-block { border: 1.5px solid; border-radius: 16px; overflow: hidden; transition: background 0.15s; }
 .zone-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
 .zone-drag { color: rgba(26,29,30,0.2); cursor: grab; flex-shrink: 0; }
@@ -577,6 +596,7 @@
   .cl-search-input { width: 100%; }
   .cl-search-wrap { width: 100%; }
   .zone-time-wrap { display: none; }
+  .zone-time-inherited, .zone-section-meta, .zone-section-ungroup { display: none; }
   .tmpl-meta-row { flex-direction: column; }
 }
 

@@ -4,7 +4,7 @@ import api from '../api'
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronUp, X,
   Clock, GripVertical, RefreshCw, Search, Camera, Eye,
-  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe
+  ClipboardList, PlayCircle, AlertCircle, CheckCircle2, MapPin, Globe, Layers
 } from 'lucide-react'
 import './Checklists.css'
 
@@ -24,8 +24,48 @@ const ZONE_NAMES = [
   'Служебные помещения', 'Поддерживающая уборка',
 ]
 
+// ── Section header (секция объединяет зоны и задаёт им единое время) ─────────
+// Зоны внутри секции сохраняют свои задачи и порядок — добавляется только
+// уровень группировки. Время у секции одно и раскладывается по её зонам,
+// поэтому у зон внутри свои поля времени скрыты.
+function SectionHead({ name, zoneCount, taskCount, timeStart, timeEnd, timeMixed, open, onToggle, onRename, onTimeChange, onUngroup }) {
+  const [draft, setDraft] = useState(name)
+  useEffect(() => { setDraft(name) }, [name])
+
+  const commitName = () => {
+    const next = draft.trim()
+    if (!next || next === name) { setDraft(name); return }
+    onRename(next)
+  }
+
+  return (
+    <div className="zone-section-head">
+      <button className="zone-section-toggle" onClick={onToggle} title={open ? 'Свернуть секцию' : 'Развернуть секцию'}>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      <Layers size={13} className="zone-section-icon" />
+      <input
+        className="zone-section-name"
+        value={draft}
+        placeholder="Название секции..."
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commitName}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+      />
+      <span className="zone-section-meta">{zoneCount} зон · {taskCount} задач</span>
+      <div className="zone-time-wrap" title={timeMixed ? 'У зон секции разное время — задайте общее' : 'Единое время для всей секции'}>
+        <Clock size={12} className={timeMixed ? 'zone-section-clock-mixed' : undefined} />
+        <input className="zone-time" type="time" value={timeStart} onChange={e => onTimeChange('time_start', e.target.value)} />
+        <span className="zone-time-sep">—</span>
+        <input className="zone-time" type="time" value={timeEnd} onChange={e => onTimeChange('time_end', e.target.value)} />
+      </div>
+      <button className="zone-section-ungroup" onClick={onUngroup} title="Убрать секцию, зоны и задачи останутся">Разгруппировать</button>
+    </div>
+  )
+}
+
 // ── Zone editor ────────────────────────────────────────────────────────────────
-function ZoneBlock({ zone, idx, total, color, onChange, onDelete, onMoveUp, onMoveDown }) {
+function ZoneBlock({ zone, idx, total, color, sections, inSection, onChange, onSectionChange, onDelete, onMoveUp, onMoveDown, canMoveUp = true, canMoveDown = true }) {
   const [open, setOpen] = useState(true)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const tasks = zone.tasks || []
@@ -62,20 +102,45 @@ function ZoneBlock({ zone, idx, total, color, onChange, onDelete, onMoveUp, onMo
             )}
           </div>
         </div>
-        <div className="zone-time-wrap">
-          <Clock size={12} style={{ color: color.dot }} />
-          <input className="zone-time" type="time" value={zone.time_start || ''} onChange={e => onChange({ ...zone, time_start: e.target.value })} />
-          <span className="zone-time-sep">—</span>
-          <input className="zone-time" type="time" value={zone.time_end || ''} onChange={e => onChange({ ...zone, time_end: e.target.value })} />
-        </div>
+        {inSection ? (
+          <span className="zone-time-inherited" title="Время задаёт секция">
+            <Clock size={11} />
+            {zone.time_start || '--:--'} — {zone.time_end || '--:--'}
+          </span>
+        ) : (
+          <div className="zone-time-wrap">
+            <Clock size={12} style={{ color: color.dot }} />
+            <input className="zone-time" type="time" value={zone.time_start || ''} onChange={e => onChange({ ...zone, time_start: e.target.value })} />
+            <span className="zone-time-sep">—</span>
+            <input className="zone-time" type="time" value={zone.time_end || ''} onChange={e => onChange({ ...zone, time_end: e.target.value })} />
+          </div>
+        )}
+        <select
+          className="zone-section-select"
+          value={zone.group || ''}
+          title="Секция, в которую входит зона"
+          onChange={e => {
+            const val = e.target.value
+            if (val === '__new__') {
+              const created = window.prompt('Название новой секции', 'Базовая уборка')
+              if (created && created.trim()) onSectionChange(created.trim())
+              return
+            }
+            onSectionChange(val)
+          }}
+        >
+          <option value="">Без секции</option>
+          {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+          <option value="__new__">+ Новая секция…</option>
+        </select>
         <label className={`zone-photo-toggle ${zone.requires_photo ? 'active' : ''}`} title="Требовать фото в этой зоне">
           <input type="checkbox" checked={!!zone.requires_photo} onChange={e => onChange({ ...zone, requires_photo: e.target.checked })} />
           <Camera size={12} />
           <span>Фото</span>
         </label>
         <div className="zone-actions">
-          <button className="zone-move-btn" onClick={onMoveUp}   disabled={idx === 0}><ChevronUp size={13} /></button>
-          <button className="zone-move-btn" onClick={onMoveDown} disabled={idx === total - 1}><ChevronDown size={13} /></button>
+          <button className="zone-move-btn" onClick={onMoveUp}   disabled={idx === 0 || !canMoveUp}><ChevronUp size={13} /></button>
+          <button className="zone-move-btn" onClick={onMoveDown} disabled={idx === total - 1 || !canMoveDown}><ChevronDown size={13} /></button>
           <button className="zone-collapse-btn" onClick={() => setOpen(o => !o)}>{open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</button>
           <button className="zone-delete-btn" onClick={onDelete}><X size={13} /></button>
         </div>
@@ -215,6 +280,7 @@ function TemplateModal({ template, onClose, onSave }) {
     if (rawZones.length) {
       return rawZones.map(z => ({
         name: z.name || '',
+        group: (z.group || '').trim(),
         time_start: z.time_start || '',
         time_end: z.time_end || '',
         requires_photo: !!z.requires_photo,
@@ -229,21 +295,76 @@ function TemplateModal({ template, onClose, onSave }) {
       const zoneMap = {}
       items.forEach(it => {
         const zn = it.zone || 'Общие задачи'
-        if (!zoneMap[zn]) zoneMap[zn] = { name: zn, time_start: it.time_start || '', time_end: it.time_end || '', tasks: [] }
+        if (!zoneMap[zn]) zoneMap[zn] = { name: zn, group: '', time_start: it.time_start || '', time_end: it.time_end || '', tasks: [] }
         zoneMap[zn].tasks.push({ title: it.title, requires_photo: !!it.requires_photo, time_start: it.time_start || '', time_end: it.time_end || '' })
       })
       return Object.values(zoneMap)
     }
-    return [{ name: '', time_start: '', time_end: '', tasks: [{ title: '', requires_photo: false, time_start: '', time_end: '' }] }]
+    return [{ name: '', group: '', time_start: '', time_end: '', tasks: [{ title: '', requires_photo: false, time_start: '', time_end: '' }] }]
   })
   const [saving, setSaving] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState({})
 
-  const addZone = () => setZones(z => [...z, { name: '', time_start: '', time_end: '', tasks: [{ title: '', requires_photo: false, time_start: '', time_end: '' }] }])
+  const addZone = () => setZones(z => [...z, { name: '', group: '', time_start: '', time_end: '', tasks: [{ title: '', requires_photo: false, time_start: '', time_end: '' }] }])
   const deleteZone = (i) => setZones(z => z.filter((_, zi) => zi !== i))
   const updateZone = (i, zone) => setZones(z => z.map((oz, zi) => zi === i ? zone : oz))
-  const moveZone = (i, dir) => setZones(z => {
-    const n = [...z]; [n[i], n[i + dir]] = [n[i + dir], n[i]]; return n
+
+  const groupOf = (zone) => (zone?.group || '').trim()
+
+  // Стрелки двигают зону внутри её секции: сосед ищется среди зон той же
+  // секции, чтобы зона не выпадала из группы случайным нажатием.
+  const siblingIdx = (i, dir) => {
+    const g = groupOf(zones[i])
+    for (let j = i + dir; j >= 0 && j < zones.length; j += dir) {
+      if (groupOf(zones[j]) === g) return j
+    }
+    return -1
+  }
+  const moveZone = (i, dir) => {
+    const j = siblingIdx(i, dir)
+    if (j === -1) return
+    setZones(z => { const n = [...z]; [n[i], n[j]] = [n[j], n[i]]; return n })
+  }
+
+  // Список секций в порядке первого появления — для селектора в зонах.
+  const sectionNames = useMemo(() => {
+    const out = []
+    zones.forEach(z => { const g = groupOf(z); if (g && !out.includes(g)) out.push(g) })
+    return out
+  }, [zones])
+
+  // Подряд идущие зоны одной секции — один блок. Зоны без секции идут как были.
+  const runs = useMemo(() => {
+    const out = []
+    zones.forEach((z, i) => {
+      const g = groupOf(z)
+      const last = out[out.length - 1]
+      if (g && last && last.group === g) last.idxs.push(i)
+      else out.push({ group: g, idxs: [i] })
+    })
+    return out
+  }, [zones])
+
+  const setZoneSection = (i, group) => setZones(prev => {
+    const g = (group || '').trim()
+    const member = g ? prev.find((z, zi) => zi !== i && groupOf(z) === g) : null
+    // Зона наследует единое время секции, в которую переходит.
+    const next = prev.map((z, zi) => zi === i
+      ? { ...z, group: g, ...(member ? { time_start: member.time_start || '', time_end: member.time_end || '' } : {}) }
+      : z)
+    if (!g || !member) return next
+    // Подтягиваем зону к последней зоне секции, чтобы секция осталась цельной.
+    let anchor = -1
+    next.forEach((z, zi) => { if (zi !== i && groupOf(z) === g) anchor = zi })
+    if (anchor === -1) return next
+    const moved = next.splice(i, 1)[0]
+    next.splice(anchor > i ? anchor : anchor + 1, 0, moved)
+    return next
   })
+
+  const renameSection = (from, to) => setZones(prev => prev.map(z => groupOf(z) === from ? { ...z, group: to } : z))
+  const ungroupSection = (name) => setZones(prev => prev.map(z => groupOf(z) === name ? { ...z, group: '' } : z))
+  const setSectionTime = (name, field, val) => setZones(prev => prev.map(z => groupOf(z) === name ? { ...z, [field]: val } : z))
 
   const totalTasks = zones.reduce((s, z) => s + z.tasks.filter(t => t.title.trim()).length, 0)
 
@@ -266,7 +387,10 @@ function TemplateModal({ template, onClose, onSave }) {
         <div className="cl-modal-header">
           <div>
             <h2>{template ? 'Редактировать шаблон' : 'Новый шаблон'}</h2>
-            <span className="cl-modal-meta">{zones.length} зон · {totalTasks} задач</span>
+            <span className="cl-modal-meta">
+              {sectionNames.length > 0 && `${sectionNames.length} ${sectionNames.length === 1 ? 'секция' : sectionNames.length < 5 ? 'секции' : 'секций'} · `}
+              {zones.length} зон · {totalTasks} задач
+            </span>
           </div>
           <button className="cl-close" onClick={onClose}><X size={18} /></button>
         </div>
@@ -297,19 +421,49 @@ function TemplateModal({ template, onClose, onSave }) {
               <button className="zones-add-btn" onClick={addZone}><Plus size={13} /> Добавить зону</button>
             </div>
             <div className="zones-list">
-              {zones.map((zone, i) => (
-                <ZoneBlock
-                  key={i}
-                  zone={zone}
-                  idx={i}
-                  total={zones.length}
-                  color={ZONE_COLORS[i % ZONE_COLORS.length]}
-                  onChange={z => updateZone(i, z)}
-                  onDelete={() => deleteZone(i)}
-                  onMoveUp={() => moveZone(i, -1)}
-                  onMoveDown={() => moveZone(i, 1)}
-                />
-              ))}
+              {runs.map((run, ri) => {
+                const blocks = run.idxs.map(i => (
+                  <ZoneBlock
+                    key={i}
+                    zone={zones[i]}
+                    idx={i}
+                    total={zones.length}
+                    color={ZONE_COLORS[i % ZONE_COLORS.length]}
+                    sections={sectionNames}
+                    inSection={!!run.group}
+                    onChange={z => updateZone(i, z)}
+                    onSectionChange={g => setZoneSection(i, g)}
+                    onDelete={() => deleteZone(i)}
+                    onMoveUp={() => moveZone(i, -1)}
+                    onMoveDown={() => moveZone(i, 1)}
+                    canMoveUp={siblingIdx(i, -1) !== -1}
+                    canMoveDown={siblingIdx(i, 1) !== -1}
+                  />
+                ))
+                if (!run.group) return blocks
+                const members = run.idxs.map(i => zones[i])
+                const starts = new Set(members.map(z => z.time_start || ''))
+                const ends = new Set(members.map(z => z.time_end || ''))
+                const collapsed = !!collapsedSections[run.group]
+                return (
+                  <div key={`sec-${run.group}-${ri}`} className="zone-section">
+                    <SectionHead
+                      name={run.group}
+                      zoneCount={members.length}
+                      taskCount={members.reduce((acc, z) => acc + z.tasks.filter(t => t.title.trim()).length, 0)}
+                      timeStart={starts.size === 1 ? [...starts][0] : ''}
+                      timeEnd={ends.size === 1 ? [...ends][0] : ''}
+                      timeMixed={starts.size > 1 || ends.size > 1}
+                      open={!collapsed}
+                      onToggle={() => setCollapsedSections(prev => ({ ...prev, [run.group]: !prev[run.group] }))}
+                      onRename={to => renameSection(run.group, to)}
+                      onTimeChange={(field, val) => setSectionTime(run.group, field, val)}
+                      onUngroup={() => ungroupSection(run.group)}
+                    />
+                    {!collapsed && <div className="zone-section-body">{blocks}</div>}
+                  </div>
+                )
+              })}
               {zones.length === 0 && (
                 <button className="zones-empty-add" onClick={addZone}>
                   <Plus size={16} /> Добавить первую зону

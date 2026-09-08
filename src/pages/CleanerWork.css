@@ -224,6 +224,8 @@
 }
 .cw-zone-cell.done { border-color: rgba(126,200,80,0.25); background: rgba(126,200,80,0.08); }
 .cw-zone-cell-name { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: #1A1D1E; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cw-zone-cell-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cw-zone-cell-section { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,29,30,0.35); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cw-zone-cell-cnt { font-size: 11px; font-weight: 900; white-space: nowrap; flex-shrink: 0; }
 .cw-zone-cell-cnt.red    { color: #ef4444; }
 .cw-zone-cell-cnt.yellow { color: #f59e0b; }
@@ -244,6 +246,7 @@
   padding: 4px 10px; font-size: 9px; font-weight: 900;
   text-transform: uppercase; letter-spacing: 0.18em; color: rgba(255,255,255,0.9);
 }
+.cw-zone-card-section { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.7); margin-bottom: 2px; }
 .cw-zone-card-title { font-size: 1.5rem; font-weight: 900; color: #fff; line-height: 1.1; }
 .cw-zone-card-sub { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.65); margin-top: 4px; }
 .cw-step-counter {
@@ -337,6 +340,7 @@ input.hidden { display: none; }
 .cw-done-zone-row { display: flex; align-items: center; gap: 10px; }
 .cw-done-zone-dot { width: 32px; height: 32px; border-radius: 12px; flex-shrink: 0; }
 .cw-done-zone-name { flex: 1; font-size: 14px; font-weight: 900; color: #1A1D1E; }
+.cw-done-zone-section { font-weight: 700; color: rgba(26,29,30,0.35); }
 .cw-done-zone-pct { font-size: 13px; font-weight: 900; color: rgba(26,29,30,0.3); }
 .cw-done-zone-pct.full { color: #7EC850; }
 .cw-done-check { color: #7EC850; font-size: 13px; font-weight: 900; }
