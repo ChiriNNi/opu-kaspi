@@ -850,9 +850,15 @@ const AddMorePhotosModal = ({ item, onClose, onDone }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Тот же принцип: cleanup только на закрытие модалки, но по актуальному списку
+  // (пустые массивы из первого рендера ничего бы не освободили).
+  const livePhotosRef = useRef({ before: [], after: [] });
+  useEffect(() => {
+    livePhotosRef.current = { before: beforePhotos, after: afterPhotos };
+  }, [afterPhotos, beforePhotos]);
   useEffect(() => () => {
-    [...beforePhotos, ...afterPhotos].forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const { before, after } = livePhotosRef.current;
+    [...before, ...after].forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
   }, []);
 
   const handleCameraCapture = (file, section) => {
@@ -1089,13 +1095,23 @@ const PstPage = () => {
     return () => { isMounted = false; };
   }, []);
 
+  // Живые blob-ссылки на превью. Раньше здесь стоял useEffect с зависимостями
+  // [beforePhotos, afterPhotos]: его cleanup срабатывал на КАЖДОЕ добавление фото
+  // и отзывал blob-ссылки снимков, которые остаются в массиве и всё ещё показаны —
+  // превью «слепли» одно за другим. Отзываем только при уходе со страницы,
+  // точечное удаление уже делает removePhoto, а отправка — handleSubmit.
+  const livePhotosRef = useRef({ before: [], after: [] });
+  useEffect(() => {
+    livePhotosRef.current = { before: beforePhotos, after: afterPhotos };
+  }, [afterPhotos, beforePhotos]);
   useEffect(() => {
     return () => {
-      [...beforePhotos, ...afterPhotos].forEach((photo) => {
+      const { before, after } = livePhotosRef.current;
+      [...before, ...after].forEach((photo) => {
         if (photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
       });
     };
-  }, [afterPhotos, beforePhotos]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
