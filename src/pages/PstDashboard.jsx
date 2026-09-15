@@ -443,7 +443,7 @@ export default function PstDashboard() {
                   <tr className="pst-dash-total-row">
                     <td className="sticky-main branch-cell">
                       <strong>Итого</strong>
-                      <span>{formatNum(visibleRows.length)} филиал{visibleRows.length === 1 ? '' : visibleRows.length < 5 ? 'а' : 'ов'}</span>
+                      <span>по {formatNum(visibleRows.length)} филиал{visibleRows.length === 1 ? 'у' : visibleRows.length < 5 ? 'ам' : 'ам'}</span>
                     </td>
                     <td className="responsible-cell">—</td>
                     <td className="num-cell">{formatNum(totals.fullVolume)}</td>

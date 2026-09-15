@@ -323,7 +323,7 @@
 }
 
 .pst-dash-table {
-  min-width: 1960px;
+  min-width: 2060px;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -348,6 +348,9 @@
   color: rgba(26, 29, 30, 0.58);
   font-weight: 950;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pst-dash-table th.sticky-main,
@@ -374,6 +377,13 @@
   width: 78px;
 }
 
+/* Три итоговые колонки справа: без явной ширины им оставалось ~46px и
+   заголовок «РАЗНИЦА» вылезал за границу ячейки. */
+.pst-dash-table th:nth-last-child(-n + 3),
+.pst-dash-table td:nth-last-child(-n + 3) {
+  width: 74px;
+}
+
 .pst-dash-table tbody tr:nth-child(even) td {
   background: #fbfcf8;
 }
@@ -387,6 +397,7 @@
   font-weight: 950;
   border-top: 2px solid rgba(26, 29, 30, 0.18);
   border-bottom: none;
+  box-shadow: 0 -6px 12px -6px rgba(26, 29, 30, 0.28);
 }
 
 .pst-dash-total-row td.sticky-main {
