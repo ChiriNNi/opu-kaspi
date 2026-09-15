@@ -233,26 +233,10 @@ export default function PstDashboard() {
       if (!washed && plannedDate < todayIso) group.overdue += 1
     })
 
-    // Разница считается только по наступившим дням. Иначе в неё попадает план
-    // на будущие числа, где факт нулевой просто потому, что день не настал, —
-    // и отставание выглядит больше, чем есть.
-    const todayMonth = todayIso.slice(0, 7)
-    const planCutoffDay = month < todayMonth
-      ? days                                  // прошедший месяц — план целиком
-      : month > todayMonth
-        ? 0                                   // будущий — план ещё не начался
-        : Number(todayIso.slice(-2))
-
     const list = Array.from(groups.values()).sort((a, b) => {
       const aProblem = b.overdue - a.overdue
       if (aProblem) return aProblem
       return a.name.localeCompare(b.name, 'ru')
-    })
-
-    list.forEach(row => {
-      let planToDate = 0
-      for (let day = 1; day <= planCutoffDay; day += 1) planToDate += row.days[day]?.plan || 0
-      row.planToDate = planToDate
     })
 
     const totalPlan = list.reduce((sum, row) => sum + row.planTotal, 0)
@@ -273,7 +257,6 @@ export default function PstDashboard() {
       todayDay,
       todayPlan,
       todayFact,
-      planCutoffDay,
       days,
       plannedCount: plannedLocations.length,
       reportCount: reports.length,
@@ -301,12 +284,11 @@ export default function PstDashboard() {
     const days = Object.fromEntries(
       Array.from({ length: dashboard.days }, (_, i) => [i + 1, { plan: 0, fact: 0 }])
     )
-    let fullVolume = 0, planTotal = 0, factTotal = 0, planToDate = 0
+    let fullVolume = 0, planTotal = 0, factTotal = 0
     visibleRows.forEach(row => {
       fullVolume += row.fullVolume
       planTotal += row.planTotal
       factTotal += row.factTotal
-      planToDate += row.planToDate || 0
       for (let day = 1; day <= dashboard.days; day += 1) {
         const cell = row.days[day]
         if (!cell) continue
@@ -314,7 +296,7 @@ export default function PstDashboard() {
         days[day].fact += cell.fact
       }
     })
-    return { days, fullVolume, planTotal, factTotal, planToDate }
+    return { days, fullVolume, planTotal, factTotal }
   }, [visibleRows, dashboard.days])
 
   const topProblemRows = useMemo(() => (
@@ -392,7 +374,7 @@ export default function PstDashboard() {
           <div className="pst-dash-panel-head">
             <div>
               <h2>План-факт по филиалам</h2>
-              <p>{formatNum(visibleRows.length)} строк в выборке · разница — к сегодняшнему дню</p>
+              <p>{formatNum(visibleRows.length)} строк в выборке</p>
             </div>
             <div className="pst-dash-filters">
               <label className="pst-dash-search">
@@ -420,7 +402,7 @@ export default function PstDashboard() {
                   ))}
                   <th>План</th>
                   <th>Факт</th>
-                  <th title="План по наступившим дням минус факт. Дни, которые ещё не настали, в разницу не идут.">Разница</th>
+                  <th>Разница</th>
                 </tr>
               </thead>
               <tbody>
@@ -450,8 +432,8 @@ export default function PstDashboard() {
                     })}
                     <td className="num-cell total">{formatNum(row.planTotal)}</td>
                     <td className="num-cell total fact">{formatNum(row.factTotal)}</td>
-                    <td className={`num-cell total ${row.planToDate - row.factTotal > 0 ? 'bad' : 'good'}`}>
-                      {formatNum(row.planToDate - row.factTotal)}
+                    <td className={`num-cell total ${row.planTotal - row.factTotal > 0 ? 'bad' : 'good'}`}>
+                      {formatNum(row.planTotal - row.factTotal)}
                     </td>
                   </tr>
                 ))}
@@ -478,8 +460,8 @@ export default function PstDashboard() {
                     })}
                     <td className="num-cell total">{formatNum(totals.planTotal)}</td>
                     <td className="num-cell total fact">{formatNum(totals.factTotal)}</td>
-                    <td className={`num-cell total ${totals.planToDate - totals.factTotal > 0 ? 'bad' : 'good'}`}>
-                      {formatNum(totals.planToDate - totals.factTotal)}
+                    <td className={`num-cell total ${totals.planTotal - totals.factTotal > 0 ? 'bad' : 'good'}`}>
+                      {formatNum(totals.planTotal - totals.factTotal)}
                     </td>
                   </tr>
                 </tfoot>
