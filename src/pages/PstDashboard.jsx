@@ -278,6 +278,27 @@ export default function PstDashboard() {
     })
   }, [dashboard.rows, query, responsible])
 
+  // Итоговая строка считается по visibleRows, а не по всей базе — чтобы поиск
+  // и фильтр по ответственному отражались и в итогах.
+  const totals = useMemo(() => {
+    const days = Object.fromEntries(
+      Array.from({ length: dashboard.days }, (_, i) => [i + 1, { plan: 0, fact: 0 }])
+    )
+    let fullVolume = 0, planTotal = 0, factTotal = 0
+    visibleRows.forEach(row => {
+      fullVolume += row.fullVolume
+      planTotal += row.planTotal
+      factTotal += row.factTotal
+      for (let day = 1; day <= dashboard.days; day += 1) {
+        const cell = row.days[day]
+        if (!cell) continue
+        days[day].plan += cell.plan
+        days[day].fact += cell.fact
+      }
+    })
+    return { days, fullVolume, planTotal, factTotal }
+  }, [visibleRows, dashboard.days])
+
   const topProblemRows = useMemo(() => (
     [...dashboard.rows]
       .filter(row => row.overdue > 0 || row.planTotal > row.factTotal)
@@ -417,6 +438,34 @@ export default function PstDashboard() {
                   </tr>
                 ))}
               </tbody>
+              {!loading && visibleRows.length > 0 && (
+                <tfoot>
+                  <tr className="pst-dash-total-row">
+                    <td className="sticky-main branch-cell">
+                      <strong>Итого</strong>
+                      <span>{formatNum(visibleRows.length)} филиал{visibleRows.length === 1 ? '' : visibleRows.length < 5 ? 'а' : 'ов'}</span>
+                    </td>
+                    <td className="responsible-cell">—</td>
+                    <td className="num-cell">{formatNum(totals.fullVolume)}</td>
+                    {Array.from({ length: dashboard.days }, (_, i) => {
+                      const day = i + 1
+                      const cell = totals.days[day] || { plan: 0, fact: 0 }
+                      return (
+                        <td key={day} className={`day-cell ${dashboard.todayDay === day ? 'is-today' : ''}`}>
+                          {(cell.plan || cell.fact)
+                            ? <span>{formatNum(cell.plan)}<em>{formatNum(cell.fact)}</em></span>
+                            : '—'}
+                        </td>
+                      )
+                    })}
+                    <td className="num-cell total">{formatNum(totals.planTotal)}</td>
+                    <td className="num-cell total fact">{formatNum(totals.factTotal)}</td>
+                    <td className={`num-cell total ${totals.planTotal - totals.factTotal > 0 ? 'bad' : 'good'}`}>
+                      {formatNum(totals.planTotal - totals.factTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </section>

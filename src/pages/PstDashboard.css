@@ -378,6 +378,32 @@
   background: #fbfcf8;
 }
 
+/* Итоговая строка липнет к низу скролла таблицы — видна при любой прокрутке. */
+.pst-dash-total-row td {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: #edf5e6;
+  font-weight: 950;
+  border-top: 2px solid rgba(26, 29, 30, 0.18);
+  border-bottom: none;
+}
+
+.pst-dash-total-row td.sticky-main {
+  z-index: 5;
+  background: #edf5e6;
+}
+
+.pst-dash-total-row .day-cell span {
+  background: transparent;
+  color: #1A1D1E;
+}
+
+.pst-dash-total-row .day-cell em {
+  color: rgba(26, 29, 30, 0.55);
+}
+
+
 .branch-cell strong,
 .branch-cell span {
   display: block;
