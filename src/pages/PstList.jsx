@@ -120,10 +120,33 @@ const compareFilterOptions = (a, b) => {
   return a.localeCompare(b, 'ru')
 }
 
+// Бэкенд отдаёт раскладку по типу работ (full_wash_count/exterior_wash_count/
+// incident_count). Резервный путь загрузки (/locations) их не знает — там падаем
+// обратно на общий cleanings_count, чтобы колонка не опустела; такой режим и так
+// помечен как degraded.
+const fullWashCount = (row) => (row.full_wash_count ?? row.cleanings_count ?? 0)
+const exteriorWashCount = (row) => (row.exterior_wash_count ?? 0)
+const incidentWashCount = (row) => (row.incident_count ?? 0)
+
+// «Помыли?» означает именно полную мойку: колонка стоит рядом с плановой датой
+// полной мойки, и раньше галочку ставил любой отчёт — включая наружку и инцидент.
+// Из-за этого постоматы числились помытыми, ни разу не пройдя полную мойку, и
+// Список не сходился с «PST на проверку».
+const isWashed = (row) => fullWashCount(row) > 0
+
+const washTypesLabel = (row) => {
+  const parts = []
+  if (fullWashCount(row) > 0) parts.push('Полная')
+  if (exteriorWashCount(row) > 0) parts.push('Наружная')
+  if (incidentWashCount(row) > 0) parts.push('Инцидент')
+  return parts.length ? parts.join(' + ') : '—'
+}
+
 const exportCellValue = (col, row) => {
   if (col.key === 'id') return row.id
   if (col.key === 'install_place') return row.install_place || '—'
-  if (col.key === 'washed') return row.cleanings_count > 0 ? 'Да' : 'Нет'
+  if (col.key === 'washed') return isWashed(row) ? 'Да' : 'Нет'
+  if (col.key === 'wash_types') return washTypesLabel(row)
   if (col.key === 'two_gis_url') return get2GisUrl(row) || '—'
   if (col.key === 'absence_reason') return row.absence_reason || '—'
   if (col.key === 'planned_wash_date') return row.planned_wash_date ? formatDateOnly(row.planned_wash_date) : '—'
@@ -159,6 +182,7 @@ const DEFAULT_COLUMNS = [
   'install_place',
   'hint',
   'washed',
+  'wash_types',
   'last_cleaned_at',
   'availability_status',
   'partner',
@@ -431,7 +455,7 @@ const anchorExcelMenu = (r) => ({
   left: Math.max(12, Math.min(r.right - EXCEL_MENU_WIDTH, window.innerWidth - EXCEL_MENU_WIDTH - 12)),
 })
 const isAvailable = (row) => normalize(row.availability_status || row.on_point_status) === 'да'
-const isNotWashed = (row) => !(row.cleanings_count > 0)
+const isNotWashed = (row) => !isWashed(row)
 const partnerNameOf = (row) => row.curator_name || row.partner_name || row.last_cleaned_by || ''
 
 // Excel не даёт называть лист длиннее 31 символа и с символами : \ / ? * [ ]
@@ -636,8 +660,12 @@ export default function PstList() {
     { key: 'address', label: 'Адрес', group: 'Основное', className: 'wide', render: row => row.address || '—' },
     { key: 'install_place', label: 'Место установки', group: 'Основное', render: row => <span className={`pst-list-type ${normalize(row.install_place).includes('улич') ? 'outdoor' : 'indoor'}`}>{row.install_place || '—'}</span> },
     { key: 'hint', label: 'Комментарий', group: 'Основное', className: 'wide-xl', render: row => row.hint || row.comment || row.routeText || '—' },
-    { key: 'washed', label: 'Помыли?', group: 'Уборки', align: 'center', render: row => row.cleanings_count > 0 ? <span className="pst-list-check"><Check size={14} /></span> : <span className="pst-list-empty-mark">—</span> },
+    { key: 'washed', label: 'Помыли?', group: 'Уборки', align: 'center', render: row => isWashed(row) ? <span className="pst-list-check"><Check size={14} /></span> : <span className="pst-list-empty-mark">—</span>, filterValue: row => isWashed(row) ? 'Да' : 'Нет' },
+    { key: 'wash_types', label: 'Тип уборки', group: 'Уборки', render: row => washTypesLabel(row), filterValue: row => washTypesLabel(row) },
     { key: 'cleanings_count', label: 'Кол-во уборок', group: 'Уборки', align: 'right', render: row => row.cleanings_count || 0 },
+    { key: 'full_wash_count', label: 'Полных моек', group: 'Уборки', align: 'right', render: row => fullWashCount(row) },
+    { key: 'exterior_wash_count', label: 'Наружных моек', group: 'Уборки', align: 'right', render: row => exteriorWashCount(row) },
+    { key: 'incident_count', label: 'Инцидентов', group: 'Уборки', align: 'right', render: row => incidentWashCount(row) },
     { key: 'last_cleaned_at', label: 'Последняя уборка', group: 'Уборки', render: row => row.last_cleaned_at ? formatDate(row.last_cleaned_at) : '—', filterValue: row => row.last_cleaned_at ? formatDateOnly(row.last_cleaned_at) : '—' },
     { key: 'partner', label: 'Партнер', group: 'Уборки', render: row => partnerNameOf(row) || '—' },
     { key: 'planned_wash_date', label: 'Плановая дата', group: 'План', render: row => (
@@ -722,7 +750,7 @@ export default function PstList() {
   const stats = useMemo(() => ({
     total: rows.length,
     filtered: filteredRows.length,
-    washed: filteredRows.filter(row => row.cleanings_count > 0).length,
+    washed: filteredRows.filter(isWashed).length,
     incidents: filteredRows.filter(rowHasIncident).length,
   }), [rows, filteredRows])
 
