@@ -11,8 +11,9 @@ import './PstReports.css'
 import './PstReview.css'
 
 const REVIEW_PERIODS = [
-  { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json', dateFrom: '2026-08-01', dateTo: '2026-08-31' },
-  { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json', dateFrom: '2026-07-01', dateTo: '2026-07-31' },
+  { key: 'september-2026', label: 'Сентябрь 2026', file: '/pst-review-list-september.json', dateFrom: '2026-09-01', dateTo: '2026-09-30', rowsSource: 'plan', dynamicIncidents: true },
+  { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json', dateFrom: '2026-08-01', dateTo: '2026-08-31', rowsSource: 'excel', dynamicIncidents: true },
+  { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json', dateFrom: '2026-07-01', dateTo: '2026-07-31', rowsSource: 'excel' },
 ]
 
 const isoDateAlmaty = (value) => {
@@ -322,7 +323,7 @@ export default function PstReview() {
     (book?.sheets || []).filter(s => !(hideFullWash && s.key === 'full'))
   ), [book, hideFullWash])
   const sheet = useMemo(() => visibleSheets.find(s => s.key === activeTab) || visibleSheets[0], [visibleSheets, activeTab])
-  const isDynamicIncidentSheet = period === 'august-2026' && sheet?.key === 'incident'
+  const isDynamicIncidentSheet = Boolean(periodConfig.dynamicIncidents) && sheet?.key === 'incident'
   const sourceRows = useMemo(() => (
     isDynamicIncidentSheet
       ? reports.map(reportToSourceRow).sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))
@@ -462,6 +463,9 @@ export default function PstReview() {
   // здесь разные даты — это разные события, дублировать строки не нужно: оставляем
   // только последний инцидент по постомату.
   const isIncidentSheet = sheet?.key === 'incident'
+  // У сентября строки берутся из плана на месяц, а не из Excel бухгалтерии —
+  // подписи колонок и карточек должны это отражать.
+  const fromPlan = periodConfig.rowsSource === 'plan'
 
   const dedupeReviewEntries = useCallback((entries) => {
     const grouped = new Map()
@@ -639,7 +643,7 @@ export default function PstReview() {
       </div>
 
       <div className="pst-stats">
-        <div className="pst-stat-card"><div className="pst-stat-val">{stats.total}</div><div className="pst-stat-label">ID из Excel</div></div>
+        <div className="pst-stat-card"><div className="pst-stat-val">{stats.total}</div><div className="pst-stat-label">{fromPlan ? 'Строк из плана' : 'ID из Excel'}</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.matched}</div><div className="pst-stat-label">Сопоставлено</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.withPhotos}</div><div className="pst-stat-label">Есть фото</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.missing}</div><div className="pst-stat-label">Нет отчета</div></div>
@@ -694,7 +698,7 @@ export default function PstReview() {
               <th style={{ minWidth: 260 }}>Адрес</th>
               <th style={{ minWidth: 112 }}>Установка</th>
               <th style={{ minWidth: 108 }}>Г/П</th>
-              <th style={{ minWidth: 124 }}>Дата из Excel</th>
+              <th style={{ minWidth: 124 }}>{fromPlan ? 'Плановая дата' : 'Дата из Excel'}</th>
               <th style={{ minWidth: 118 }}>Отчет</th>
               <th style={{ minWidth: 64 }}>До</th>
               <th style={{ minWidth: 64 }}>После</th>
