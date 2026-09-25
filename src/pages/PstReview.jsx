@@ -515,7 +515,8 @@ export default function PstReview() {
     })
   }, [sheet?.key, isIncidentSheet])
 
-  const reviewRows = useMemo(() => (
+  // Полный набор строк периода — нужен только чтобы знать, сколько скрыто.
+  const allReviewEntries = useMemo(() => (
     dedupeReviewEntries(
       visibleSourceRows
         .map(matchSourceRow)
@@ -523,24 +524,28 @@ export default function PstReview() {
     )
   ), [visibleSourceRows, matchSourceRow, dedupeReviewEntries])
 
-  const truthExportRows = useMemo(() => (
-    dedupeReviewEntries(
-      visibleSourceRows
-        .map(matchSourceRow)
-        .filter(entry => entry.source.show_static !== false || Boolean(entry.report))
-    )
-  ), [visibleSourceRows, matchSourceRow, dedupeReviewEntries])
+  // На экране и в выгрузке — только строки с отчётом: нет отчёта, значит уборки
+  // не было, и проверять нечего. Сколько таких строок осталось за кадром, видно
+  // в карточке «Без отчета» — число само по себе нужное (сколько ещё не помыто),
+  // а вот пустые строки в таблице только мешают.
+  const reviewRows = useMemo(
+    () => allReviewEntries.filter(entry => Boolean(entry.report)),
+    [allReviewEntries]
+  )
+
+  const truthExportRows = reviewRows
 
   const stats = useMemo(() => {
-    const matched = reviewRows.filter(r => r.report).length
     const withPhotos = reviewRows.filter(r => r.report && ((r.report.before_count || 0) + (r.report.after_count || 0) + (r.report.drive_count || 0)) > 0).length
     return {
-      total: reviewRows.length,
-      matched,
+      // total — строки периода целиком (вместе со скрытыми), иначе «Строк из
+      // плана» перестало бы означать план.
+      total: allReviewEntries.length,
+      matched: reviewRows.length,
       withPhotos,
-      missing: reviewRows.length - matched,
+      missing: allReviewEntries.length - reviewRows.length,
     }
-  }, [reviewRows])
+  }, [reviewRows, allReviewEntries])
 
   const openPhotos = async (entry) => {
     if (!entry.report) return
@@ -646,7 +651,7 @@ export default function PstReview() {
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.total}</div><div className="pst-stat-label">{fromPlan ? 'Строк из плана' : 'ID из Excel'}</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.matched}</div><div className="pst-stat-label">Сопоставлено</div></div>
         <div className="pst-stat-card"><div className="pst-stat-val">{stats.withPhotos}</div><div className="pst-stat-label">Есть фото</div></div>
-        <div className="pst-stat-card"><div className="pst-stat-val">{stats.missing}</div><div className="pst-stat-label">Нет отчета</div></div>
+        <div className="pst-stat-card"><div className="pst-stat-val">{stats.missing}</div><div className="pst-stat-label">Без отчета (скрыто)</div></div>
       </div>
 
       <div className="pst-toolbar">
