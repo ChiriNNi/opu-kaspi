@@ -324,11 +324,23 @@ export default function PstReview() {
   ), [book, hideFullWash])
   const sheet = useMemo(() => visibleSheets.find(s => s.key === activeTab) || visibleSheets[0], [visibleSheets, activeTab])
   const isDynamicIncidentSheet = Boolean(periodConfig.dynamicIncidents) && sheet?.key === 'incident'
-  const sourceRows = useMemo(() => (
-    isDynamicIncidentSheet
+  // Постоматы, которые на этом листе показывать не нужно. Статическую строку
+  // можно было бы просто убрать из реестра, но лист «Инциденты» собирается из
+  // живых отчётов — удалять там нечего, поэтому исключения живут в самом файле
+  // реестра (sheet.excludePostomats), а не в коде.
+  const excludedIds = useMemo(
+    () => new Set((sheet?.excludePostomats || []).map(String)),
+    [sheet]
+  )
+
+  const sourceRows = useMemo(() => {
+    const rows = isDynamicIncidentSheet
       ? reports.map(reportToSourceRow).sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))
       : (sheet?.rows || [])
-  ), [isDynamicIncidentSheet, reports, sheet])
+    return excludedIds.size
+      ? rows.filter(row => !excludedIds.has(String(row.postomat_id)))
+      : rows
+  }, [isDynamicIncidentSheet, reports, sheet, excludedIds])
 
   const visibleSourceRows = useMemo(() => {
     const q = search.trim().toLowerCase()
