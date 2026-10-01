@@ -398,45 +398,66 @@ function formatPeriodRange(p) {
   return from.getFullYear() === to.getFullYear() ? `${fromStr} – ${toStr}` : `${fromStr} ${from.getFullYear()} – ${toStr}`
 }
 
-// Выбор квартального плана (postomat_plans.period): по умолчанию показываем
-// последний загруженный квартал, но можно посмотреть и данные прошлых кварталов —
-// раньше под каждый квартал была своя отдельная таблица в Google Таблицах.
-function PeriodMenu({ periods, selectedPeriod, onSelect, compact }) {
+const formatMonthRange = (m) => {
+  if (!m) return ''
+  const from = new Date(m.month_start)
+  const to = new Date(m.month_end)
+  return `${from.getDate()} ${MONTHS_SHORT_RU[from.getMonth()]} – ${to.getDate()} ${MONTHS_SHORT_RU[to.getMonth()]} ${to.getFullYear()}`
+}
+
+// Разворачиваем кварталы в плоский список месяцев, новые сверху. Счётчики уборок
+// («Помыли?», «Последняя уборка») считаются по месяцу — как и вкладка «PST на
+// проверку», — поэтому и выбирать логично месяц, а не квартал.
+const monthOptionsFrom = (periods) => periods.flatMap(p =>
+  (p.months || []).map(m => ({ ...m, period: p.period, locations_count: p.locations_count }))
+).sort((a, b) => String(b.month).localeCompare(String(a.month)))
+
+// Месяц по умолчанию — последний, где есть хоть один отчёт. Календарный «текущий»
+// не годится: 1-го числа нового месяца уборок ещё нет, и страница встречала
+// пользователя пустой таблицей без единой галочки.
+const defaultMonthOf = (options) => {
+  const withFacts = options.find(m => (m.reports_count || 0) > 0)
+  return (withFacts || options[0])?.month || ''
+}
+
+// Выбор месяца внутри загруженных квартальных планов (postomat_plans.period):
+// можно посмотреть и прошлые месяцы — раньше под каждый период была своя
+// отдельная таблица в Google Таблицах.
+function PeriodMenu({ options, selectedMonth, onSelect, compact }) {
   const { open, setOpen, pos, btnRef, menuRef, openMenu } = useAnchoredMenu(anchorBelowLeft)
 
-  const currentPeriod = periods[0]?.period
-  const active = periods.find(p => p.period === (selectedPeriod || currentPeriod))
+  const active = options.find(m => m.month === selectedMonth) || options[0]
 
-  if (periods.length === 0) return null
+  if (options.length === 0) return null
 
   return (
     <>
       <button
         type="button"
         ref={btnRef}
-        className={`pst-list-btn pst-list-period-btn ${selectedPeriod ? 'active' : ''}`}
+        className="pst-list-btn pst-list-period-btn active"
         onClick={() => (open ? setOpen(false) : openMenu())}
-        title="Выбрать квартальный план"
+        title="Выбрать месяц"
       >
-        <Calendar size={16} /> {active ? (compact ? active.period : formatPeriodRange(active)) : 'Квартал'} <ChevronDown size={13} />
+        <Calendar size={16} /> {active ? (compact ? active.month : formatMonthRange(active)) : 'Месяц'} <ChevronDown size={13} />
       </button>
       {open && pos && (
         <div className="pst-list-filter-backdrop" onClick={() => setOpen(false)}>
           <div ref={menuRef} className="pst-list-filter-menu pst-list-period-menu" style={{ top: pos.top, left: pos.left }} onClick={e => e.stopPropagation()}>
             <div className="pst-list-filter-list">
-              {periods.map(p => (
-                <label key={p.period} className="pst-list-filter-item">
+              {options.map(m => (
+                <label key={m.month} className="pst-list-filter-item">
                   <input
                     type="radio"
                     name="pst-list-period"
-                    checked={(selectedPeriod || currentPeriod) === p.period}
-                    onChange={() => { onSelect(p.period === currentPeriod ? '' : p.period); setOpen(false) }}
+                    checked={active?.month === m.month}
+                    onChange={() => { onSelect(m.month); setOpen(false) }}
                   />
                   <span>
-                    {formatPeriodRange(p)}
-                    {p.period === currentPeriod && <em className="pst-list-period-current"> · текущий</em>}
+                    {formatMonthRange(m)}
+                    {(m.reports_count || 0) === 0 && <em className="pst-list-period-current"> · нет уборок</em>}
                   </span>
-                  <span className="pst-list-filter-count">{p.locations_count}</span>
+                  <span className="pst-list-filter-count">{m.full_wash_locations ?? 0}</span>
                 </label>
               ))}
             </div>
@@ -534,6 +555,7 @@ export default function PstList() {
   const [exporting, setExporting] = useState(false)
   const [periods, setPeriods] = useState([]) // квартальные планы (postomat_plans.period), новые сверху
   const [selectedPeriod, setSelectedPeriod] = useState('') // '' = последний загруженный квартал
+  const [selectedMonth, setSelectedMonth] = useState('') // '' = ещё не выбран (ждём список месяцев)
   const [savingPlannedDateId, setSavingPlannedDateId] = useState('')
   const [visibleIds, setVisibleIds] = useState(() => {
     try {
@@ -619,7 +641,10 @@ export default function PstList() {
       let nextRows = []
       let usedFallback = false
       try {
-        const qs = selectedPeriod ? `?period=${encodeURIComponent(selectedPeriod)}` : ''
+        const qp = new URLSearchParams()
+        if (selectedPeriod) qp.set('period', selectedPeriod)
+        if (selectedMonth) qp.set('month', selectedMonth)
+        const qs = qp.toString() ? `?${qp}` : ''
         const res = await api.get(`/locations/pst-list${qs}`)
         nextRows = (res.data.locations || []).filter(row => row.is_active !== false)
       } catch (fastErr) {
@@ -637,16 +662,28 @@ export default function PstList() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [selectedPeriod])
+  }, [selectedPeriod, selectedMonth])
 
-  useEffect(() => { fetchRows() }, [fetchRows])
+  // Пока месяц не выбран, строки не грузим: иначе первый запрос ушёл бы без month,
+  // бэкенд взял бы календарный месяц, и пользователь на долю секунды увидел бы
+  // пустую таблицу — ровно то, от чего уходим.
+  useEffect(() => { if (selectedMonth) fetchRows() }, [fetchRows, selectedMonth])
 
   // Список загруженных кварталов для переключателя — грузится один раз, не зависит от выбора.
   useEffect(() => {
     api.get('/locations/plan-periods')
-      .then(res => setPeriods(res.data.periods || []))
+      .then(res => {
+        const list = res.data.periods || []
+        setPeriods(list)
+        const options = monthOptionsFrom(list)
+        setSelectedMonth(prev => prev || defaultMonthOf(options))
+        const chosen = options.find(m => m.month === defaultMonthOf(options))
+        if (chosen) setSelectedPeriod(chosen.period)
+      })
       .catch(() => {})
   }, [])
+
+  const monthOptions = useMemo(() => monthOptionsFrom(periods), [periods])
 
   const saveVisibleIds = (ids) => {
     setVisibleIds(ids)
@@ -842,7 +879,16 @@ export default function PstList() {
           <p>Активные Kaspi Postomat из базы в табличном виде</p>
         </div>
         <div className="pst-list-actions">
-          <PeriodMenu periods={periods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} compact={isMobile} />
+          <PeriodMenu
+            options={monthOptions}
+            selectedMonth={selectedMonth}
+            onSelect={(month) => {
+              setSelectedMonth(month)
+              const opt = monthOptions.find(m => m.month === month)
+              if (opt) setSelectedPeriod(opt.period)
+            }}
+            compact={isMobile}
+          />
           <ExcelMenu
             rows={rows}
             filteredCount={filteredRows.length}
