@@ -174,7 +174,14 @@ export default function PstDashboard() {
   const dashboard = useMemo(() => {
     const days = bounds.days
     const locationById = new Map(locations.map(row => [String(row.id), row]))
+    // План месяца — это постоматы, которые в этом месяце положено помыть.
+    // Обычно их определяет плановая дата, но у октябрьского плана дат нет
+    // вовсе (их не было в исходном файле), и по дате выходил ноль. Если дат в
+    // периоде нет ни у кого, планом считаем сам состав плана: признак in_plan
+    // приходит с бэкенда вместе со строками.
+    const hasPlannedDates = locations.some(row => dateOnly(row.planned_wash_date))
     const plannedLocations = locations.filter(row => {
+      if (!hasPlannedDates) return row.in_plan !== false
       const d = dateOnly(row.planned_wash_date)
       return d >= bounds.dateFrom && d <= bounds.dateTo
     })
@@ -206,11 +213,14 @@ export default function PstDashboard() {
 
     plannedLocations.forEach(row => {
       const plannedDate = dateOnly(row.planned_wash_date)
-      const day = Number(plannedDate.slice(-2))
       const group = ensureGroup(groupNameOf(row), row)
       group.fullVolume += 1
       group.planTotal += 1
       group.plannedIds.add(String(row.id))
+      // Без плановой даты раскладывать по дням нечего: календарь останется
+      // пустым, а месячный итог посчитается как надо.
+      if (!plannedDate) return
+      const day = Number(plannedDate.slice(-2))
       if (group.days[day]) group.days[day].plan += 1
     })
 
@@ -239,6 +249,9 @@ export default function PstDashboard() {
     const todayIso = isoDateAlmaty(new Date())
     plannedLocations.forEach(row => {
       const plannedDate = dateOnly(row.planned_wash_date)
+      // Просрочка — это «плановая дата прошла, а мойки нет». Нет даты — нечему
+      // просрочиться, иначе весь октябрь разом оказался бы просроченным.
+      if (!plannedDate) return
       const group = ensureGroup(groupNameOf(row), row)
       const washed = Array.from(reportBuckets.keys()).some(key => {
         const [id, submittedDate] = key.split('|')
