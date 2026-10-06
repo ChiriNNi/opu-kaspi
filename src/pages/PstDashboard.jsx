@@ -7,6 +7,14 @@ import api from '../api'
 import './PstDashboard.css'
 
 const WORK_TYPE = 'ПОЛНАЯ МОЙКА'
+
+// Какие work_type считать фактом для периода. Наружка живёт под двумя
+// названиями: историческое «НАРУЖНЯЯ УБОРКА» встречается в старых отчётах.
+const workTypesFor = (washType) => (
+  washType === 'НАРУЖНЯЯ МОЙКА'
+    ? ['НАРУЖНЯЯ МОЙКА', 'НАРУЖНЯЯ УБОРКА']
+    : [washType || WORK_TYPE]
+)
 const PAGE_LIMIT = 200
 
 const monthNames = [
@@ -102,25 +110,27 @@ const getReportPostomatId = (report) => String(
   ''
 ).trim()
 
-const fetchAllReports = async ({ dateFrom, dateTo }) => {
+const fetchAllReports = async ({ dateFrom, dateTo }, washType) => {
   const loaded = []
-  let page = 1
-  let pages = 1
-  do {
-    const q = new URLSearchParams({
-      page: String(page),
-      limit: String(PAGE_LIMIT),
-      sortBy: 'submitted_at',
-      sortDir: 'desc',
-      work_type: WORK_TYPE,
-      dateFrom,
-      dateTo,
-    })
-    const res = await api.get(`/pst?${q}`)
-    loaded.push(...(res.data.reports || []))
-    pages = Number(res.data.pagination?.pages || 1)
-    page += 1
-  } while (page <= pages)
+  for (const workType of workTypesFor(washType)) {
+    let page = 1
+    let pages = 1
+    do {
+      const q = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_LIMIT),
+        sortBy: 'submitted_at',
+        sortDir: 'desc',
+        work_type: workType,
+        dateFrom,
+        dateTo,
+      })
+      const res = await api.get(`/pst?${q}`)
+      loaded.push(...(res.data.reports || []))
+      pages = Number(res.data.pagination?.pages || 1)
+      page += 1
+    } while (page <= pages)
+  }
   return loaded
 }
 
@@ -133,6 +143,7 @@ export default function PstDashboard() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [responsible, setResponsible] = useState('')
+  const [washType, setWashType] = useState(WORK_TYPE)
 
   const bounds = useMemo(() => monthBounds(month), [month])
 
@@ -141,11 +152,14 @@ export default function PstDashboard() {
     else setLoading(true)
     setError('')
     try {
-      const [locRes, reportRows] = await Promise.all([
-        api.get('/locations/pst-list'),
-        fetchAllReports(bounds),
-      ])
+      // Сначала план за выбранный месяц — из него узнаём тип мойки периода, а
+      // уже потом тянем отчёты нужного типа. Иначе в октябре факт считался бы
+      // по полной мойке, которой в плане нет, и дашборд был бы пустым.
+      const locRes = await api.get(`/locations/pst-list?month=${encodeURIComponent(month)}`)
+      const washType = locRes.data.wash_type || WORK_TYPE
+      const reportRows = await fetchAllReports(bounds, washType)
       setLocations((locRes.data.locations || []).filter(row => row.is_active !== false))
+      setWashType(washType)
       setReports(reportRows)
     } catch (e) {
       setError(e.response?.data?.error || 'Не удалось загрузить данные дашборда')
@@ -153,7 +167,7 @@ export default function PstDashboard() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [bounds])
+  }, [bounds, month])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -341,7 +355,9 @@ export default function PstDashboard() {
         <div className="pst-dash-stat">
           <span>Факт</span>
           <strong>{formatNum(dashboard.totalFact)}</strong>
-          <small>{progress}% выполнения</small>
+          {/* Тип мойки месяца виден явно: в октябре план наружный, и без подписи
+              непонятно, почему факт не совпадает с полной мойкой. */}
+          <small>{washType.toLowerCase()} · {progress}% выполнения</small>
         </div>
         <div className="pst-dash-stat">
           <span>Остаток</span>

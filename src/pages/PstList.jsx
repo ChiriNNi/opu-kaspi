@@ -128,11 +128,12 @@ const fullWashCount = (row) => (row.full_wash_count ?? row.cleanings_count ?? 0)
 const exteriorWashCount = (row) => (row.exterior_wash_count ?? 0)
 const incidentWashCount = (row) => (row.incident_count ?? 0)
 
-// «Помыли?» означает именно полную мойку: колонка стоит рядом с плановой датой
-// полной мойки, и раньше галочку ставил любой отчёт — включая наружку и инцидент.
-// Из-за этого постоматы числились помытыми, ни разу не пройдя полную мойку, и
-// Список не сходился с «PST на проверку».
-const isWashed = (row) => fullWashCount(row) > 0
+// «Помыли?» означает мойку того типа, что запланирован на период: в сентябре
+// полная, в октябре наружная. Бэкенд считает это в washed_count, фронту сам тип
+// знать не нужно. Раньше галочку ставил любой отчёт — включая наружку и
+// инцидент, — и постоматы числились помытыми, ни разу не пройдя мойку.
+// Резервный путь загрузки washed_count не знает — там падаем на полную мойку.
+const isWashed = (row) => (row.washed_count ?? fullWashCount(row)) > 0
 
 const washTypesLabel = (row) => {
   const parts = []
@@ -408,9 +409,21 @@ const formatMonthRange = (m) => {
 // Разворачиваем кварталы в плоский список месяцев, новые сверху. Счётчики уборок
 // («Помыли?», «Последняя уборка») считаются по месяцу — как и вкладка «PST на
 // проверку», — поэтому и выбирать логично месяц, а не квартал.
-const monthOptionsFrom = (periods) => periods.flatMap(p =>
-  (p.months || []).map(m => ({ ...m, period: p.period, locations_count: p.locations_count }))
-).sort((a, b) => String(b.month).localeCompare(String(a.month)))
+const monthOptionsFrom = (periods) => {
+  const all = periods.flatMap(p =>
+    (p.months || []).map(m => ({ ...m, period: p.period, locations_count: p.locations_count }))
+  )
+  // Один и тот же месяц может прийти из двух периодов: сентябрьский план
+  // загружен на квартал (01.09–30.11), а октябрьский — на свой месяц, и
+  // октябрь оказывается в обоих. Берём запись из более позднего периода: она
+  // описывает месяц точнее, в том числе по типу мойки.
+  const best = new Map()
+  for (const m of all) {
+    const prev = best.get(m.month)
+    if (!prev || String(m.period) > String(prev.period)) best.set(m.month, m)
+  }
+  return Array.from(best.values()).sort((a, b) => String(b.month).localeCompare(String(a.month)))
+}
 
 // Месяц по умолчанию — последний, где есть хоть один отчёт. Календарный «текущий»
 // не годится: 1-го числа нового месяца уборок ещё нет, и страница встречала

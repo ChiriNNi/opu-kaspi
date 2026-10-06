@@ -11,6 +11,7 @@ import './PstReports.css'
 import './PstReview.css'
 
 const REVIEW_PERIODS = [
+  { key: 'october-2026', label: 'Октябрь 2026', file: '/pst-review-list-october.json', dateFrom: '2026-10-01', dateTo: '2026-10-31', rowsSource: 'plan', dynamicIncidents: true },
   { key: 'september-2026', label: 'Сентябрь 2026', file: '/pst-review-list-september.json', dateFrom: '2026-09-01', dateTo: '2026-09-30', rowsSource: 'plan', dynamicIncidents: true },
   { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json', dateFrom: '2026-08-01', dateTo: '2026-08-31', rowsSource: 'excel', dynamicIncidents: true },
   { key: 'july-2026', label: 'Июль 2026', file: '/pst-review-list-july.json', dateFrom: '2026-07-01', dateTo: '2026-07-31', rowsSource: 'excel' },
@@ -460,11 +461,18 @@ export default function PstReview() {
     const exact = reportIndexes.byExact.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`)
     const exactReports = reportIndexes.byExactAll.get(`${String(row.postomat_id)}|${row.last_cleaned_date}`) || []
     const latest = reportIndexes.latestById.get(String(row.postomat_id))
+    // У строки может не быть плановой даты вовсе (октябрь: в файле плана дат нет,
+    // считаем по факту). Тогда отчёт месяца — единственно возможный ответ, а не
+    // «запасной путь»: подсвечивать такую строку оранжевым не за что, сверять
+    // дату не с чем.
+    const noPlannedDate = !row.last_cleaned_date
     return {
       source: row,
       report: byReportId || exact || latest || null,
       reports: exactReports.length ? exactReports : latest ? [latest] : [],
-      matchMode: byReportId || exact ? 'exact' : latest ? 'latest' : 'missing',
+      matchMode: byReportId || exact || (noPlannedDate && latest)
+        ? 'exact'
+        : latest ? 'latest' : 'missing',
     }
   }, [reportIndexes])
 
