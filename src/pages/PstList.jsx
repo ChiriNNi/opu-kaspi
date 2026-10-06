@@ -569,6 +569,10 @@ export default function PstList() {
   const [periods, setPeriods] = useState([]) // квартальные планы (postomat_plans.period), новые сверху
   const [selectedPeriod, setSelectedPeriod] = useState('') // '' = последний загруженный квартал
   const [selectedMonth, setSelectedMonth] = useState('') // '' = ещё не выбран (ждём список месяцев)
+  // По умолчанию показываем только то, что запланировано на месяц: иначе в
+  // октябре к 4675 плановым постоматам примешиваются ещё 5645 чужих, у которых
+  // все колонки уборки пустые по определению.
+  const [onlyPlan, setOnlyPlan] = useState(true)
   const [savingPlannedDateId, setSavingPlannedDateId] = useState('')
   const [visibleIds, setVisibleIds] = useState(() => {
     try {
@@ -772,6 +776,9 @@ export default function PstList() {
   const filteredRows = useMemo(() => {
     const q = normalize(search)
     return rows.filter(row => {
+      // in_plan приходит с бэкенда; резервный путь загрузки его не знает —
+      // там показываем всё, иначе список опустел бы целиком.
+      if (onlyPlan && row.in_plan === false) return false
       for (const [key, values] of activeColumnFilters) {
         const col = columns.find(c => c.key === key)
         if (!col) continue
@@ -792,7 +799,7 @@ export default function PstList() {
         row.last_cleaned_by,
       ].join(' ')).includes(q)
     })
-  }, [rows, activeColumnFilters, columns, search])
+  }, [rows, activeColumnFilters, columns, search, onlyPlan])
 
   // «Активных PST» — это вся база, а остальные карточки описывают текущую выборку:
   // считать «с уборкой» и «инциденты» по всем строкам смысла нет — включив фильтр,
@@ -868,8 +875,16 @@ export default function PstList() {
   const resetFilters = () => {
     setSearch('')
     setColumnFilters({})
+    setOnlyPlan(true)
   }
-  const hasActiveFilters = search || activeColumnFilters.length > 0
+  const hasActiveFilters = search || activeColumnFilters.length > 0 || !onlyPlan
+
+  // Сколько строк прячет переключатель — показываем числом на кнопке, чтобы
+  // «куда делись постоматы» не превращалось в загадку.
+  const outOfPlanCount = useMemo(
+    () => rows.filter(row => row.in_plan === false).length,
+    [rows]
+  )
 
   // Виртуализация строк: в DOM держим только видимые (+overscan), а не все 10к+ разом —
   // иначе рендер и любой ре-рендер (поиск/фильтр) ощутимо подтормаживал.
@@ -892,6 +907,18 @@ export default function PstList() {
           <p>Активные Kaspi Postomat из базы в табличном виде</p>
         </div>
         <div className="pst-list-actions">
+          {outOfPlanCount > 0 && (
+            <button
+              type="button"
+              className={`pst-list-btn ${onlyPlan ? 'active' : ''}`}
+              onClick={() => setOnlyPlan(v => !v)}
+              title={onlyPlan
+                ? `Показаны только постоматы из плана месяца. Скрыто: ${outOfPlanCount}`
+                : 'Показана вся активная база, включая постоматы вне плана месяца'}
+            >
+              <ClipboardList size={16} /> {onlyPlan ? 'Только план' : 'Вся база'}
+            </button>
+          )}
           <PeriodMenu
             options={monthOptions}
             selectedMonth={selectedMonth}
