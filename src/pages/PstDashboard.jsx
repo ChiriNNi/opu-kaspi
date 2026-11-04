@@ -235,16 +235,34 @@ export default function PstDashboard() {
       reportBuckets.set(key, current)
     })
 
+    // Факт месяца считается в тех же единицах, что и план, — постоматами, а не
+    // визитами. Раньше сюда шёл каждый «постомат + день» по любым постоматам:
+    // помытые дважды считались дважды, помытые вне плана тоже попадали в факт.
+    // В октябре 2026 это дало факт 4694 при плане 4675 — дашборд показывал
+    // «всё сделано», хотя 12 постоматов из плана помыты не были.
+    const plannedIdSet = new Set(plannedLocations.map(row => String(row.id)))
+    const hasPlan = plannedIdSet.size > 0
+    // Если плана на месяц нет вовсе, считаем всё помытое — иначе факт
+    // обнулился бы, хотя работа шла.
+    const countsTowardPlan = (postomatId) => !hasPlan || plannedIdSet.has(postomatId)
+
     reportBuckets.forEach((bucket, key) => {
       const [postomatId, submittedDate] = key.split('|')
+      if (!countsTowardPlan(postomatId)) return
       const day = Number(submittedDate.slice(-2))
       const location = locationById.get(postomatId) || bucket[0]?.location_data || {}
       const group = ensureGroup(groupNameOf(location), location)
-      group.factTotal += 1
       group.washedIds.add(postomatId)
       group.duplicates += Math.max(0, bucket.length - 1)
+      // По дням оставляем визиты: календарь показывает, что происходило в
+      // конкретный день, а месячный итог ниже — уникальные постоматы.
       if (group.days[day]) group.days[day].fact += 1
     })
+    groups.forEach(group => { group.factTotal = group.washedIds.size })
+
+    const washedAll = new Set(Array.from(reportBuckets.keys()).map(key => key.split('|')[0]))
+    const outOfPlan = hasPlan ? Array.from(washedAll).filter(id => !plannedIdSet.has(id)).length : 0
+    const repeatWashes = Math.max(0, reportBuckets.size - washedAll.size)
 
     const todayIso = isoDateAlmaty(new Date())
     plannedLocations.forEach(row => {
@@ -288,6 +306,8 @@ export default function PstDashboard() {
       plannedCount: plannedLocations.length,
       reportCount: reports.length,
       uniqueReportCount: reportBuckets.size,
+      outOfPlan,
+      repeatWashes,
     }
   }, [bounds, locations, month, reports])
 
@@ -388,11 +408,17 @@ export default function PstDashboard() {
         <div className="pst-dash-progress-head">
           <div>
             <strong>{progress}%</strong>
-            <span>общее выполнение полной мойки</span>
+            {/* Подпись следует типу мойки месяца: в октябре план наружный. */}
+            <span>общее выполнение: {washType.toLowerCase()}</span>
           </div>
           <div className="pst-dash-meta">
-            <span><CheckCircle2 size={14} /> {formatNum(dashboard.uniqueReportCount)} уникальных фактов</span>
-            <span><Clock3 size={14} /> {formatNum(dashboard.duplicates)} повторных отчетов не задвоены</span>
+            <span><CheckCircle2 size={14} /> {formatNum(dashboard.totalFact)} постоматов помыто по плану</span>
+            {dashboard.repeatWashes > 0 && (
+              <span><Clock3 size={14} /> {formatNum(dashboard.repeatWashes)} повторных моек в факт не вошли</span>
+            )}
+            {dashboard.outOfPlan > 0 && (
+              <span><Clock3 size={14} /> {formatNum(dashboard.outOfPlan)} помыто вне плана</span>
+            )}
           </div>
         </div>
         <div className="pst-dash-progress"><i style={{ width: `${progress}%` }} /></div>
