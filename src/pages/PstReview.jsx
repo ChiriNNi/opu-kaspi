@@ -11,6 +11,7 @@ import './PstReports.css'
 import './PstReview.css'
 
 const REVIEW_PERIODS = [
+  { key: 'november-2026', label: 'Ноябрь 2026', file: '/pst-review-list-november.json', dateFrom: '2026-11-01', dateTo: '2026-11-30', rowsSource: 'plan', dynamicIncidents: true },
   { key: 'october-2026', label: 'Октябрь 2026', file: '/pst-review-list-october.json', dateFrom: '2026-10-01', dateTo: '2026-10-31', rowsSource: 'plan', dynamicIncidents: true },
   { key: 'september-2026', label: 'Сентябрь 2026', file: '/pst-review-list-september.json', dateFrom: '2026-09-01', dateTo: '2026-09-30', rowsSource: 'plan', dynamicIncidents: true },
   { key: 'august-2026', label: 'Август 2026', file: '/pst-review-list.json', dateFrom: '2026-08-01', dateTo: '2026-08-31', rowsSource: 'excel', dynamicIncidents: true },
