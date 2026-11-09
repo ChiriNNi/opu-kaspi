@@ -468,6 +468,25 @@ const toLocalDatetimeValue = (date) => {
 }
 
 const OFFSET_PRESETS = [5, 10, 15, 20, 30, 45]
+
+// ID для постомата, которого нет в нашей базе (например, на складе). Каждый
+// такой постомат должен получить свой ID: лист «Инциденты» в «PST на проверку»
+// схлопывает инциденты по ID, и общий «СКЛАД» слепил бы их в одну строку.
+//  - только цифры — это настоящий ID из админки Kaspi (точка заведена там
+//    заранее, например «Новая установка»), берём как есть;
+//  - любой другой номер (с корпуса, наклейки) — «SKLAD-<номер>», повторный
+//    инцидент по тому же постомату попадёт в ту же строку;
+//  - номера нет — «SKLAD-<дата>-<время>», каждый инцидент отдельно.
+const warehouseLocationId = (rawNumber, beforeAt) => {
+  const value = String(rawNumber || '').trim()
+  if (/^\d+$/.test(value)) return value
+  const cleaned = value.replace(/\s+/g, '-').replace(/[^0-9A-Za-zА-Яа-яЁё_-]/g, '')
+  if (cleaned) return `SKLAD-${cleaned}`.slice(0, 64)
+  const d = new Date(beforeAt)
+  const base = isNaN(d.getTime()) ? new Date() : d
+  const p = (n) => String(n).padStart(2, '0')
+  return `SKLAD-${base.getFullYear()}${p(base.getMonth() + 1)}${p(base.getDate())}-${p(base.getHours())}${p(base.getMinutes())}${p(base.getSeconds())}`
+}
 const IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i
 const isZipFile = (file) => /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed'
 
@@ -495,6 +514,13 @@ function UploadReportModal({ onClose, onUploaded }) {
   const [feedLoading, setFeedLoading] = useState(true)
   const [feedError, setFeedError] = useState('')
   const [location, setLocation] = useState(null)  // резолвленная локация по ID
+  // Постомата нет в нашей базе (например, стоит на складе). Только для инцидентов:
+  // так через ручную загрузку нельзя провести мойку по несуществующей точке.
+  const [warehouse, setWarehouse] = useState(false)
+  const [whBranch, setWhBranch] = useState('')
+  const [whCity, setWhCity] = useState('')
+  const [whAddress, setWhAddress] = useState('')
+  const [whNote, setWhNote] = useState('')
   const [beforeAt, setBeforeAt] = useState(() => toLocalDatetimeValue(new Date()))
   const [offsetMin, setOffsetMin] = useState(15)
   const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА')
@@ -519,6 +545,19 @@ function UploadReportModal({ onClose, onUploaded }) {
     const found = feed.find(l => String(l.id) === id)
     setLocation(found || null)
   }, [postomatId, feed])
+
+  const branches = Array.from(new Set((feed || []).map(l => l.branch).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'ru'))
+  const toggleWarehouse = (on) => {
+    setWarehouse(on)
+    // Снятие флажка возвращает тип по умолчанию, иначе обычная мойка могла бы
+    // по инерции уйти инцидентом.
+    setWorkType(on ? 'ИНЦИДЕНТ' : 'ПОЛНАЯ МОЙКА')
+  }
+  // ID, который есть в базе, складским делать нельзя: отчёт подменил бы карточку
+  // реального постомата (категория «Склад», пустые координаты).
+  const whIdInBase = warehouse && Boolean(location)
+  const whReady = Boolean(whBranch && whAddress.trim()) && !whIdInBase
 
   const afterAt = (() => {
     const base = new Date(beforeAt)
@@ -555,13 +594,15 @@ function UploadReportModal({ onClose, onUploaded }) {
   }
   const removeFile = (setter, idx) => setter(prev => prev.filter((_, i) => i !== idx))
 
-  const canSubmit = location && beforeFiles.length > 0 && afterFiles.length > 0 && afterAt
+  const canSubmit = (warehouse ? whReady : location) && beforeFiles.length > 0 && afterFiles.length > 0 && afterAt
     && !submitting && !unzippingBefore && !unzippingAfter
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!location) { setError('Укажите существующий ID постомата'); return }
+    if (whIdInBase) { setError('Этот ID есть в базе — снимите флажок «нет в базе» и загрузите как обычно'); return }
+    if (warehouse && !whReady) { setError('Для постомата не из базы укажите филиал и адрес склада'); return }
+    if (!warehouse && !location) { setError('Укажите существующий ID постомата'); return }
     if (beforeFiles.length === 0 || afterFiles.length === 0) {
       setError('Нужно хотя бы одно фото «До» и одно «После»')
       return
@@ -573,22 +614,41 @@ function UploadReportModal({ onClose, onUploaded }) {
       const beforeIso = new Date(beforeAt).toISOString()
       const afterIso = afterAt.toISOString()
 
+      const reportLocation = warehouse
+        ? {
+            id: warehouseLocationId(postomatId, beforeAt),
+            title: whNote.trim() || `Склад — ${whAddress.trim()}`,
+            city: whCity.trim() || whBranch,
+            branch: whBranch,
+            address: whAddress.trim(),
+            category: 'Склад',
+            installPlace: 'Склад',
+            surfaceType: null,
+            cellsCount: null,
+            lat: null,
+            lng: null,
+            // Признак, что точки нет в pst_locations: такие отчёты видно в выборках.
+            warehouse: true,
+            enteredNumber: postomatId.trim() || null,
+          }
+        : {
+            id: location.id,
+            title: location.hint || location.address,
+            city: location.city,
+            branch: location.branch,
+            address: location.address,
+            category: location.category,
+            installPlace: location.installPlace,
+            surfaceType: location.surfaceType,
+            cellsCount: location.cellsCount,
+            lat: location.lat,
+            lng: location.lng,
+          }
+
       const reportMeta = {
         submittedAt: afterIso,
-        location: {
-          id: location.id,
-          title: location.hint || location.address,
-          city: location.city,
-          branch: location.branch,
-          address: location.address,
-          category: location.category,
-          installPlace: location.installPlace,
-          surfaceType: location.surfaceType,
-          cellsCount: location.cellsCount,
-          lat: location.lat,
-          lng: location.lng,
-        },
-        workType,
+        location: reportLocation,
+        workType: warehouse ? 'ИНЦИДЕНТ' : workType,
       }
 
       const formData = new FormData()
@@ -638,16 +698,22 @@ function UploadReportModal({ onClose, onUploaded }) {
 
         <form className="upl-body" onSubmit={handleSubmit}>
           <div className="upl-field">
-            <label>POSTOMAT_ID</label>
+            <label>{warehouse ? 'ID Kaspi или номер на корпусе (если есть)' : 'POSTOMAT_ID'}</label>
             <input
               type="text"
               value={postomatId}
               onChange={e => setPostomatId(e.target.value)}
-              placeholder="Например: 12345"
+              placeholder={warehouse ? 'Например: 16310 или AB-1234 — можно оставить пустым' : 'Например: 12345'}
               autoComplete="off"
               autoFocus
             />
-            {postomatId.trim() && !feedLoading && (
+            {warehouse && (
+              <div className="upl-location-hint">
+                ID отчёта: <strong>{warehouseLocationId(postomatId, beforeAt)}</strong>
+                {location && <> · <span className="upl-hint-warn">этот ID есть в базе — снимите флажок</span></>}
+              </div>
+            )}
+            {!warehouse && postomatId.trim() && !feedLoading && (
               location ? (
                 <div className="upl-location-hint upl-hint-ok">
                   <CheckCircle2 size={13} />
@@ -661,7 +727,42 @@ function UploadReportModal({ onClose, onUploaded }) {
             )}
             {feedLoading && <div className="upl-location-hint">Загрузка списка постоматов...</div>}
             {feedError && <div className="upl-location-hint upl-hint-warn"><AlertTriangle size={13} /> {feedError}</div>}
+            <label className="upl-location-hint" style={{ cursor: 'pointer', marginTop: 8 }}>
+              <input
+                type="checkbox"
+                checked={warehouse}
+                onChange={e => toggleWarehouse(e.target.checked)}
+                style={{ width: 'auto', marginRight: 6 }}
+              />
+              Постомата нет в базе (например, на складе) — только инцидент
+            </label>
           </div>
+
+          {warehouse && (
+            <>
+              <div className="upl-row">
+                <div className="upl-field">
+                  <label>Филиал</label>
+                  <select value={whBranch} onChange={e => setWhBranch(e.target.value)}>
+                    <option value="">— выберите —</option>
+                    {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="upl-field">
+                  <label>Город (если отличается)</label>
+                  <input type="text" value={whCity} onChange={e => setWhCity(e.target.value)} placeholder="По умолчанию — филиал" autoComplete="off" />
+                </div>
+              </div>
+              <div className="upl-field">
+                <label>Адрес склада</label>
+                <input type="text" value={whAddress} onChange={e => setWhAddress(e.target.value)} placeholder="Например: склад Kaspi, ул. Суюнбая, 263" autoComplete="off" />
+              </div>
+              <div className="upl-field">
+                <label>Описание постомата (модель, примета)</label>
+                <input type="text" value={whNote} onChange={e => setWhNote(e.target.value)} placeholder="Например: ENGY 3, разбит экран" autoComplete="off" />
+              </div>
+            </>
+          )}
 
           <div className="upl-row">
             <div className="upl-field">
@@ -701,7 +802,7 @@ function UploadReportModal({ onClose, onUploaded }) {
 
           <div className="upl-field">
             <label>Тип мойки</label>
-            <select value={workType} onChange={e => setWorkType(e.target.value)}>
+            <select value={warehouse ? 'ИНЦИДЕНТ' : workType} onChange={e => setWorkType(e.target.value)} disabled={warehouse}>
               {WORK_TYPES.map(wt => <option key={wt} value={wt}>{wt}</option>)}
             </select>
           </div>
