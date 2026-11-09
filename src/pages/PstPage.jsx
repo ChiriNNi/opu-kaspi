@@ -948,6 +948,10 @@ const PstPage = () => {
   const [geoError, setGeoError] = useState('');
   const [coords, setCoords] = useState(null);
   const [selectedLocationId, setSelectedLocationId] = useState('');
+  // Цикл сканера создаётся один раз в openScanner и видит state только на момент
+  // открытия — текущий выбор читаем из ref.
+  const selectedIdRef = useRef('');
+  useEffect(() => { selectedIdRef.current = selectedLocationId; }, [selectedLocationId]);
   const [searchTerm, setSearchTerm] = useState('');
   const photosSectionRef = useRef(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -979,6 +983,8 @@ const PstPage = () => {
   const [draftNotice, setDraftNotice] = useState('');
   const isSubmittingRef = useRef(false);
   const hasHydratedDraftRef = useRef(false);
+  // Страховка от зависшего IndexedDB: сканер ждёт черновик, но не бесконечно.
+  const restoreTimedOutRef = useRef(false);
   const draftSaveTimeoutRef = useRef(null);
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -994,7 +1000,36 @@ const PstPage = () => {
     setScanError('');
   }, []);
 
+  // Единая точка смены постомата — для QR и для списка. Если в форме уже есть
+  // фото от другого постомата (например, восстановленный неотправленный
+  // черновик), молча переключиться нельзя: фото уйдут в отчёт не того ID.
+  const switchLocation = useCallback((nextId) => {
+    const current = String(selectedIdRef.current || '');
+    const next = String(nextId);
+    const { before, after } = livePhotosRef.current;
+    const count = before.length + after.length;
+    if (current && current !== next && count > 0) {
+      const ok = window.confirm(
+        `В форме уже есть ${count} фото от постомата ${current}. К постомату ${next} они не относятся.\n\n` +
+        `ОК — удалить эти фото и начать ${next} с чистого листа.\n` +
+        `Отмена — остаться на ${current} и сначала отправить его отчёт.`
+      );
+      if (!ok) return false;
+      [...before, ...after].forEach((photo) => {
+        if (photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
+      });
+      setBeforePhotos([]);
+      setAfterPhotos([]);
+    }
+    selectedIdRef.current = next; // сразу, не дожидаясь эффекта после рендера
+    setSelectedLocationId(next);
+    return true;
+  }, []);
+
   const openScanner = useCallback(async () => {
+    // Пока дочитывается черновик, сканировать нельзя: по окончании он выставил бы
+    // свой (прошлый) постомат поверх только что отсканированного.
+    if (!hasHydratedDraftRef.current && !restoreTimedOutRef.current) return;
     setScanError('');
     setScannerOpen(true);
     try {
@@ -1033,8 +1068,9 @@ const PstPage = () => {
               return;
             }
             stopScanner();
-            setSelectedLocationId(String(found.id));
-            setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            if (switchLocation(found.id)) {
+              setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            }
             return;
           }
         }
@@ -1044,7 +1080,7 @@ const PstPage = () => {
     } catch (e) {
       setScanError('Нет доступа к камере. Разрешите доступ и попробуйте снова.');
     }
-  }, [stopScanner]);
+  }, [stopScanner, switchLocation]);
 
   useEffect(() => () => stopScanner(), [stopScanner]);
 
@@ -1115,6 +1151,14 @@ const PstPage = () => {
 
   useEffect(() => {
     let isMounted = true;
+    // Если черновик не дочитался за 8 с, разблокируем сканер и список. Сохранение
+    // черновика при этом остаётся выключенным до реального окончания чтения
+    // (hasHydratedDraftRef), чтобы не стереть ещё не прочитанный черновик.
+    // Если чтение всё же закончится позже, свежий выбор защищён проверкой ниже.
+    const restoreSafetyTimer = window.setTimeout(() => {
+      restoreTimedOutRef.current = true;
+      if (isMounted) setIsRestoringDraft(false);
+    }, 8000);
     const restoreDraft = async () => {
       try {
         const draft = await loadDraft();
@@ -1127,15 +1171,28 @@ const PstPage = () => {
           });
           return;
         }
+        // Черновик читается асинхронно (IndexedDB + конвертация фото). Если за это
+        // время исполнитель уже выбрал другой постомат, черновик не должен его
+        // перетирать — иначе новые фото уйдут в отчёт прошлого ID.
+        if (selectedIdRef.current && String(selectedIdRef.current) !== String(draft.selectedLocationId || '')) {
+          [...restoredBeforePhotos, ...restoredAfterPhotos].forEach((photo) => {
+            if (photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
+          });
+          return;
+        }
         setSelectedLocationId(draft.selectedLocationId);
-        setBeforePhotos(restoredBeforePhotos);
-        setAfterPhotos(restoredAfterPhotos);
+        // Дописываем, а не заменяем: если черновик дочитался поздно (после страховки
+        // в 8 с) и исполнитель уже успел снять фото, они не должны молча пропасть.
+        // В обычном случае текущие массивы пусты и результат тот же.
+        setBeforePhotos((current) => [...restoredBeforePhotos, ...current]);
+        setAfterPhotos((current) => [...restoredAfterPhotos, ...current]);
         if (draft.selectedLocationId || restoredBeforePhotos.length > 0 || restoredAfterPhotos.length > 0) {
           setDraftNotice('Черновик восстановлен. Можно продолжать и собрать фото до и после в одну отправку.');
         }
       } catch (error) {
         console.error('Failed to restore PST draft:', error);
       } finally {
+        window.clearTimeout(restoreSafetyTimer);
         if (isMounted) {
           hasHydratedDraftRef.current = true;
           setIsRestoringDraft(false);
@@ -1145,6 +1202,7 @@ const PstPage = () => {
     restoreDraft();
     return () => {
       isMounted = false;
+      window.clearTimeout(restoreSafetyTimer);
       if (draftSaveTimeoutRef.current !== null) window.clearTimeout(draftSaveTimeoutRef.current);
     };
   }, []);
@@ -1569,7 +1627,9 @@ const PstPage = () => {
                     <div style={{ display: 'flex', gap: 10, marginBottom: '1rem' }}>
                       <button
                         onClick={openScanner}
+                        disabled={isRestoringDraft}
                         style={{
+                          opacity: isRestoringDraft ? 0.5 : 1,
                           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                           gap: 12, padding: '16px 24px', border: 'none', borderRadius: 20,
                           background: 'linear-gradient(135deg, #8fc640 0%, #6fa832 100%)',
@@ -1639,7 +1699,8 @@ const PstPage = () => {
                             <button
                               key={`location-${location.id}`}
                               type="button"
-                              onClick={() => { setSelectedLocationId(location.id); setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }}
+                              disabled={isRestoringDraft}
+                              onClick={() => { if (switchLocation(location.id)) setTimeout(() => photosSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }}
                               style={{
                                 display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '0.75rem',
                                 padding: '1rem', width: '100%', textAlign: 'left', border: 'none',
