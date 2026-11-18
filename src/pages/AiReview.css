@@ -1,0 +1,55 @@
+/* AI проверка — дополнительные стили поверх PstReports.css */
+.ai-header { display: flex; flex-direction: column; gap: 4px; }
+.ai-title { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; font-weight: 800; color: #1A1D1E; }
+.ai-sub { font-size: 0.78rem; color: rgba(26,29,30,0.55); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.ai-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ai-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.ai-ok   { background: #e7f6d8; color: #2f6b0f; }
+.ai-bad  { background: #fde2e1; color: #b42318; }
+.ai-warn { background: #fff1d6; color: #9a5b00; }
+.ai-info { background: #e6eefc; color: #2350a8; }
+.ai-ok-text { color: #2f6b0f; } .ai-bad-text { color: #b42318; } .ai-warn-text { color: #9a5b00; }
+.ai-mini { font-size: 0.72rem; font-weight: 600; }
+
+.ai-risk { display: flex; align-items: center; gap: 6px; min-width: 96px; font-size: 0.72rem; color: rgba(26,29,30,0.6); }
+.ai-risk-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(26,29,30,0.08); overflow: hidden; }
+.ai-risk-fill { height: 100%; border-radius: 3px; }
+.ai-risk-fill.lo { background: #7cc24a; } .ai-risk-fill.hi { background: #e5533d; }
+
+.ai-addr { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-open { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(26,29,30,0.12);
+  background: #fff; cursor: pointer; font: inherit; font-size: 0.75rem; font-weight: 600; color: #1A1D1E; }
+.ai-open:hover { background: #f5fbe9; }
+
+.ai-chip { display: inline-block; padding: 2px 8px; border-radius: 6px; background: rgba(26,29,30,0.06); font-size: 0.72rem; color: #1A1D1E; }
+.ai-chip-reason { background: #fff6e5; color: #8a5300; }
+
+.ai-modal { max-width: 1100px; width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow-y: auto; }
+.ai-modal-sub { font-size: 0.78rem; color: rgba(26,29,30,0.55); margin-top: 2px; }
+.ai-modal-right { display: flex; align-items: center; gap: 10px; }
+.ai-note { margin: 8px 0 12px; padding: 8px 12px; border-radius: 10px; background: #f3f7ee; font-size: 0.78rem; color: rgba(26,29,30,0.7); }
+.ai-pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+.ai-pair { border: 1px solid rgba(26,29,30,0.08); border-left-width: 4px; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+.ai-pair-ok { border-left-color: #7cc24a; } .ai-pair-bad { border-left-color: #e5533d; }
+.ai-pair-warn { border-left-color: #f0a020; } .ai-pair-info { border-left-color: #4a78d0; }
+.ai-pair-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ai-pair-head .ai-risk { margin-left: auto; }
+.ai-pair-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ai-pair-photos figure { margin: 0; position: relative; cursor: zoom-in; }
+.ai-pair-photos img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 8px; background: #eef1ea; display: block; }
+.ai-pair-photos figcaption { position: absolute; left: 6px; top: 6px; padding: 1px 7px; border-radius: 6px; background: rgba(0,0,0,0.55); color: #fff; font-size: 0.7rem; font-weight: 700; }
+.ai-reasons { display: flex; flex-wrap: wrap; gap: 4px; }
+.ai-scores { font-size: 0.72rem; color: rgba(26,29,30,0.7); display: flex; flex-direction: column; gap: 2px; }
+.ai-warn-line { color: #9a5b00; }
+
+.ai-offline { display: flex; align-items: flex-start; gap: 14px; padding: 20px; border-radius: 14px; background: #fff7ec; color: #6b4300; font-size: 0.85rem; line-height: 1.6; }
+.ai-offline-title { font-weight: 800; font-size: 1rem; }
+.ai-offline code { display: inline-block; margin: 4px 0; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,0.06); color: #1A1D1E; }
+.ai-offline .btn-reset { margin-left: auto; }
+
+@media (max-width: 640px) {
+  .ai-pairs { grid-template-columns: 1fr; }
+  .ai-addr { max-width: 140px; }
+}

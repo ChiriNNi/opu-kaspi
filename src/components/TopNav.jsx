@@ -6,7 +6,7 @@ import './TopNav.css'
 const ALL_SECTIONS = [
   { key: 'checklists', label: 'Чек-Листы',   paths: ['/checklists', '/objects'],         roles: ['admin', 'partner', 'curator', 'auditor', 'kaspi'] },
   { key: 'training',   label: 'Обучение',     paths: ['/training'],                       roles: ['admin', 'partner', 'auditor', 'curator'] },
-  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations', '/pst-list', '/pst-dashboard', '/incidents', '/pst-review'], roles: ['admin', 'partner', 'auditor', 'kaspi'] },
+  { key: 'washing',    label: 'Мойка',        paths: ['/', '/pst-reports', '/locations', '/pst-list', '/pst-dashboard', '/incidents', '/pst-review', '/ai-review'], roles: ['admin', 'partner', 'auditor', 'kaspi'] },
   { key: 'users',      label: 'Пользователи', paths: ['/users'],                          roles: ['admin', 'partner', 'auditor'] },
   { key: 'realization', label: 'Реализация',   paths: ['/realization', '/realization/rates'], roles: ['admin'] },
 ]
@@ -23,6 +23,7 @@ const SUB_PAGES = {
     { label: 'Дашборд',   path: '/pst-dashboard', roles: ['admin', 'partner', 'auditor', 'kaspi'] },
     { label: 'Инциденты', path: '/incidents',   roles: ['admin', 'partner', 'auditor', 'kaspi'] },
     { label: 'PST на проверку', path: '/pst-review', roles: ['admin', 'partner', 'auditor', 'kaspi'] },
+    { label: 'AI проверка', path: '/ai-review', roles: ['admin'] },
   ],
   realization: [
     { label: 'Отчёт',              path: '/realization',       roles: ['admin'] },
