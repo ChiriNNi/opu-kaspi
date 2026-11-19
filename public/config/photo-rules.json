@@ -1,0 +1,8 @@
+{
+  "requireQrFirst": true,
+  "minBefore": 2,
+  "minAfter": 2,
+  "requiredViews": ["front", "roof"],
+  "afterMatchesBefore": true,
+  "incident": { "enforce": false }
+}
