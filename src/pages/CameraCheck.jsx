@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
+import GuideTestCapture from '../camera/guide/GuideTestCapture'
 
 // Диагностика камер телефона + прототип съёмки с переключателем 0.5x.
 //
@@ -259,6 +260,7 @@ export default function CameraCheck() {
   const [verdict, setVerdict] = useState(null)     // { ok, text }
   const [wideSource, setWideSource] = useState(null) // { mode, deviceId, zoom, label }
   const [mockOpen, setMockOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)   // стенд помощника съёмки (CV-модель 1)
   const [mockMode, setMockMode] = useState('zoom') // 'zoom' — моментально, 'reopen' — как сегодня
   const [mockResult, setMockResult] = useState(null)
   const [status, setStatus] = useState('')
@@ -472,12 +474,22 @@ export default function CameraCheck() {
         />
       )}
 
+      {guideOpen && <GuideTestCapture onClose={() => setGuideOpen(false)} />}
+
       <h1 style={{ fontSize: 20, fontWeight: 900, margin: '0 0 4px' }}>Диагностика камер</h1>
       <div style={{ fontSize: 13, color: 'rgba(26,29,30,0.55)', lineHeight: 1.5, marginBottom: 14 }}>
         Открой на телефоне. «Начать проверку» → разреши доступ → «Проверить 0.5x».
         Если 0.5x доступен, появится кнопка прототипа — там видно, как это будет
         выглядеть в реальной съёмке отчёта.
       </div>
+      <div style={box}>
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>Помощник съёмки (тест)</div>
+        <div style={{ fontSize: 12, color: 'rgba(26,29,30,0.55)', marginBottom: 10, lineHeight: 1.45 }}>
+          Рамка и подсказки при съёмке: QR → «до» → «после» (те же ракурсы) → дефекты. Ничего не отправляется.
+        </div>
+        <button type="button" style={btnAccent} onClick={() => { stopStream(); setActiveId(''); setGuideOpen(true) }}>Открыть стенд</button>
+      </div>
+
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <button type="button" style={btn} onClick={enumerate} disabled={busy}>
