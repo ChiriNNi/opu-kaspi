@@ -22,3 +22,7 @@
 .cg-ok .cg-hint { background: rgba(143, 198, 64, 0.95); color: #1a1d1e; }
 .cg-warn .cg-hint { background: rgba(255, 176, 32, 0.95); color: #1a1d1e; }
 @media (prefers-reduced-motion: reduce) { .cg-sweep, .cg-ok .cg-frame, .cg-warn .cg-frame { animation: none; } }
+
+/* контур постомата, найденный моделью (примерный: кадр превью обрезан object-fit: cover) */
+.cg-box { position: absolute; border: 2px dashed rgba(255, 255, 255, 0.75); border-radius: 10px; transition: all .2s ease; }
+.cg-ok .cg-box { border-color: rgba(143, 198, 64, 0.9); }

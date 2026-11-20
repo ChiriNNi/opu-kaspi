@@ -24,7 +24,7 @@ async function load(url) {
   canvas.width = canvas.height = 224
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const input = new Float32Array(3 * 224 * 224)
-  const nv = meta.views.length, nf = meta.flags.length
+  const nv = meta.views.length, nf = meta.flags.length, nd = meta.defects.length
   const sig = (x) => 1 / (1 + Math.exp(-x))
   const flagThr = meta.flag_thresholds || {}
   const viewMin = meta.view_min_prob ?? 0.5
@@ -44,7 +44,9 @@ async function load(url) {
     const prob = 1 / den
     const flags = meta.flags.filter((f, k) => sig(z[nv + k]) >= (flagThr[f] ?? 0.7))
     const defects = meta.defects.filter((d, k) => sig(z[nv + nf + k]) >= 0.7)
-    return { view: prob >= viewMin ? meta.views[best] : null, viewProb: prob, flags, defects }
+    // контур постомата в кадре (x1, y1, x2, y2 в долях кадра), если модель его выдаёт
+    const box = meta.box ? [0, 1, 2, 3].map((k) => sig(z[nv + nf + nd + k])) : null
+    return { view: prob >= viewMin ? meta.views[best] : null, viewProb: prob, flags, defects, box }
   }
   return { classify, meta }
 }

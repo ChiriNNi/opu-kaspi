@@ -13,13 +13,15 @@ const HINTS = {
   blurry: 'Держите телефон ровно',
   qr_none: 'Наведите камеру на QR-код постомата',
   qr_foreign: 'Это QR другого постомата',
-  cut_off: 'Отойдите дальше — постомат должен быть виден целиком',
+  cut_off: 'Отойдите — постомат не помещается в кадр',
   too_far: 'Подойдите ближе',
   glancing_or_glare: 'Снимите сверху, без бликов',
   not_postomat: 'Постомата не видно',
 }
 
 const QR_RE = /^PST(\d+)/i
+
+const touchesEdges = (b, m = 0.01) => (b[0] <= m) + (b[1] <= m) + (b[2] >= 1 - m) + (b[3] >= 1 - m)
 
 export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId, cfg, model, stepKey }) {
   const [state, setState] = useState({ status: 'scanning', hint: '', ok: false, view: null, isQr: false, canOverride: false, active: false })
@@ -50,7 +52,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         ctx.drawImage(video, 0, 0, w, h)
         const quick = quickChecks(ctx.getImageData(0, 0, w, h), cfg.quick)
         const issues = [...quick.issues]
-        let view = null, isQr = false, qrId = null, defects = []
+        let view = null, isQr = false, qrId = null, defects = [], box = null
         const softHints = []
 
         if (expected === 'qr') {
@@ -71,9 +73,15 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         } else if (model) {
           const r = await model.classify(video)
           defects = r.defects
+          box = r.box
           view = r.view
           // проблемы кадра от модели пока только подсказка (точность ~50–60%), блокируют только если включено в конфиге
-          for (const f of r.flags) (cfg.blockOnFlags ? issues : softHints).push(f)
+          // «обрезан»: для фасада и бока — по контуру постомата (касается ≥2 краёв кадра), это точнее модели;
+          // для крыши и ячеек контур всегда во весь кадр, там остаётся оценка модели
+          const cutByBox = box && (view === 'front' || view === 'side') && touchesEdges(box) >= 2
+          const modelFlags = r.flags.filter((f) => !(box && f === 'cut_off' && (view === 'front' || view === 'side')))
+          if (cutByBox) modelFlags.unshift('cut_off')
+          for (const f of modelFlags) (cfg.blockOnFlags ? issues : softHints).push(f)
           if (expected && view && view !== expected) issues.push(`view:${expected}`)
         }
 
@@ -83,7 +91,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         const hint = !first ? (expected ? `Ракурс: ${VIEW_RU[expected]}` : '')
           : first.startsWith('view:') ? `Нужен ракурс: ${VIEW_RU[first.slice(5)]}` : HINTS[first] || ''
         setState({
-          status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, defects, active: true, issues,
+          status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, defects, box, active: true, issues,
           canOverride: !ok && Date.now() - stepStart.current > cfg.overrideAfterSec * 1000,
         })
         if (performance.now() - t0 > cfg.maxTickMs) throw new Error('too slow')
