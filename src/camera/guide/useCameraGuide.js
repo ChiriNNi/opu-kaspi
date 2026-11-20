@@ -51,6 +51,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         const quick = quickChecks(ctx.getImageData(0, 0, w, h), cfg.quick)
         const issues = [...quick.issues]
         let view = null, isQr = false, qrId = null, defects = []
+        const softHints = []
 
         if (expected === 'qr') {
           const qw = 480, qh = Math.round(480 * video.videoHeight / video.videoWidth)
@@ -71,13 +72,14 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
           const r = await model.classify(video)
           defects = r.defects
           view = r.view
-          for (const f of r.flags) issues.push(f)
+          // проблемы кадра от модели пока только подсказка (точность ~50–60%), блокируют только если включено в конфиге
+          for (const f of r.flags) (cfg.blockOnFlags ? issues : softHints).push(f)
           if (expected && view && view !== expected) issues.push(`view:${expected}`)
         }
 
         okRun.current = issues.length ? 0 : okRun.current + 1
         const ok = okRun.current >= cfg.okFrames
-        const first = issues[0]
+        const first = issues[0] || softHints[0]
         const hint = !first ? (expected ? `Ракурс: ${VIEW_RU[expected]}` : '')
           : first.startsWith('view:') ? `Нужен ракурс: ${VIEW_RU[first.slice(5)]}` : HINTS[first] || ''
         setState({
