@@ -6,3 +6,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# photo-guide model files: trained on company photos, never committed (public repo)
+public/models/
