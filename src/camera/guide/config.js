@@ -31,9 +31,17 @@ export const DEFAULT_RULES = {
   incident: { enforce: false },   // для инцидентов правила набора не применяются
 }
 
+// Для теста на телефоне: ссылка ?camera_guide=on|off запоминает выбор на этом телефоне (localStorage).
 const readLocal = () => {
-  try { return localStorage.getItem('camera_guide') } catch { return null }
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('camera_guide')
+    if (fromUrl === 'on' || fromUrl === 'off') localStorage.setItem('camera_guide', fromUrl)
+    return localStorage.getItem('camera_guide')
+  } catch { return null }
 }
+
+// Тестовый сервер (vite dev) шлёт отчёты на боевой API — при тесте помощника отправку блокируем.
+export const isDevTest = () => Boolean(import.meta.env?.DEV)
 
 async function fetchJson(url) {
   try {

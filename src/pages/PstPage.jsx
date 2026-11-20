@@ -18,7 +18,7 @@ import {
 // Помощник съёмки (CV-модель 1): выключен по умолчанию, см. src/camera/guide/config.js
 import CameraGuide from '../camera/guide/CameraGuide';
 import { useCameraGuide } from '../camera/guide/useCameraGuide';
-import { loadGuideConfig } from '../camera/guide/config';
+import { isDevTest, loadGuideConfig } from '../camera/guide/config';
 import { loadGuideModel } from '../camera/guide/guideModel';
 import { evaluateSet, expectedNext } from '../camera/guide/photoSet';
 
@@ -1381,6 +1381,10 @@ const PstPage = () => {
 
   const handleSubmit = () => {
     if (!isReady || isSubmittingRef.current) return;
+    if (guideOn && isDevTest()) {
+      setSubmitError('Тестовый режим помощника съёмки: отправка отключена, чтобы тестовый отчёт не попал на боевой сервер.');
+      return;
+    }
     if (!selectedLocation) { setSubmitError('Сначала выберите локацию.'); return; }
     if (!hasBeforePhotos || !hasAfterPhotos) { setSubmitError('Для отправки нужно добавить хотя бы одно фото в разделы «До» и «После».'); return; }
     if (!guideOn || !workTypeChosen) setWorkType('ПОЛНАЯ МОЙКА'); // с помощником тип выбран в начале — не сбрасываем
