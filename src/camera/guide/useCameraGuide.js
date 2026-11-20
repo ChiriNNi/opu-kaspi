@@ -50,7 +50,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         ctx.drawImage(video, 0, 0, w, h)
         const quick = quickChecks(ctx.getImageData(0, 0, w, h), cfg.quick)
         const issues = [...quick.issues]
-        let view = null, isQr = false, qrId = null
+        let view = null, isQr = false, qrId = null, defects = []
 
         if (expected === 'qr') {
           const qw = 480, qh = Math.round(480 * video.videoHeight / video.videoWidth)
@@ -68,7 +68,8 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
             if (bi >= 0) issues.splice(bi, 1)   // QR прочитан — значит кадр достаточно резкий
           }
         } else if (model) {
-          const r = await model.classify(ctx, w, h)
+          const r = await model.classify(video)
+          defects = r.defects
           view = r.view
           for (const f of r.flags) issues.push(f)
           if (expected && view && view !== expected) issues.push(`view:${expected}`)
@@ -80,7 +81,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         const hint = !first ? (expected ? `Ракурс: ${VIEW_RU[expected]}` : '')
           : first.startsWith('view:') ? `Нужен ракурс: ${VIEW_RU[first.slice(5)]}` : HINTS[first] || ''
         setState({
-          status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, active: true, issues,
+          status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, defects, active: true, issues,
           canOverride: !ok && Date.now() - stepStart.current > cfg.overrideAfterSec * 1000,
         })
         if (performance.now() - t0 > cfg.maxTickMs) throw new Error('too slow')

@@ -4,6 +4,7 @@ import CameraGuide from './CameraGuide'
 import { useCameraGuide } from './useCameraGuide'
 import { DEFAULT_GUIDE, DEFAULT_RULES, VIEW_RU, loadGuideConfig } from './config'
 import { evaluateSet, expectedNext } from './photoSet'
+import { loadGuideModel } from './guideModel'
 
 // Тестовый стенд «помощника съёмки» для страницы /camera-check (только админ).
 // Повторяет раскладку InlineCamera (кнопка спуска на том же месте) и проходит весь сценарий отчёта:
@@ -23,8 +24,15 @@ export default function GuideTestCapture({ onClose }) {
   const [shots, setShots] = useState({ before: [], after: [], defect: [] })
   const [postomatId, setPostomatId] = useState(null)
   const [override, setOverride] = useState(false)
+  const [model, setModel] = useState(null)
+  const [modelState, setModelState] = useState('загрузка…')
 
-  useEffect(() => { loadGuideConfig().then(c => setCfg(c)) }, [])
+  useEffect(() => {
+    loadGuideConfig().then(c => {
+      setCfg(c)
+      loadGuideModel(c.guide.modelUrl).then(m => { setModel(m); setModelState(m ? 'есть' : 'нет файла модели') })
+    })
+  }, [])
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
       .then(stream => {
@@ -40,7 +48,7 @@ export default function GuideTestCapture({ onClose }) {
   const metas = useMemo(() => ({ before: shots.before.map(s => s.meta), after: shots.after.map(s => s.meta) }), [shots])
   const expected = section === 'defect' ? null : expectedNext(section, metas.before, metas.after, cfg.rules)
   const guide = useCameraGuide(videoRef, ready, {
-    enabled: true, expected, postomatId, cfg: cfg.guide, model: null, stepKey: `${section}:${shots[section].length}`,
+    enabled: true, expected, postomatId, cfg: cfg.guide, model, stepKey: `${section}:${shots[section].length}`,
   })
   const evaluation = evaluateSet(metas.before, metas.after, 'ПОЛНАЯ МОЙКА', cfg.rules)
   const blocked = cfg.guide.block && guide.active && !guide.ok && !override
@@ -51,7 +59,7 @@ export default function GuideTestCapture({ onClose }) {
     canvas.width = video.videoWidth; canvas.height = video.videoHeight
     canvas.getContext('2d').drawImage(video, 0, 0)
     setFlash(true); setTimeout(() => setFlash(false), 120)
-    const meta = { view: guide.view, isQr: guide.isQr, guided: guide.active, override, issues: guide.issues || [] }
+    const meta = { view: guide.view, isQr: guide.isQr, defects: guide.defects || [], guided: guide.active, override, issues: guide.issues || [] }
     // на стенде постомат не выбран заранее: фиксируем тот, чей QR сняли первым
     if (guide.isQr && !postomatId) setPostomatId(guide.qrId)
     canvas.toBlob(blob => {
@@ -103,7 +111,7 @@ export default function GuideTestCapture({ onClose }) {
           </div>
         )}
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 4 }}>
-          стенд · модель ракурса: {guide.active ? 'нет (только свет/резкость/QR)' : 'выкл'} · постомат: {postomatId || 'любой'}
+          стенд · модель: {modelState}{guide.view ? ` · видит: ${VIEW_RU[guide.view]}` : ''} · постомат: {postomatId || 'любой'}
         </div>
       </div>
 

@@ -17,7 +17,7 @@ export const DEFAULT_GUIDE = {
   tickMs: 250,            // частота проверок
   maxTickMs: 800,         // если одна проверка дольше — телефон не тянет, помощник отключается
   quick: { darkMean: 40, blurVar: 12 },   // пороги быстрых проверок (будут уточнены на реальных кадрах)
-  modelUrl: '/models/photo_guide_v1.onnx',
+  modelUrl: '/models/photo_guide.onnx',   // файл модели не в репозитории (см. guideModel.js)
 }
 
 export const DEFAULT_RULES = {
