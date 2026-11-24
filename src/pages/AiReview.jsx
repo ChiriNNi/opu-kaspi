@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Bot, Building2, CalendarClock, Eye, RefreshCw, Search, X } from 'lucide-react'
 import './PstReports.css'
 import './AiReview.css'
+import api from '../api'
 
-// AI-проверка отчётов (v1, локально). Работает параллельно с ручной проверкой «PST на проверку» и ничего в ней не меняет.
-// Данные берутся ТОЛЬКО из локального AI-сервиса (auto-cleaner: scripts/ai_service.py на 127.0.0.1), а не с сервера
-// opu.ic-group.kz: здесь намеренно используется fetch, а не общий api-клиент, чтобы не отправлять туда запросы и токен.
-const AI_URL = (import.meta.env.VITE_AI_URL || 'http://127.0.0.1:8765').replace(/\/$/, '')
+// AI-проверка отчётов. Работает параллельно с ручной проверкой «PST на проверку» и ничего в ней не меняет: результаты
+// пишет отдельный сервис (auto-cleaner worker) в свои таблицы, страница читает их через /api/ai/* бэкенда (только админ,
+// общий api-клиент с токеном). Фото — через существующий /api/pst/img. Если /api/ai выключен (404) — страница так и пишет.
 
 const DECISIONS = {
   APPROVED:      { label: 'Одобрено AI',    tone: 'ok' },
@@ -32,15 +32,17 @@ const VIEWS = {
 }
 const STATUS_RU = { clean: 'чисто', partial: 'частично', not_clean: 'не чисто', cannot_assess: 'нельзя оценить' }
 
-const photoUrl = (rel) => `${AI_URL}/api/ai/photo?f=${encodeURIComponent(rel)}`
+const photoUrl = (rel) => `${api.defaults.baseURL}/pst/img?p=${encodeURIComponent(rel)}`
 const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`)
 const timeAlmaty = (s) => (s ? s.slice(11, 16) : '—')
 const fmtDate = (d) => (d ? d.split('-').reverse().join('.') : '—')
 
 async function getJson(path) {
-  const res = await fetch(`${AI_URL}${path}`)
-  if (!res.ok) throw new Error(`${res.status}`)
-  return res.json()
+  try {
+    return (await api.get(path.replace(/^\/api/, ''))).data
+  } catch (e) {
+    throw new Error(e.response?.status === 404 ? 'disabled' : 'offline')
+  }
 }
 
 function DecisionBadge({ decision }) {
@@ -80,8 +82,10 @@ function PairCard({ pair, onZoom }) {
         <div className="ai-reasons">{pair.reasons.map(r => <span key={r} className="ai-chip ai-chip-reason">{REASONS[r] || r}</span>)}</div>
       )}
       <div className="ai-scores">
-        <div><b>VLM:</b> {vlmStatus ? STATUS_RU[vlmStatus] || vlmStatus : 'нет ответа'}
-          {' · '}чисто {pct(probs.clean)}, частично {pct(probs.partial)}, не чисто {pct(probs.not_clean)}, нельзя {pct(probs.cannot_assess)}</div>
+        {(vlmStatus || pair.vlm_probs) && (
+          <div><b>VLM:</b> {vlmStatus ? STATUS_RU[vlmStatus] || vlmStatus : 'нет ответа'}
+            {' · '}чисто {pct(probs.clean)}, частично {pct(probs.partial)}, не чисто {pct(probs.not_clean)}, нельзя {pct(probs.cannot_assess)}</div>
+        )}
         <div><b>CV:</b> грязь {pct(pair.p_dirty)}, нельзя оценить {pct(pair.p_cannot_assess)}
           {pair.roof_mil != null && <> · детали крыши {pair.roof_mil >= 0 ? 'есть подозрение' : 'норма'} ({pair.roof_mil.toFixed(2)})</>}</div>
         {pair.view !== pair.before_view && <div className="ai-warn-line">«До» другого вида ({VIEWS[pair.before_view] || pair.before_view})</div>}
@@ -148,8 +152,8 @@ export default function AiReview() {
       setDays(list)
       setDate(d => (d && list.some(x => x.date === d) ? d : list[0]?.date || ''))
       if (!list.length) setDay(null)
-    } catch {
-      setError('offline')
+    } catch (e) {
+      setError(e.message)
     } finally { setLoading(false) }
   }, [])
 
@@ -161,7 +165,7 @@ export default function AiReview() {
     setLoading(true)
     getJson(`/api/ai/day?date=${date}`)
       .then(d => { if (!cancelled) { setDay(d); setError('') } })
-      .catch(() => { if (!cancelled) setError('offline') })
+      .catch((e) => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [date])
@@ -185,16 +189,14 @@ export default function AiReview() {
     }).sort((a, b) => (b.risk ?? 0) - (a.risk ?? 0))
   }, [reports, filter, search, city])
 
-  if (error === 'offline') {
+  if (error === 'offline' || error === 'disabled') {
     return (
       <div className="pst-page ai-page">
         <div className="ai-offline">
           <AlertCircle size={22} />
           <div>
-            <div className="ai-offline-title">Локальный AI-сервис не запущен</div>
-            <div>AI-проверка работает только на компьютере с моделью. Запустите в папке auto-cleaner:</div>
-            <code>python -X utf8 scripts/ai_service.py</code>
-            <div className="pr-muted">Адрес сервиса: {AI_URL}</div>
+            <div className="ai-offline-title">{error === 'disabled' ? 'AI проверка выключена' : 'AI проверка недоступна'}</div>
+            <div>{error === 'disabled' ? 'Раздел ещё не включён на сервере.' : 'Не удалось получить результаты с сервера. Ручная проверка работает как обычно.'}</div>
           </div>
           <button type="button" className="btn-reset" onClick={loadDays}><RefreshCw size={13} /> Повторить</button>
         </div>
@@ -207,7 +209,7 @@ export default function AiReview() {
       <div className="ai-header">
         <div className="ai-title"><Bot size={20} /> AI проверка отчётов</div>
         <div className="ai-sub">
-          Модели: VLM + CV + агент · правило {day?.versions?.rule_name || '—'} · расчёт {day?.generated_at?.replace('T', ' ') || '—'}
+          Модель: {day?.versions?.vlm ? 'VLM + CV' : 'CV'} · правило {day?.versions?.rule_name || '—'} · версия {day?.versions?.code || '—'}
           {day?.versions?.note && <span className="ai-chip ai-chip-reason">{day.versions.note}</span>}
         </div>
       </div>
@@ -259,7 +261,7 @@ export default function AiReview() {
           </thead>
           <tbody>
             {!loading && !rows.length && (
-              <tr><td colSpan={10} className="table-empty">{days.length ? 'Нет отчётов по фильтру' : 'Нет результатов AI — запустите scripts/ai_check_day.py'}</td></tr>
+              <tr><td colSpan={10} className="table-empty">{days.length ? 'Нет отчётов по фильтру' : 'Пока нет результатов AI'}</td></tr>
             )}
             {rows.map((r, i) => (
               <tr key={r.report_id} className={i % 2 ? 'odd' : 'even'}>
