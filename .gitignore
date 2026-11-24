@@ -9,3 +9,6 @@ dist/
 
 # photo-guide model files: trained on company photos, never committed (public repo)
 public/models/
+
+# local-only https config for phone tests
+vite.https.local.js
