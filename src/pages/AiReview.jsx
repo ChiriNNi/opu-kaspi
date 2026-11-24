@@ -94,6 +94,24 @@ function PairCard({ pair, onZoom }) {
   )
 }
 
+// Отзыв админа о решении AI по отчёту → auto_cleaner.labels (разметка для следующей версии модели)
+function Feedback({ reportId }) {
+  const [sent, setSent] = useState(null)
+  const [err, setErr] = useState(false)
+  const send = async (verdict) => {
+    setErr(false)
+    try { await api.post('/ai/labels', { report_id: reportId, verdict }); setSent(verdict) } catch { setErr(true) }
+  }
+  if (sent) return <span className="ai-chip">{sent === 'ai_right' ? 'Спасибо: AI прав' : 'Спасибо: AI ошибся'}</span>
+  return (
+    <span className="ai-feedback">
+      <button type="button" className="btn-reset" onClick={() => send('ai_right')}>AI прав</button>
+      <button type="button" className="btn-reset" onClick={() => send('ai_wrong')}>AI ошибся</button>
+      {err && <span className="ai-warn-line">не сохранилось</span>}
+    </span>
+  )
+}
+
 function ReportModal({ report, onClose }) {
   const [zoom, setZoom] = useState(null)
   useEffect(() => {
@@ -119,6 +137,7 @@ function ReportModal({ report, onClose }) {
         </div>
         <div className="ai-note">
           Решение AI — подсказка. Окончательное решение принимает администратор в «PST на проверку».
+          {' '}<Feedback reportId={report.report_id} />
         </div>
         <div className="ai-pairs">
           {report.pairs.map(p => <PairCard key={`${p.after_file}|${p.before_file}`} pair={p} onZoom={setZoom} />)}
