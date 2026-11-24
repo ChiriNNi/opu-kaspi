@@ -75,13 +75,18 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
           defects = r.defects
           box = r.box
           view = r.view
-          // проблемы кадра от модели пока только подсказка (точность ~50–60%), блокируют только если включено в конфиге
+          // проблемы кадра от модели — подсказка (точность ~50–60%); исключение — «обрезан» на фасаде/боку (blockCutOff)
           // «обрезан»: для фасада и бока — по контуру постомата (касается ≥2 краёв кадра), это точнее модели;
           // для крыши и ячеек контур всегда во весь кадр, там остаётся оценка модели
           const cutByBox = box && (view === 'front' || view === 'side') && touchesEdges(box) >= 2
           const modelFlags = r.flags.filter((f) => !(box && f === 'cut_off' && (view === 'front' || view === 'side')))
           if (cutByBox) modelFlags.unshift('cut_off')
-          for (const f of modelFlags) (cfg.blockOnFlags ? issues : softHints).push(f)
+          // обрезанный фасад/бок блокирует спуск (blockCutOff); остальные проблемы — подсказка, если не blockOnFlags
+          const frontSide = view === 'front' || view === 'side'
+          for (const f of modelFlags) {
+            const block = cfg.blockOnFlags || (cfg.blockCutOff && f === 'cut_off' && frontSide)
+            ;(block ? issues : softHints).push(f)
+          }
           if (expected && view && view !== expected) issues.push(`view:${expected}`)
         }
 
