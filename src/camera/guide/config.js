@@ -65,5 +65,5 @@ export async function loadGuideConfig() {
 
 export const VIEW_RU = {
   qr: 'QR-код', front: 'фасад', side: 'бок / зад', roof: 'крыша', cells: 'ячейки открыты',
-  cell_interior: 'внутри ячейки', other: 'другое', defect: 'дефект',
+  cell_interior: 'внутри ячейки', other: 'другое', camera: 'камера', defect: 'дефект',
 }

@@ -1,6 +1,6 @@
 // Модель ракурса и качества кадра (CV-модель 1) в браузере: onnxruntime-web (WASM), грузится только когда помощник
 // включён. Вход — кадр видео, сжатый до 224×224 (как при обучении: без штампа, RGB 0..1), выход — ракурс, проблемы
-// кадра и дефекты. Пороги и подписи классов — в <model>.json рядом с моделью.
+// кадра, дефекты и метки (incident). Пороги и подписи классов — в <model>.json рядом с моделью.
 // Файл модели не хранится в репозитории (репозиторий публичный, модель обучена на фото компании) — его кладут в
 // public/models/ при сборке/выкладке. Нет файла или не загрузилась → null, помощник работает без модели.
 
@@ -25,6 +25,7 @@ async function load(url) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const input = new Float32Array(3 * 224 * 224)
   const nv = meta.views.length, nf = meta.flags.length, nd = meta.defects.length
+  const tags = meta.tags || [], nt = tags.length   // напр. incident — ремонт по заявке (не грязь, не проблема кадра)
   const sig = (x) => 1 / (1 + Math.exp(-x))
   const flagThr = meta.flag_thresholds || {}
   const viewMin = meta.view_min_prob ?? 0.5
@@ -45,8 +46,9 @@ async function load(url) {
     const flags = meta.flags.filter((f, k) => sig(z[nv + k]) >= (flagThr[f] ?? 0.7))
     const defects = meta.defects.filter((d, k) => sig(z[nv + nf + k]) >= 0.7)
     // контур постомата в кадре (x1, y1, x2, y2 в долях кадра), если модель его выдаёт
-    const box = meta.box ? [0, 1, 2, 3].map((k) => sig(z[nv + nf + nd + k])) : null
-    return { view: prob >= viewMin ? meta.views[best] : null, viewProb: prob, flags, defects, box }
+    const tagsOn = tags.filter((t, k) => sig(z[nv + nf + nd + k]) >= 0.7)
+    const box = meta.box ? [0, 1, 2, 3].map((k) => sig(z[nv + nf + nd + nt + k])) : null
+    return { view: prob >= viewMin ? meta.views[best] : null, viewProb: prob, flags, defects, tags: tagsOn, box }
   }
   return { classify, meta }
 }
