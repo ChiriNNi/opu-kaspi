@@ -2,24 +2,21 @@
 // включён. Вход — кадр видео, сжатый до 224×224 (как при обучении: без штампа, RGB 0..1), выход — ракурс, проблемы
 // кадра, дефекты и метки (incident). Пороги и подписи классов — в <model>.json рядом с моделью.
 // Файл модели не хранится в репозитории (репозиторий публичный, модель обучена на фото компании) — его кладут в
-// public/models/ при сборке/выкладке. Нет файла или не загрузилась → null, помощник работает без модели.
+// public/models/ при сборке/выкладке. Нет файла или не загрузилась → ошибка, камера работает без помощника.
 
-let pending = null
+import { downloadBytes } from './modelDownload'
 
-export function loadGuideModel(url) {
-  if (!pending) pending = load(url).catch(() => null)
-  return pending
-}
-
-async function load(url) {
+export async function loadModel(url, onBytes) {
   const [ort, wasmUrl, meta] = await Promise.all([
     import('onnxruntime-web'),
     import('../../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm?url').then(m => m.default),
     fetch(url.replace(/\.onnx$/, '.json'), { cache: 'no-cache' }).then(r => (r.ok ? r.json() : Promise.reject(new Error('no meta')))),
   ])
-  ort.env.wasm.wasmPaths = { wasm: wasmUrl }
+  // файлы качаем сами: виден прогресс, обрыв заметен, и каждый файл запрашивается один раз
+  const [wasmBytes, modelBytes] = await Promise.all([downloadBytes(wasmUrl, { onBytes }), downloadBytes(url, { onBytes })])
+  ort.env.wasm.wasmBinary = wasmBytes
   ort.env.wasm.numThreads = 1          // без SharedArrayBuffer/COOP-заголовков; одной нити хватает на 224×224
-  const session = await ort.InferenceSession.create(url, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' })
+  const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' })
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 224
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
@@ -50,5 +47,7 @@ async function load(url) {
     const box = meta.box ? [0, 1, 2, 3].map((k) => sig(z[nv + nf + nd + nt + k])) : null
     return { view: prob >= viewMin ? meta.views[best] : null, viewProb: prob, flags, defects, tags: tagsOn, box }
   }
+  // первый прогон заметно медленнее: делаем его заранее, чтобы помощник не счёл телефон слишком медленным
+  await session.run({ image: new ort.Tensor('float32', input, [1, 3, 224, 224]) })
   return { classify, meta }
 }
