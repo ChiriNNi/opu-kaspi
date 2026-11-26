@@ -1,13 +1,10 @@
 // Настройки «помощника съёмки» (CV-модель 1 на телефоне).
 //
-// Включение в три уровня, любой может выключить:
-//   1) сборка: VITE_CAMERA_GUIDE=on (по умолчанию выключено — прод ведёт себя как раньше);
-//   2) удалённый выключатель: /config/camera-guide.json { "enabled": false } — выкладывается вместе с фронтом,
-//      правится без изменения кода;
-//   3) на конкретном телефоне для теста: localStorage 'camera_guide' = 'on' | 'off' (страница /camera-check).
+// Включение:
+//   1) для всех: /config/camera-guide.json { "enabled": true | false } — выкладывается вместе с фронтом, правится без
+//      изменения кода. Если файл не получен, помощник выключен;
+//   2) на конкретном телефоне (важнее общей настройки): ссылка ?camera_guide=on|off.
 // Правила набора фото — /config/photo-rules.json (тоже без изменения кода).
-
-const BUILD_FLAG = String(import.meta.env?.VITE_CAMERA_GUIDE || 'off').toLowerCase() === 'on'
 
 export const DEFAULT_GUIDE = {
   enabled: false,
@@ -48,6 +45,9 @@ async function fetchJson(url) {
   } catch { return null }
 }
 
+// Выбор на телефоне важнее общей настройки: так помощника можно выключить одному клинеру.
+export const isGuideEnabled = (local, remote) => (local === 'on' || local === 'off' ? local === 'on' : remote?.enabled === true)
+
 let cached = null
 
 // Возвращает { guide, rules }. Любая ошибка → помощник выключен (как сегодня).
@@ -56,7 +56,7 @@ export async function loadGuideConfig() {
   const local = readLocal()
   const [remote, rules] = await Promise.all([fetchJson('/config/camera-guide.json'), fetchJson('/config/photo-rules.json')])
   const guide = { ...DEFAULT_GUIDE, ...(remote || {}) }
-  guide.enabled = local === 'on' ? true : local === 'off' ? false : (BUILD_FLAG && remote?.enabled !== false)
+  guide.enabled = isGuideEnabled(local, remote)
   cached = { guide, rules: { ...DEFAULT_RULES, ...(rules || {}) } }
   return cached
 }
