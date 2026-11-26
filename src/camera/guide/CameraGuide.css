@@ -1,0 +1,28 @@
+.cg-root { position: absolute; inset: 0; pointer-events: none; z-index: 3; display: flex; flex-direction: column; align-items: center; }
+.cg-top { margin-top: 14px; display: flex; gap: 8px; align-items: center; }
+.cg-step, .cg-expected { padding: 6px 12px; border-radius: 100px; font-size: 13px; font-weight: 800; background: rgba(0, 0, 0, 0.55); color: #fff; }
+.cg-expected { background: rgba(255, 255, 255, 0.92); color: #1a1d1e; }
+
+.cg-frame { --c: rgba(255, 255, 255, 0.9); position: relative; flex: 1; width: 86%; margin: 14px 0; border-radius: 26px; overflow: hidden; transition: box-shadow .25s ease; }
+.cg-corner { position: absolute; width: 46px; height: 46px; border: 5px solid var(--c); transition: border-color .25s ease, transform .25s ease; }
+.cg-tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 26px; }
+.cg-tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 26px; }
+.cg-bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 26px; }
+.cg-br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 26px; }
+.cg-sweep { position: absolute; left: 6%; right: 6%; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent); animation: cg-sweep 1.6s ease-in-out infinite; }
+@keyframes cg-sweep { 0% { top: 4%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 96%; opacity: 0; } }
+
+.cg-ok .cg-frame { --c: #8fc640; box-shadow: inset 0 0 0 3px #8fc640; animation: cg-pulse 1.2s ease-in-out infinite; }
+.cg-ok .cg-corner { transform: scale(1.04); }
+@keyframes cg-pulse { 0%, 100% { box-shadow: inset 0 0 0 3px rgba(143, 198, 64, 0.9); } 50% { box-shadow: inset 0 0 0 7px rgba(143, 198, 64, 0.45); } }
+.cg-warn .cg-frame { --c: #ffb020; animation: cg-shake .35s ease-in-out 1; }
+@keyframes cg-shake { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
+
+.cg-hint { margin-bottom: 16px; max-width: 86%; padding: 9px 14px; border-radius: 14px; font-size: 15px; font-weight: 800; text-align: center; background: rgba(0, 0, 0, 0.62); color: #fff; }
+.cg-ok .cg-hint { background: rgba(143, 198, 64, 0.95); color: #1a1d1e; }
+.cg-warn .cg-hint { background: rgba(255, 176, 32, 0.95); color: #1a1d1e; }
+@media (prefers-reduced-motion: reduce) { .cg-sweep, .cg-ok .cg-frame, .cg-warn .cg-frame { animation: none; } }
+
+/* контур постомата, найденный моделью (примерный: кадр превью обрезан object-fit: cover) */
+.cg-box { position: absolute; border: 2px dashed rgba(255, 255, 255, 0.75); border-radius: 10px; transition: all .2s ease; }
+.cg-ok .cg-box { border-color: rgba(143, 198, 64, 0.9); }
