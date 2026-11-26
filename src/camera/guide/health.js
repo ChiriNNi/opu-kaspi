@@ -17,7 +17,7 @@ export function createHealthWatch() {
   }
 }
 
-// Зависшая проверка иначе оставила бы на экране старую рамку и заблокированный спуск.
+// Зависшая проверка иначе оставила бы на экране старую рамку и старую подсказку.
 export function withTimeout(promise, ms) {
   let timer
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), ms) })

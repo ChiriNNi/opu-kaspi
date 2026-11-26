@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { DEFAULT_RULES } from './config.js'
 import { evaluateSet, expectedNext, photoMeta, viewIssue } from './photoSet.js'
 
-const shot = (view, extra = {}) => ({ view, isQr: view === 'qr', guided: true, override: false, ...extra })
+const shot = (view) => ({ view, isQr: view === 'qr', guided: true, confirmed: true })
 const working = (view, isQr = false) => ({ view, isQr, defects: [], active: true })
 const WASH = 'ПОЛНАЯ МОЙКА'
 
@@ -18,7 +18,7 @@ test('with the model the guide asks for QR, then front, then roof, then any shot
 
 test('photos taken without a working guide: nothing is demanded and sending is not blocked', () => {
   // так выглядит кадр, снятый пока модель не загрузилась, и фото из старого черновика
-  for (const unguided of [photoMeta({ active: false, view: null }, null, false), {}]) {
+  for (const unguided of [photoMeta({ active: false, view: null }, null), {}]) {
     assert.equal(expectedNext('before', [unguided, unguided], [], DEFAULT_RULES), null)
     assert.equal(expectedNext('after', [unguided], [], DEFAULT_RULES), null)
     assert.deepEqual(evaluateSet([unguided], [unguided], WASH, DEFAULT_RULES), { ok: true, problems: [], checklist: [] })
@@ -31,25 +31,29 @@ test('one photo without the guide is enough to drop the demands, even if others 
   assert.equal(evaluateSet(before, [shot('front')], WASH, DEFAULT_RULES).ok, true)
 })
 
-test('«Не получается» counts as the requested shot, so the guide moves on', () => {
-  const unsure = photoMeta(working(null), 'front', true)
-  assert.equal(unsure.view, 'front')
-  assert.equal(expectedNext('before', [shot('qr'), unsure], [], DEFAULT_RULES), 'roof')
-
-  const wrongView = photoMeta(working('side'), 'roof', true)
-  const before = [shot('qr'), unsure, wrongView]
-  assert.equal(evaluateSet(before, [shot('front'), shot('roof')], WASH, DEFAULT_RULES).ok, true)
+test('any shot closes the requested step, so an unrecognised view is not asked for again', () => {
+  // например, крыша под снегом: модель не уверена или видит другой ракурс
+  for (const seen of [null, 'side']) {
+    const roof = photoMeta(working(seen), 'roof')
+    assert.equal(roof.view, 'roof')
+    assert.equal(roof.confirmed, false)
+    const before = [shot('qr'), shot('front'), roof]
+    assert.equal(expectedNext('before', before, [], DEFAULT_RULES), null)
+    assert.equal(expectedNext('after', before, [shot('front')], DEFAULT_RULES), 'roof')
+    assert.equal(evaluateSet(before, [shot('front'), shot('roof')], WASH, DEFAULT_RULES).ok, true)
+  }
 })
 
-test('«Не получается» on the QR step does not leave the report blocked', () => {
-  const qr = photoMeta(working(null), 'qr', true)
+test('a shot on the QR step moves on even when the code was not read', () => {
+  const qr = photoMeta(working(null), 'qr')
   assert.equal(qr.isQr, true)
-  const before = [qr, shot('front'), shot('roof')]
-  assert.equal(evaluateSet(before, [shot('front'), shot('roof')], WASH, DEFAULT_RULES).ok, true)
+  assert.equal(qr.confirmed, false)
+  assert.equal(expectedNext('before', [qr], [], DEFAULT_RULES), 'front')
 })
 
-test('without override the photo keeps what the model saw', () => {
-  assert.equal(photoMeta(working('side'), 'front', false).view, 'side')
+test('a recognised view is confirmed; a free shot keeps what the model saw', () => {
+  assert.equal(photoMeta(working('front'), 'front').confirmed, true)
+  assert.equal(photoMeta(working('side'), null).view, 'side')
 })
 
 test('an unsure model does not confirm a requested view', () => {
@@ -60,7 +64,7 @@ test('an unsure model does not confirm a requested view', () => {
   assert.equal(viewIssue('qr', null), null)
 })
 
-test('a checked report that misses the roof is still rejected', () => {
+test('a set that misses the roof still gets a hint about it', () => {
   const before = [shot('qr'), shot('front'), shot('side')]
   const result = evaluateSet(before, [shot('front'), shot('side')], WASH, DEFAULT_RULES)
   assert.equal(result.ok, false)
