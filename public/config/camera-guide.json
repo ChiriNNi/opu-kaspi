@@ -1,5 +1,3 @@
 {
-  "enabled": true,
-  "block": true,
-  "overrideAfterSec": 20
+  "enabled": true
 }

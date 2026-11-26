@@ -676,13 +676,10 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
   const [wideZoom, setWideZoom] = useState(null) // не null — 0.5x доступен на этом телефоне
   const [lens, setLens] = useState('1x')
   const [switching, setSwitching] = useState(false)
-  const [override, setOverride] = useState(false)
   const g = useCameraGuide(videoRef, ready, {
     enabled: Boolean(guide), expected: guide?.expected ?? null, postomatId: guide?.postomatId ?? null,
     cfg: guide?.cfg, model: guide?.loader.model ?? null, stepKey: `${section}:${count}`,
   })
-  // Спуск блокируется, только если помощник реально работает; «Не получается» снимает блок на один кадр.
-  const guideBlocked = Boolean(guide?.cfg?.block && g.active && !g.ok && !override)
 
   useEffect(() => {
     let cancelled = false
@@ -722,9 +719,8 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
   const snap = useCallback(() => {
     const video = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas || guideBlocked) return
-    const meta = guide ? photoMeta(g, guide.expected, override) : undefined
-    setOverride(false)
+    if (!video || !canvas) return
+    const meta = guide ? photoMeta(g, guide.expected) : undefined
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     canvas.getContext('2d').drawImage(video, 0, 0)
@@ -745,7 +741,7 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
     // отчёт уедет на широкоугольнике, который мылит по краям и слабее в темноте, а по
     // этим фото принимают работу.
     if (lens === '0.5x') switchLens('1x')
-  }, [section, onCapture, lens, switchLens, guideBlocked, guide, g, override])
+  }, [section, onCapture, lens, switchLens, guide, g])
 
   const done = () => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
@@ -797,23 +793,17 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
           <button onClick={done} style={{ color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 16, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             Готово {count > 0 && `(${count} фото)`}
           </button>
-          <button onClick={snap} disabled={!ready || switching || guideBlocked} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: (ready && !switching && !guideBlocked) ? 1 : 0.35 }}>
+          <button onClick={snap} disabled={!ready || switching} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: (ready && !switching) ? 1 : 0.5 }}>
             <Camera size={28} color="#1A1D1E" />
           </button>
-          <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end' }}>
-            {guideBlocked && g.canOverride && (
-              <button type="button" onClick={() => setOverride(true)} style={{ color: '#fff', background: 'rgba(255,176,32,0.25)', border: '1px solid #ffb020', borderRadius: 12, padding: '6px 8px', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}>
-                Не получается
-              </button>
-            )}
-          </div>
+          <div style={{ width: 80 }} />
         </div>
       )}
     </div>
   )
 }
 
-const PhotoUploadSection = ({ section, photos, onSelect, onRemove, onCameraCapture, guide, disabled }) => {
+const PhotoUploadSection = ({ section, photos, onSelect, onRemove, onCameraCapture, guide }) => {
   const [cameraOpen, setCameraOpen] = useState(false)
   return (
   <div className={`rounded-[28px] border border-black/6 bg-[#fbfcf8] p-4 sm:p-5`}>
@@ -837,8 +827,6 @@ const PhotoUploadSection = ({ section, photos, onSelect, onRemove, onCameraCaptu
     <button
       type="button"
       onClick={() => setCameraOpen(true)}
-      disabled={disabled}
-      style={disabled ? { opacity: 0.4 } : undefined}
       className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-[22px] bg-brand-green px-5 py-4 text-center text-sm font-black uppercase tracking-[0.16em] text-brand-dark shadow-[0_18px_35px_rgba(143,198,64,0.24)]"
     >
       <Camera size={18} />
@@ -1364,8 +1352,7 @@ const PstPage = () => {
   const guideMetas = (list) => list.map((photo) => photo.guide || {});
   const isIncident = /ИНЦИДЕНТ/i.test(workType);
   const photoSetCheck = guideOn ? evaluateSet(guideMetas(beforePhotos), guideMetas(afterPhotos), workType, guideCfg.rules) : null;
-  const guideAllowsSubmit = !guideOn || (workTypeChosen && (!guideCfg.guide.block || photoSetCheck.ok));
-  const isReady = Boolean(selectedLocation && hasBeforePhotos && hasAfterPhotos) && guideAllowsSubmit;
+  const isReady = Boolean(selectedLocation && hasBeforePhotos && hasAfterPhotos);
   const guideFor = (section) => {
     if (!guideOn) return undefined;
     const expected = section === 'defect' || isIncident ? null
@@ -1869,7 +1856,7 @@ const PstPage = () => {
               <div className="space-y-5" ref={photosSectionRef}>
                 {guideOn && (
                   <div className="rounded-[28px] border border-black/6 bg-[#fbfcf8] p-4 sm:p-5">
-                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-brand-dark/45">Тип работы — до съёмки</div>
+                    <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-brand-dark/45">Тип работы — для подсказок</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {['ПОЛНАЯ МОЙКА', 'НАРУЖНЯЯ МОЙКА', 'ИНЦИДЕНТ'].map((type) => (
                         <button key={type} type="button" onClick={() => { setWorkType(type); setWorkTypeChosen(true); }}
@@ -1880,16 +1867,17 @@ const PstPage = () => {
                         </button>
                       ))}
                     </div>
-                    {!workTypeChosen && <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,29,30,0.55)' }}>Выберите тип работы — от него зависит, какие фото нужны.</div>}
+                    {!workTypeChosen && <div style={{ marginTop: 8, fontSize: 13, color: 'rgba(26,29,30,0.55)' }}>Необязательно. От типа работы зависит, какие фото посоветует помощник.</div>}
                   </div>
                 )}
-                <PhotoUploadSection section="before" photos={beforePhotos} onSelect={handlePhotosSelected} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('before')} disabled={guideOn && !workTypeChosen} />
-                <PhotoUploadSection section="after" photos={afterPhotos} onSelect={handlePhotosSelected} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('after')} disabled={guideOn && !workTypeChosen} />
+                <PhotoUploadSection section="before" photos={beforePhotos} onSelect={handlePhotosSelected} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('before')} />
+                <PhotoUploadSection section="after" photos={afterPhotos} onSelect={handlePhotosSelected} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('after')} />
                 {guideOn && guideCfg.guide.defects && (
-                  <PhotoUploadSection section="defect" photos={defectPhotos} onSelect={() => {}} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('defect')} disabled={!workTypeChosen} />
+                  <PhotoUploadSection section="defect" photos={defectPhotos} onSelect={() => {}} onRemove={removePhoto} onCameraCapture={handleCameraCapture} guide={guideFor('defect')} />
                 )}
                 {guideOn && workTypeChosen && photoSetCheck && !photoSetCheck.ok && (beforePhotos.length > 0 || afterPhotos.length > 0) && (
                   <div style={{ borderRadius: 20, border: '1px solid rgba(255,176,32,0.4)', background: 'rgba(255,176,32,0.08)', padding: '0.9rem 1.1rem', fontSize: 13, fontWeight: 700, lineHeight: 1.6, color: 'rgba(26,29,30,0.75)' }}>
+                    <div>Подсказки помощника. Отправить отчёт можно и так.</div>
                     {photoSetCheck.problems.slice(0, 4).map((p) => <div key={p.code}>• {p.text}</div>)}
                   </div>
                 )}

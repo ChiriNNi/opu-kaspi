@@ -1,5 +1,7 @@
 // Правила набора фото отчёта (чистые функции, без React).
 //
+// Это только советы клинеру: ни съёмку, ни отправку отчёта они не запрещают.
+//
 // «До»:    первое фото — QR этого постомата, затем минимум minBefore фото без QR, обязательные ракурсы requiredViews.
 // «После»: без QR, те же ракурсы, что «до», в том же порядке (до №1 фасад → после №1 фасад), минимум minAfter.
 // «Дефекты»: необязательные фото физических дефектов, в правила не входят.
@@ -14,20 +16,18 @@ const nonQr = (metas) => metas.filter(m => m?.view !== 'qr' && !m?.isQr)
 // Про такой набор помощник ничего достоверно не знает, поэтому ничего от него не требует.
 const hasUnguided = (metas) => metas.some(m => !m?.guided)
 
-// Замечание по ракурсу. Если модель не уверена (view = null), нужный ракурс не подтверждён: зелёной рамки нет,
-// иначе кадр не засчитался бы и помощник просил бы его снова. Выход — «Не получается».
+// Замечание по ракурсу. Если модель не уверена (view = null), нужный ракурс не подтверждён: зелёной рамки нет.
 export const viewIssue = (expected, view) => (expected && expected !== 'qr' && view !== expected ? `view:${expected}` : null)
 
-// Что запомнить о снятом кадре. «Не получается» — клинер подтверждает, что это тот кадр, который просили:
-// без этого помощник снова просил бы то же самое и не давал отправить отчёт.
-export function photoMeta(guide, expected, override) {
-  const accepted = override && expected ? expected : null
+// Что запомнить о снятом кадре. Любой снимок закрывает шаг: кадр получает тот ракурс, который просили, даже если
+// модель его не узнала (confirmed = false), — иначе помощник просил бы одно и то же.
+export function photoMeta(guide, expected) {
   return {
-    view: accepted || guide.view,
-    isQr: accepted === 'qr' || Boolean(guide.isQr),
+    view: expected || guide.view,
+    isQr: expected === 'qr' || Boolean(guide.isQr),
     defects: guide.defects || [],
     guided: guide.active,
-    override,
+    confirmed: !expected || guide.view === expected,
   }
 }
 
@@ -46,7 +46,7 @@ export function expectedNext(section, before, after, rules) {
   return null
 }
 
-// Итог для экрана отчёта: можно ли отправлять, что не так, чек-лист.
+// Итог для экрана отчёта: полон ли набор, что посоветовать, чек-лист.
 export function evaluateSet(before, after, workType, rules) {
   const problems = []
   if (hasUnguided([...before, ...after])) return { ok: true, problems: [], checklist: [] }

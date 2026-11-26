@@ -23,7 +23,6 @@ export default function GuideTestCapture({ onClose }) {
   const [section, setSection] = useState('before')
   const [shots, setShots] = useState({ before: [], after: [], defect: [] })
   const [postomatId, setPostomatId] = useState(null)
-  const [override, setOverride] = useState(false)
   const [configLoaded, setConfigLoaded] = useState(false)
   const loader = useGuideModel(configLoaded, cfg.guide.modelUrl)
   const modelState = { idle: 'ожидание', loading: 'загрузка…', ready: 'есть', failed: 'не загрузилась' }[loader.status]
@@ -49,23 +48,21 @@ export default function GuideTestCapture({ onClose }) {
     enabled: true, expected, postomatId, cfg: cfg.guide, model: loader.model, stepKey: `${section}:${shots[section].length}`,
   })
   const evaluation = evaluateSet(metas.before, metas.after, 'ПОЛНАЯ МОЙКА', cfg.rules)
-  const blocked = cfg.guide.block && guide.active && !guide.ok && !override
 
   const snap = useCallback(() => {
     const video = videoRef.current, canvas = canvasRef.current
-    if (!video || !canvas || blocked) return
+    if (!video || !canvas) return
     canvas.width = video.videoWidth; canvas.height = video.videoHeight
     canvas.getContext('2d').drawImage(video, 0, 0)
     setFlash(true); setTimeout(() => setFlash(false), 120)
-    const meta = { ...photoMeta(guide, expected, override), issues: guide.issues || [] }
+    const meta = { ...photoMeta(guide, expected), issues: guide.issues || [] }
     // на стенде постомат не выбран заранее: фиксируем тот, чей QR сняли первым
     if (guide.isQr && !postomatId) setPostomatId(guide.qrId)
     canvas.toBlob(blob => {
       if (!blob) return
       setShots(prev => ({ ...prev, [section]: [...prev[section], { url: URL.createObjectURL(blob), meta }] }))
     }, 'image/jpeg', 0.88)
-    setOverride(false)
-  }, [blocked, guide, expected, override, postomatId, section])
+  }, [guide, expected, postomatId, section])
 
   const done = () => {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -96,7 +93,7 @@ export default function GuideTestCapture({ onClose }) {
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
       <div style={{ padding: '8px 16px 0', background: '#000', color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 1.45 }}>
-        {evaluation.ok ? '✓ Набор фото полный — отчёт можно отправить'
+        {evaluation.ok ? '✓ Набор фото полный'
           : evaluation.problems.slice(0, 2).map(p => <div key={p.code}>• {p.text}</div>)}
         {evaluation.checklist.length > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
@@ -117,16 +114,10 @@ export default function GuideTestCapture({ onClose }) {
         <button onClick={done} style={{ color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 16, padding: '10px 18px', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>
           Готово
         </button>
-        <button onClick={snap} disabled={!ready || blocked} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: (ready && !blocked) ? 1 : 0.35 }}>
+        <button onClick={snap} disabled={!ready} style={{ width: 72, height: 72, borderRadius: '50%', background: '#8fc640', border: '4px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 3px rgba(143,198,64,0.4)', opacity: ready ? 1 : 0.5 }}>
           <Camera size={28} color="#1A1D1E" />
         </button>
-        <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end' }}>
-          {blocked && guide.canOverride && (
-            <button type="button" onClick={() => setOverride(true)} style={{ color: '#fff', background: 'rgba(255,176,32,0.25)', border: '1px solid #ffb020', borderRadius: 12, padding: '6px 8px', fontSize: 11, fontWeight: 800, fontFamily: 'inherit' }}>
-              Не получается
-            </button>
-          )}
-        </div>
+        <div style={{ width: 80 }} />
       </div>
     </div>
   )

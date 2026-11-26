@@ -8,7 +8,7 @@ import { viewIssue } from './photoSet'
 // Проверка кадра в реальном времени, пока клинер наводит камеру.
 // Каждые tickMs: маленькая копия кадра → быстрые проверки (темно/смазано) → QR (на шаге QR) →
 // модель ракурса и качества. Рамка зелёная после okFrames проверок подряд без замечаний.
-// Пока модели нет, помощник не работает: ни рамки, ни требований, ни блокировки спуска. Несколько ошибок или
+// Помощник только подсказывает и снимать не запрещает. Пока модели нет, нет ни рамки, ни подсказок. Несколько ошибок или
 // медленных проверок подряд → помощник выключается (stopped), съёмка работает как раньше, экран говорит об этом.
 
 const HINTS = {
@@ -27,18 +27,16 @@ const CLASSIFY_TIMEOUT_MS = 4000
 
 const touchesEdges = (b, m = 0.01) => (b[0] <= m) + (b[1] <= m) + (b[2] >= 1 - m) + (b[3] >= 1 - m)
 
-const IDLE = { status: 'scanning', hint: '', ok: false, view: null, isQr: false, canOverride: false, active: false, stopped: null }
+const IDLE = { status: 'scanning', hint: '', ok: false, view: null, isQr: false, active: false, stopped: null }
 
 export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId, cfg, model, stepKey }) {
   const [state, setState] = useState(IDLE)
   const okRun = useRef(0)
-  const stepStart = useRef(Date.now())
   const health = useRef(createHealthWatch())
 
   useEffect(() => {
     okRun.current = 0
-    stepStart.current = Date.now()
-    // результат прошлого шага не должен разрешать или помечать следующий кадр
+    // результат прошлого шага не должен помечать следующий кадр
     setState(s => ({ ...IDLE, active: s.active, stopped: s.stopped }))
   }, [stepKey, expected])
 
@@ -86,17 +84,15 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
           defects = r.defects
           box = r.box
           view = r.view
-          // проблемы кадра от модели — подсказка (точность ~50–60%); исключение — «обрезан» на фасаде/боку (blockCutOff)
           // «обрезан»: для фасада и бока — по контуру постомата (касается ≥2 краёв кадра), это точнее модели;
           // для крыши и ячеек контур всегда во весь кадр, там остаётся оценка модели
           const cutByBox = box && (view === 'front' || view === 'side') && touchesEdges(box) >= 2
           const modelFlags = r.flags.filter((f) => !(box && f === 'cut_off' && (view === 'front' || view === 'side')))
           if (cutByBox) modelFlags.unshift('cut_off')
-          // обрезанный фасад/бок блокирует спуск (blockCutOff); остальные проблемы — подсказка, если не blockOnFlags
+          // с обрезанным фасадом или боком рамка не зеленеет; остальные замечания модели (точность ~50–60%) на цвет не влияют
           const frontSide = view === 'front' || view === 'side'
           for (const f of modelFlags) {
-            const block = cfg.blockOnFlags || (cfg.blockCutOff && f === 'cut_off' && frontSide)
-            ;(block ? issues : softHints).push(f)
+            ;(f === 'cut_off' && frontSide ? issues : softHints).push(f)
           }
           if (viewIssue(expected, view)) issues.push(viewIssue(expected, view))
         }
@@ -110,7 +106,6 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         setState({
           stopped: null,
           status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, defects, box, active: true, issues,
-          canOverride: !ok && Date.now() - stepStart.current > cfg.overrideAfterSec * 1000,
         })
         health.current.tick(performance.now() - t0, cfg.maxTickMs)
       } catch (e) {
