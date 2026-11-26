@@ -987,7 +987,7 @@ const PstPage = () => {
   const [submitError, setSubmitError] = useState('');
   const [workType, setWorkType] = useState('ПОЛНАЯ МОЙКА');
   const [showWorkTypeModal, setShowWorkTypeModal] = useState(false);
-  // Помощник съёмки: всё ниже работает, только если он включён (VITE_CAMERA_GUIDE / config); иначе форма как раньше.
+  // Помощник съёмки: всё ниже работает, только если он включён (см. camera/guide/config.js); иначе форма как раньше.
   const [guideCfg, setGuideCfg] = useState(null);
   const [workTypeChosen, setWorkTypeChosen] = useState(false);
   const [defectPhotos, setDefectPhotos] = useState([]);

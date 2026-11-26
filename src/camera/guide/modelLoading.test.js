@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { isGuideEnabled } from './config.js'
 import { createHealthWatch, withTimeout } from './health.js'
 import { downloadBytes } from './modelDownload.js'
 import { createModelStore } from './modelStore.js'
@@ -90,4 +91,12 @@ test('one slow or failed check keeps the guide; three in a row switch it off', (
 test('a frame check that never answers is cut off', async () => {
   await assert.rejects(withTimeout(new Promise(() => {}), 20), /timeout/)
   assert.equal(await withTimeout(Promise.resolve(1), 20), 1)
+})
+
+test('the shared switch turns the guide on or off for everyone, and a phone choice wins over it', () => {
+  assert.equal(isGuideEnabled(null, { enabled: true }), true)
+  assert.equal(isGuideEnabled(null, { enabled: false }), false)
+  assert.equal(isGuideEnabled(null, null), false, 'config not received: the form works as before')
+  assert.equal(isGuideEnabled('off', { enabled: true }), false)
+  assert.equal(isGuideEnabled('on', { enabled: false }), true)
 })
