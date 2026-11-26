@@ -3,8 +3,8 @@ import { Camera } from 'lucide-react'
 import CameraGuide from './CameraGuide'
 import { useCameraGuide } from './useCameraGuide'
 import { DEFAULT_GUIDE, DEFAULT_RULES, VIEW_RU, loadGuideConfig } from './config'
-import { evaluateSet, expectedNext } from './photoSet'
-import { loadGuideModel } from './guideModel'
+import { evaluateSet, expectedNext, photoMeta } from './photoSet'
+import { useGuideModel } from './useGuideModel'
 
 // Тестовый стенд «помощника съёмки» для страницы /camera-check (только админ).
 // Повторяет раскладку InlineCamera (кнопка спуска на том же месте) и проходит весь сценарий отчёта:
@@ -24,14 +24,12 @@ export default function GuideTestCapture({ onClose }) {
   const [shots, setShots] = useState({ before: [], after: [], defect: [] })
   const [postomatId, setPostomatId] = useState(null)
   const [override, setOverride] = useState(false)
-  const [model, setModel] = useState(null)
-  const [modelState, setModelState] = useState('загрузка…')
+  const [configLoaded, setConfigLoaded] = useState(false)
+  const loader = useGuideModel(configLoaded, cfg.guide.modelUrl)
+  const modelState = { idle: 'ожидание', loading: 'загрузка…', ready: 'есть', failed: 'не загрузилась' }[loader.status]
 
   useEffect(() => {
-    loadGuideConfig().then(c => {
-      setCfg(c)
-      loadGuideModel(c.guide.modelUrl).then(m => { setModel(m); setModelState(m ? 'есть' : 'нет файла модели') })
-    })
+    loadGuideConfig().then(c => { setCfg(c); setConfigLoaded(true) })
   }, [])
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
@@ -48,7 +46,7 @@ export default function GuideTestCapture({ onClose }) {
   const metas = useMemo(() => ({ before: shots.before.map(s => s.meta), after: shots.after.map(s => s.meta) }), [shots])
   const expected = section === 'defect' ? null : expectedNext(section, metas.before, metas.after, cfg.rules)
   const guide = useCameraGuide(videoRef, ready, {
-    enabled: true, expected, postomatId, cfg: cfg.guide, model, stepKey: `${section}:${shots[section].length}`,
+    enabled: true, expected, postomatId, cfg: cfg.guide, model: loader.model, stepKey: `${section}:${shots[section].length}`,
   })
   const evaluation = evaluateSet(metas.before, metas.after, 'ПОЛНАЯ МОЙКА', cfg.rules)
   const blocked = cfg.guide.block && guide.active && !guide.ok && !override
@@ -59,7 +57,7 @@ export default function GuideTestCapture({ onClose }) {
     canvas.width = video.videoWidth; canvas.height = video.videoHeight
     canvas.getContext('2d').drawImage(video, 0, 0)
     setFlash(true); setTimeout(() => setFlash(false), 120)
-    const meta = { view: guide.view, isQr: guide.isQr, defects: guide.defects || [], guided: guide.active, override, issues: guide.issues || [] }
+    const meta = { ...photoMeta(guide, expected, override), issues: guide.issues || [] }
     // на стенде постомат не выбран заранее: фиксируем тот, чей QR сняли первым
     if (guide.isQr && !postomatId) setPostomatId(guide.qrId)
     canvas.toBlob(blob => {
@@ -67,7 +65,7 @@ export default function GuideTestCapture({ onClose }) {
       setShots(prev => ({ ...prev, [section]: [...prev[section], { url: URL.createObjectURL(blob), meta }] }))
     }, 'image/jpeg', 0.88)
     setOverride(false)
-  }, [blocked, guide, override, postomatId, section])
+  }, [blocked, guide, expected, override, postomatId, section])
 
   const done = () => {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -93,7 +91,7 @@ export default function GuideTestCapture({ onClose }) {
         {camError
           ? <div style={{ color: '#ff6b6b', margin: 'auto', fontWeight: 700 }}>{camError}</div>
           : <video ref={videoRef} playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover' }} />}
-        <CameraGuide guide={guide} expected={expected} step={stepText} />
+        <CameraGuide guide={guide} expected={expected} step={stepText} model={loader} downloadSizeMb={cfg.guide.downloadSizeMb} />
       </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 

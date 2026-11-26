@@ -21,6 +21,7 @@ export const DEFAULT_GUIDE = {
   quick: { darkMean: 40, blurVar: 12 },   // пороги быстрых проверок (будут уточнены на реальных кадрах)
   defects: false,         // шаг «Дефекты»: включить, когда сервер начнёт принимать эти фото (сейчас они не отправляются)
   modelUrl: '/models/photo_guide.onnx',   // файл модели не в репозитории (см. guideModel.js)
+  downloadSizeMb: 28,     // сколько скачивает телефон (модель + onnxruntime), для сообщения о загрузке
 }
 
 export const DEFAULT_RULES = {

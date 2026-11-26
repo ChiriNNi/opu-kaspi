@@ -19,8 +19,8 @@ import {
 import CameraGuide from '../camera/guide/CameraGuide';
 import { useCameraGuide } from '../camera/guide/useCameraGuide';
 import { isDevTest, loadGuideConfig } from '../camera/guide/config';
-import { loadGuideModel } from '../camera/guide/guideModel';
-import { evaluateSet, expectedNext } from '../camera/guide/photoSet';
+import { useGuideModel } from '../camera/guide/useGuideModel';
+import { evaluateSet, expectedNext, photoMeta } from '../camera/guide/photoSet';
 
 const SEARCH_RADIUS_KM = 0.3;
 const PST_PAYLOAD_VERSION = 2;
@@ -664,7 +664,7 @@ const resolveCameraStream = async () => {
   return { stream: await openDefaultCam(), wideZoom: null }
 }
 
-// guide — необязательный помощник съёмки { cfg, model, expected, postomatId, step }. Без него камера как раньше.
+// guide — необязательный помощник съёмки { cfg, loader: загрузка модели, expected, postomatId, step }. Без него камера как раньше.
 const InlineCamera = ({ section, onCapture, onClose, guide }) => {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -679,7 +679,7 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
   const [override, setOverride] = useState(false)
   const g = useCameraGuide(videoRef, ready, {
     enabled: Boolean(guide), expected: guide?.expected ?? null, postomatId: guide?.postomatId ?? null,
-    cfg: guide?.cfg, model: guide?.model ?? null, stepKey: `${section}:${count}`,
+    cfg: guide?.cfg, model: guide?.loader.model ?? null, stepKey: `${section}:${count}`,
   })
   // Спуск блокируется, только если помощник реально работает; «Не получается» снимает блок на один кадр.
   const guideBlocked = Boolean(guide?.cfg?.block && g.active && !g.ok && !override)
@@ -723,7 +723,7 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas || guideBlocked) return
-    const meta = guide ? { view: g.view, isQr: g.isQr, defects: g.defects || [], guided: g.active, override } : undefined
+    const meta = guide ? photoMeta(g, guide.expected, override) : undefined
     setOverride(false)
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
@@ -764,7 +764,7 @@ const InlineCamera = ({ section, onCapture, onClose, guide }) => {
         guide ? (
           <div style={{ position: 'relative', flex: 1, display: 'flex', minHeight: 0 }}>
             <video ref={videoRef} playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover' }} />
-            <CameraGuide guide={g} expected={guide.expected} step={guide.step} />
+            <CameraGuide guide={g} expected={guide.expected} step={guide.step} model={guide.loader} downloadSizeMb={guide.cfg.downloadSizeMb} />
           </div>
         ) : (
           <video ref={videoRef} playsInline muted style={{ flex: 1, width: '100%', objectFit: 'cover' }} />
@@ -1001,19 +1001,15 @@ const PstPage = () => {
   const [showWorkTypeModal, setShowWorkTypeModal] = useState(false);
   // Помощник съёмки: всё ниже работает, только если он включён (VITE_CAMERA_GUIDE / config); иначе форма как раньше.
   const [guideCfg, setGuideCfg] = useState(null);
-  const [guideModel, setGuideModel] = useState(null);
   const [workTypeChosen, setWorkTypeChosen] = useState(false);
   const [defectPhotos, setDefectPhotos] = useState([]);
   useEffect(() => {
     let alive = true;
-    loadGuideConfig().then((c) => {
-      if (!alive) return;
-      setGuideCfg(c);
-      if (c.guide.enabled) loadGuideModel(c.guide.modelUrl).then((m) => { if (alive) setGuideModel(m); });
-    });
+    loadGuideConfig().then((c) => { if (alive) setGuideCfg(c); });
     return () => { alive = false; };
   }, []);
   const guideOn = Boolean(guideCfg?.guide?.enabled);
+  const guideLoader = useGuideModel(guideOn, guideCfg?.guide?.modelUrl);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [tab, setTab] = useState('wash');
@@ -1376,7 +1372,7 @@ const PstPage = () => {
       : expectedNext(section, guideMetas(beforePhotos), guideMetas(afterPhotos), guideCfg.rules);
     const n = (section === 'before' ? beforePhotos : section === 'after' ? afterPhotos : defectPhotos).length + 1;
     const label = section === 'before' ? 'До' : section === 'after' ? 'После' : 'Дефект';
-    return { cfg: guideCfg.guide, model: guideModel, expected, postomatId: selectedLocation?.id, step: `${label} · фото ${n}` };
+    return { cfg: guideCfg.guide, loader: guideLoader, expected, postomatId: selectedLocation?.id, step: `${label} · фото ${n}` };
   };
 
   const handleSubmit = () => {

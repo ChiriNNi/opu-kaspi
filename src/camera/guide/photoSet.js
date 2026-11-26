@@ -6,12 +6,34 @@
 // Ракурс фото берётся из meta.view (модель на телефоне). Пока модели нет (view = null), ракурс не проверяется,
 // считается только количество.
 
-import { VIEW_RU } from './config'
+import { VIEW_RU } from './config.js'
 
 const nonQr = (metas) => metas.filter(m => m?.view !== 'qr' && !m?.isQr)
 
+// Фото снято без работающего помощника (модель не загрузилась, помощник выключился, старый черновик).
+// Про такой набор помощник ничего достоверно не знает, поэтому ничего от него не требует.
+const hasUnguided = (metas) => metas.some(m => !m?.guided)
+
+// Замечание по ракурсу. Если модель не уверена (view = null), нужный ракурс не подтверждён: зелёной рамки нет,
+// иначе кадр не засчитался бы и помощник просил бы его снова. Выход — «Не получается».
+export const viewIssue = (expected, view) => (expected && expected !== 'qr' && view !== expected ? `view:${expected}` : null)
+
+// Что запомнить о снятом кадре. «Не получается» — клинер подтверждает, что это тот кадр, который просили:
+// без этого помощник снова просил бы то же самое и не давал отправить отчёт.
+export function photoMeta(guide, expected, override) {
+  const accepted = override && expected ? expected : null
+  return {
+    view: accepted || guide.view,
+    isQr: accepted === 'qr' || Boolean(guide.isQr),
+    defects: guide.defects || [],
+    guided: guide.active,
+    override,
+  }
+}
+
 // Какой кадр ожидается следующим. null — любой.
 export function expectedNext(section, before, after, rules) {
+  if (hasUnguided([...before, ...after])) return null
   if (section === 'before') {
     if (rules.requireQrFirst && !before.some(m => m?.isQr)) return 'qr'
     const have = new Set(nonQr(before).map(m => m?.view).filter(Boolean))
@@ -27,6 +49,7 @@ export function expectedNext(section, before, after, rules) {
 // Итог для экрана отчёта: можно ли отправлять, что не так, чек-лист.
 export function evaluateSet(before, after, workType, rules) {
   const problems = []
+  if (hasUnguided([...before, ...after])) return { ok: true, problems: [], checklist: [] }
   const incident = /ИНЦИДЕНТ/i.test(workType || '')
   if (incident && !rules.incident?.enforce) {
     if (!before.length) problems.push({ code: 'no_before', text: 'Добавьте хотя бы одно фото «до»' })

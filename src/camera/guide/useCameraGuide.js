@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import jsQR from 'jsqr'
 import { quickChecks } from './quickChecks'
 import { VIEW_RU } from './config'
+import { createHealthWatch, withTimeout } from './health'
+import { viewIssue } from './photoSet'
 
 // Проверка кадра в реальном времени, пока клинер наводит камеру.
 // Каждые tickMs: маленькая копия кадра → быстрые проверки (темно/смазано) → QR (на шаге QR) →
-// модель ракурса и качества (когда загружена). Рамка зелёная после okFrames проверок подряд без замечаний.
-// Любая ошибка или слишком медленный телефон → помощник тихо выключается, съёмка работает как раньше.
+// модель ракурса и качества. Рамка зелёная после okFrames проверок подряд без замечаний.
+// Пока модели нет, помощник не работает: ни рамки, ни требований, ни блокировки спуска. Несколько ошибок или
+// медленных проверок подряд → помощник выключается (stopped), съёмка работает как раньше, экран говорит об этом.
 
 const HINTS = {
   dark: 'Слишком темно',
@@ -20,19 +23,27 @@ const HINTS = {
 }
 
 const QR_RE = /^PST(\d+)/i
+const CLASSIFY_TIMEOUT_MS = 4000
 
 const touchesEdges = (b, m = 0.01) => (b[0] <= m) + (b[1] <= m) + (b[2] >= 1 - m) + (b[3] >= 1 - m)
 
+const IDLE = { status: 'scanning', hint: '', ok: false, view: null, isQr: false, canOverride: false, active: false, stopped: null }
+
 export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId, cfg, model, stepKey }) {
-  const [state, setState] = useState({ status: 'scanning', hint: '', ok: false, view: null, isQr: false, canOverride: false, active: false })
+  const [state, setState] = useState(IDLE)
   const okRun = useRef(0)
   const stepStart = useRef(Date.now())
-  const disabled = useRef(false)
-
-  useEffect(() => { okRun.current = 0; stepStart.current = Date.now() }, [stepKey, expected])
+  const health = useRef(createHealthWatch())
 
   useEffect(() => {
-    if (!enabled || !ready || disabled.current) {
+    okRun.current = 0
+    stepStart.current = Date.now()
+    // результат прошлого шага не должен разрешать или помечать следующий кадр
+    setState(s => ({ ...IDLE, active: s.active, stopped: s.stopped }))
+  }, [stepKey, expected])
+
+  useEffect(() => {
+    if (!enabled || !ready || !model || health.current.reason()) {
       setState(s => ({ ...s, active: false }))
       return undefined
     }
@@ -70,8 +81,8 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
             const bi = issues.indexOf('blurry')
             if (bi >= 0) issues.splice(bi, 1)   // QR прочитан — значит кадр достаточно резкий
           }
-        } else if (model) {
-          const r = await model.classify(video)
+        } else {
+          const r = await withTimeout(model.classify(video), CLASSIFY_TIMEOUT_MS)
           defects = r.defects
           box = r.box
           view = r.view
@@ -87,7 +98,7 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
             const block = cfg.blockOnFlags || (cfg.blockCutOff && f === 'cut_off' && frontSide)
             ;(block ? issues : softHints).push(f)
           }
-          if (expected && view && view !== expected) issues.push(`view:${expected}`)
+          if (viewIssue(expected, view)) issues.push(viewIssue(expected, view))
         }
 
         okRun.current = issues.length ? 0 : okRun.current + 1
@@ -95,13 +106,24 @@ export function useCameraGuide(videoRef, ready, { enabled, expected, postomatId,
         const first = issues[0] || softHints[0]
         const hint = !first ? (expected ? `Ракурс: ${VIEW_RU[expected]}` : '')
           : first.startsWith('view:') ? `Нужен ракурс: ${VIEW_RU[first.slice(5)]}` : HINTS[first] || ''
+        if (stopped) return
         setState({
+          stopped: null,
           status: ok ? 'ok' : issues.length ? 'warn' : 'scanning', hint, ok, view, isQr, qrId, defects, box, active: true, issues,
           canOverride: !ok && Date.now() - stepStart.current > cfg.overrideAfterSec * 1000,
         })
-        if (performance.now() - t0 > cfg.maxTickMs) throw new Error('too slow')
+        health.current.tick(performance.now() - t0, cfg.maxTickMs)
       } catch (e) {
-        if (e.message === 'too slow') { disabled.current = true; stopped = true; setState(s => ({ ...s, active: false })); return }
+        // пока камера не отдала первый кадр, это не сбой помощника
+        if (e.message !== 'no frame') {
+          console.warn('[camera guide] frame check failed:', e)
+          health.current.fail()
+        }
+      }
+      if (health.current.reason() && !stopped) {
+        stopped = true
+        setState({ ...IDLE, stopped: health.current.reason() })
+        return
       }
       timer = setTimeout(tick, cfg.tickMs)
     }
