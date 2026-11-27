@@ -261,7 +261,7 @@ export default function App() {
           <Route path="/realization/rates" element={<Realization />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="/pst-review"  element={<PstReview />} />
-          {/* AI-проверка (v1, локально): только у админа, данные из локального AI-сервиса, не с сервера. */}
+          {/* AI-проверка: только у админа, данные из бэкенда /api/ai/*. */}
           <Route path="/ai-review"   element={<AiReview />} />
           {/* Диагностика камер телефона: намеренно нет ни в одном меню и только
               у админа — у остальных ролей путь ловит их Route path="*". */}

@@ -227,6 +227,10 @@ export default function AiReview() {
     <div className="pst-page ai-page">
       <div className="ai-header">
         <div className="ai-title"><Bot size={20} /> AI проверка отчётов</div>
+        <p className="ai-advice" role="note">
+          Это только подсказка. «Одобрено AI» не гарантирует, что постомат чистый: часть проблем модель пропускает.
+          Проверяйте отчёты как обычно в «PST на проверку».
+        </p>
         <div className="ai-sub">
           Модель: {day?.versions?.vlm ? 'VLM + CV' : 'CV'} · правило {day?.versions?.rule_name || '—'} · версия {day?.versions?.code || '—'}
           {day?.versions?.note && <span className="ai-chip ai-chip-reason">{day.versions.note}</span>}
