@@ -16,6 +16,7 @@ import Training from './pages/Training'
 import Realization from './pages/Realization'
 import PstIncidents from './pages/PstIncidents'
 import PstReview from './pages/PstReview'
+import AiReview from './pages/AiReview'
 import PstList from './pages/PstList'
 import CameraCheck from './pages/CameraCheck'
 import PstDashboard from './pages/PstDashboard'
@@ -260,6 +261,8 @@ export default function App() {
           <Route path="/realization/rates" element={<Realization />} />
           <Route path="/incidents"   element={<PstIncidents />} />
           <Route path="/pst-review"  element={<PstReview />} />
+          {/* AI-проверка: только у админа, данные из бэкенда /api/ai/*. */}
+          <Route path="/ai-review"   element={<AiReview />} />
           {/* Диагностика камер телефона: намеренно нет ни в одном меню и только
               у админа — у остальных ролей путь ловит их Route path="*". */}
           <Route path="/camera-check" element={<CameraCheck />} />
