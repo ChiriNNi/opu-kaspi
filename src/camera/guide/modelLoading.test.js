@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { isGuideEnabled } from './config.js'
+import { isGuideAvailable, isGuideEnabled, withoutGuideParam } from './config.js'
 import { createHealthWatch, withTimeout } from './health.js'
 import { downloadBytes } from './modelDownload.js'
 import { createModelStore } from './modelStore.js'
@@ -93,10 +93,50 @@ test('a frame check that never answers is cut off', async () => {
   assert.equal(await withTimeout(Promise.resolve(1), 20), 1)
 })
 
-test('the shared switch turns the guide on or off for everyone, and a phone choice wins over it', () => {
+test('the shared switch turns the guide on for everyone, and a phone can opt out', () => {
   assert.equal(isGuideEnabled(null, { enabled: true }), true)
-  assert.equal(isGuideEnabled(null, { enabled: false }), false)
-  assert.equal(isGuideEnabled(null, null), false, 'config not received: the form works as before')
   assert.equal(isGuideEnabled('off', { enabled: true }), false)
-  assert.equal(isGuideEnabled('on', { enabled: false }), true)
+  assert.equal(isGuideAvailable('off', { enabled: true }), true, 'the button to turn it back on stays')
+  assert.equal(isGuideEnabled(null, null), false, 'config not received: the form works as before')
+  assert.equal(isGuideEnabled('on', null), true)
+})
+
+test('the shared «off» wins over a phone that had the guide turned on', () => {
+  for (const local of ['on', 'off', null]) {
+    assert.equal(isGuideEnabled(local, { enabled: false }), false)
+    assert.equal(isGuideAvailable(local, { enabled: false }), false, 'no button either')
+  }
+})
+
+test('the button removes the link choice from the address and keeps the rest', () => {
+  assert.equal(withoutGuideParam('https://example.com/pst?camera_guide=on'), 'https://example.com/pst')
+  assert.equal(withoutGuideParam('https://example.com/pst?a=1&camera_guide=off#top'), 'https://example.com/pst?a=1#top')
+})
+
+test('cancelling stops the download, ignores what arrives late, and it can be started again', async () => {
+  const runs = []
+  const store = createModelStore((url, onBytes, signal) => new Promise((resolve, reject) => {
+    runs.push({ onBytes, resolve })
+    signal.addEventListener('abort', () => reject(signal.reason))
+  }))
+  const first = store.start('/model')
+  runs[0].onBytes(7)
+  store.cancel()
+  runs[0].onBytes(100)
+  await first
+  assert.deepEqual([store.getState().status, store.getState().loadedBytes], ['idle', 0])
+
+  const second = store.start('/model')
+  runs[1].resolve('model')
+  await second
+  assert.equal(store.getState().status, 'ready')
+  store.cancel()
+  assert.equal(store.getState().status, 'ready', 'a loaded model is kept')
+})
+
+test('an outside signal aborts a running download', async () => {
+  const controller = new AbortController()
+  const download = downloadBytes('/model', { fetchImpl: answer([[1]], { hang: true }), signal: controller.signal })
+  setTimeout(() => controller.abort(new Error('switched off')), 20)
+  await assert.rejects(download, /switched off/)
 })

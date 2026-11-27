@@ -3,8 +3,11 @@
 
 export const STALL_MS = 45000
 
-export async function downloadBytes(url, { onBytes = () => {}, stallMs = STALL_MS, fetchImpl = fetch } = {}) {
+export async function downloadBytes(url, { onBytes = () => {}, stallMs = STALL_MS, fetchImpl = fetch, signal } = {}) {
   const controller = new AbortController()
+  const cancel = () => controller.abort(signal.reason)
+  if (signal?.aborted) cancel()
+  signal?.addEventListener('abort', cancel, { once: true })
   let timer
   const restartTimer = () => {
     clearTimeout(timer)
@@ -33,5 +36,6 @@ export async function downloadBytes(url, { onBytes = () => {}, stallMs = STALL_M
     return bytes
   } finally {
     clearTimeout(timer)
+    signal?.removeEventListener('abort', cancel)
   }
 }

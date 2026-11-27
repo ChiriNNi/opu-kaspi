@@ -8,5 +8,5 @@ const store = createModelStore(loadModel)
 export function useGuideModel(enabled, url) {
   const state = useSyncExternalStore(store.subscribe, store.getState)
   useEffect(() => { if (enabled && url) store.start(url) }, [enabled, url])
-  return { ...state, retry: store.retry }
+  return { ...state, retry: store.retry, cancel: store.cancel }
 }
