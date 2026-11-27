@@ -18,7 +18,8 @@ import {
 // Помощник съёмки (CV-модель 1): выключен по умолчанию, см. src/camera/guide/config.js
 import CameraGuide from '../camera/guide/CameraGuide';
 import { useCameraGuide } from '../camera/guide/useCameraGuide';
-import { isDevTest, loadGuideConfig } from '../camera/guide/config';
+import { isDevTest, loadGuideConfig, saveGuideChoice } from '../camera/guide/config';
+import GuideSwitch from '../camera/guide/GuideSwitch';
 import { useGuideModel } from '../camera/guide/useGuideModel';
 import { evaluateSet, expectedNext, photoMeta } from '../camera/guide/photoSet';
 
@@ -998,6 +999,10 @@ const PstPage = () => {
   }, []);
   const guideOn = Boolean(guideCfg?.guide?.enabled);
   const guideLoader = useGuideModel(guideOn, guideCfg?.guide?.modelUrl);
+  const handleGuideSwitch = (isOn) => {
+    if (!isOn) guideLoader.cancel(); // на слабом интернете незаконченная загрузка не должна мешать отправке
+    setGuideCfg(saveGuideChoice(isOn));
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [tab, setTab] = useState('wash');
@@ -1854,6 +1859,7 @@ const PstPage = () => {
               )}
 
               <div className="space-y-5" ref={photosSectionRef}>
+                {guideCfg?.available && <GuideSwitch isOn={guideOn} onChange={handleGuideSwitch} />}
                 {guideOn && (
                   <div className="rounded-[28px] border border-black/6 bg-[#fbfcf8] p-4 sm:p-5">
                     <div className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-brand-dark/45">Тип работы — для подсказок</div>

@@ -6,14 +6,17 @@
 
 import { downloadBytes } from './modelDownload'
 
-export async function loadModel(url, onBytes) {
+export async function loadModel(url, onBytes, signal) {
   const [ort, wasmUrl, meta] = await Promise.all([
     import('onnxruntime-web'),
     import('../../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm?url').then(m => m.default),
-    fetch(url.replace(/\.onnx$/, '.json'), { cache: 'no-cache' }).then(r => (r.ok ? r.json() : Promise.reject(new Error('no meta')))),
+    fetch(url.replace(/\.onnx$/, '.json'), { cache: 'no-cache', signal }).then(r => (r.ok ? r.json() : Promise.reject(new Error('no meta')))),
   ])
   // файлы качаем сами: виден прогресс, обрыв заметен, и каждый файл запрашивается один раз
-  const [wasmBytes, modelBytes] = await Promise.all([downloadBytes(wasmUrl, { onBytes }), downloadBytes(url, { onBytes })])
+  const [wasmBytes, modelBytes] = await Promise.all([
+    downloadBytes(wasmUrl, { onBytes, signal }), downloadBytes(url, { onBytes, signal }),
+  ])
+  if (signal?.aborted) throw signal.reason   // выключили, пока качалось: модель не запускаем
   ort.env.wasm.wasmBinary = wasmBytes
   ort.env.wasm.numThreads = 1          // без SharedArrayBuffer/COOP-заголовков; одной нити хватает на 224×224
   const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' })
